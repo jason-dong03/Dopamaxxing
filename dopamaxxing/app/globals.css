@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #ededed;
+    }
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: Arial, Helvetica, sans-serif;
+}
+@keyframes subtle-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}
+
+.animate-subtle-pulse {
+    animation: subtle-pulse 2s ease-in-out infinite;
+}
+@keyframes shake {
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+    20% {
+        transform: rotate(-3deg) scale(1.05);
+    }
+    40% {
+        transform: rotate(3deg) scale(1.08);
+    }
+    60% {
+        transform: rotate(-2deg) scale(1.05);
+    }
+    80% {
+        transform: rotate(2deg) scale(1.03);
+    }
+}
+
+.animate-shake {
+    animation: shake 0.4s ease-in-out infinite;
+}
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.animate-fade-out {
+    animation: fadeOut 500ms ease-in-out forwards;
+}
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    animation: slideUp 400ms ease-out both;
+    opacity: 0;
+}
+@keyframes rainbow {
+    0% {
+        box-shadow: 0 0 20px 4px rgba(255, 0, 0, 0.8);
+    }
+    16% {
+        box-shadow: 0 0 20px 4px rgba(255, 165, 0, 0.8);
+    }
+    33% {
+        box-shadow: 0 0 20px 4px rgba(255, 255, 0, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 20px 4px rgba(0, 255, 0, 0.8);
+    }
+    66% {
+        box-shadow: 0 0 20px 4px rgba(0, 0, 255, 0.8);
+    }
+    83% {
+        box-shadow: 0 0 20px 4px rgba(148, 0, 211, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 20px 4px rgba(255, 0, 0, 0.8);
+    }
+}
+
+.glow-rainbow {
+    animation: rainbow 2s linear infinite;
+}
+@keyframes specialBg {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+}
+
+.animate-special-bg {
+    animation: specialBg 1.5s ease-in-out forwards;
+}
+
+@keyframes sparkle {
+    0% {
+        opacity: 0;
+        transform: scale(0) translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.5) translateY(-10px);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0) translateY(-20px);
+    }
+}
+
+.animate-sparkle {
+    animation: sparkle 800ms ease-in-out infinite;
+}
