@@ -11,14 +11,25 @@ type Props = {
         rarity: string
     }
     onReveal: () => void
+    onSpecialChange: (active: boolean, glowColor: string) => void
 }
 
-const SPECIAL_RARITIES = ['Legendary', 'Divine', 'Celestial', '???']
+const SPECIAL_RARITIES = [
+    'Epic',
+    'Mythical',
+    'Legendary',
+    'Divine',
+    'Celestial',
+    '???',
+]
 
-export default function FlipCard({ card, onReveal }: Props) {
+export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
     const [flipped, setFlipped] = useState(false)
     const [confirmed, setConfirmed] = useState(false)
     const [showSpecial, setShowSpecial] = useState(false)
+    const [flash, setFlash] = useState(false)
+    const [popped, setPopped] = useState(false)
+    const [hovering, setHovering] = useState(false)
 
     const glowColor = RARITY_GLOW[card.rarity] ?? '156, 163, 175'
     const isRainbow = glowColor === 'rainbow'
@@ -32,9 +43,14 @@ export default function FlipCard({ card, onReveal }: Props) {
         if (!flipped) {
             if (isSpecial) {
                 setShowSpecial(true)
+                onSpecialChange(true, glowColor)
+                setFlipped(true)
+                setPopped(true)
                 setTimeout(() => {
-                    setFlipped(true)
-                }, 1500) // let special animation play first
+                    setFlash(true)
+                    setTimeout(() => setFlash(false), 400)
+                }, 1200)
+                return
             } else {
                 setFlipped(true)
             }
@@ -42,12 +58,20 @@ export default function FlipCard({ card, onReveal }: Props) {
         }
         if (!confirmed) {
             setConfirmed(true)
+            setTimeout(() => setShowSpecial(false), 100)
+            onSpecialChange(false, glowColor)
             onReveal()
         }
     }
 
     return (
         <div className="flex flex-col items-center gap-2">
+            {flash && (
+                <div
+                    className="fixed inset-0 pointer-events-none animate-flash"
+                    style={{ zIndex: 60 }}
+                />
+            )}
             <div
                 onClick={handleClick}
                 className="cursor-pointer relative"
@@ -55,59 +79,39 @@ export default function FlipCard({ card, onReveal }: Props) {
                     width: '260px',
                     height: '364px',
                     perspective: '1000px',
+                    zIndex: showSpecial ? 50 : 'auto',
                 }}
             >
-                {/* Special background burst for legendary+ */}
-                {showSpecial && (
-                    <div
-                        className="absolute inset-0 rounded-xl animate-special-bg"
-                        style={{
-                            background: isRainbow
-                                ? 'linear-gradient(135deg, #ff000066, #ff7f0066, #ffff0066, #00ff0066, #0000ff66, #8b00ff66)'
-                                : `radial-gradient(circle, rgba(${glowColor}, 0.4) 0%, transparent 70%)`,
-                            zIndex: 20,
-                            pointerEvents: 'none',
-                        }}
-                    />
-                )}
-
-                {/* Sparkles */}
-                {showSpecial && !flipped && (
-                    <div className="absolute inset-0 z-30 pointer-events-none">
-                        {[...Array(8)].map((_, i) => (
-                            <div
-                                key={i}
-                                className="absolute animate-sparkle"
-                                style={{
-                                    left: `${10 + Math.random() * 80}%`,
-                                    top: `${10 + Math.random() * 80}%`,
-                                    animationDelay: `${i * 150}ms`,
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: isRainbow
-                                        ? '#fff'
-                                        : `rgba(${glowColor}, 1)`,
-                                }}
-                            />
-                        ))}
-                    </div>
-                )}
-
                 <div
                     style={{
                         width: '100%',
                         height: '100%',
                         position: 'relative',
                         transformStyle: 'preserve-3d',
-                        transition: flipped
-                            ? isSpecial
-                                ? 'transform 1200ms cubic-bezier(0.4, 0, 0.2, 1)'
-                                : 'transform 600ms ease-in-out'
-                            : undefined,
+                        transition:
+                            popped || hovering
+                                ? 'none'
+                                : flipped
+                                  ? isSpecial
+                                      ? 'transform 1200ms cubic-bezier(0.4, 0, 0.2, 1)'
+                                      : 'transform 600ms ease-in-out'
+                                  : undefined,
                         transform: flipped
                             ? 'rotateY(180deg)'
                             : 'rotateY(0deg)',
+                    }}
+                    className={
+                        hovering
+                            ? 'animate-card-hover'
+                            : popped
+                              ? 'animate-card-pop'
+                              : ''
+                    }
+                    onAnimationEnd={() => {
+                        if (popped && !hovering) {
+                            setPopped(false)
+                            setHovering(true)
+                        }
                     }}
                 >
                     {/* Front - card back */}
@@ -118,8 +122,6 @@ export default function FlipCard({ card, onReveal }: Props) {
                             height: '100%',
                             backfaceVisibility: 'hidden',
                             borderRadius: '12px',
-                            boxShadow: flipped ? glowStyle : undefined,
-                            transition: 'box-shadow 600ms ease-in-out',
                         }}
                     >
                         <img
@@ -138,7 +140,7 @@ export default function FlipCard({ card, onReveal }: Props) {
                             backfaceVisibility: 'hidden',
                             transform: 'rotateY(180deg)',
                             borderRadius: '12px',
-                            boxShadow: glowStyle,
+                            boxShadow: flipped ? glowStyle : undefined,
                         }}
                         className={isRainbow ? 'glow-rainbow' : ''}
                     >
@@ -147,12 +149,18 @@ export default function FlipCard({ card, onReveal }: Props) {
                             alt={card.name}
                             className="w-full h-full object-cover rounded-xl"
                         />
+                        {isSpecial && flipped && (
+                            <div
+                                className="absolute inset-0 rounded-xl animate-shine pointer-events-none"
+                                style={{ zIndex: 10 }}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
 
             {flipped && !confirmed && (
-                <p className="text-gray-500 text-xs animate-pulse">
+                <p className="text-gray-500 text-xs animate-pulse mt-3">
                     tap to continue
                 </p>
             )}

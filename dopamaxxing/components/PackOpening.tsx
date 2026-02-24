@@ -8,6 +8,8 @@ type Card = {
     name: string
     image_url: string
     rarity: string
+    national_pokedex_number: number
+    worth: number
     isNew: boolean
 }
 
@@ -17,70 +19,37 @@ export default function PackOpening() {
     const [opening, setOpening] = useState(false)
     const [phase, setPhase] = useState<'idle' | 'revealing' | 'done'>('idle')
     const [cards, setCards] = useState<Card[]>([])
+
+    const [specialActive, setSpecialActive] = useState(false)
+    const [specialGlow, setSpecialGlow] = useState('156, 163, 175')
     const [revealedCount, setRevealedCount] = useState(0)
+
+    const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set())
+    const [animatingIndex, setAnimatingIndex] = useState<number | null>(null)
+    const [doneIndex, setDoneIndex] = useState(0)
+
+    const remainingCards = cards.filter((_, i) => !addedIndices.has(i))
 
     async function handleClick() {
         if (shaking || opening) return
         setShaking(true)
 
-        //const res = await fetch('/api/open-pack', { method: 'POST' })
-        //const data = await res.json()
-        //setCards(data.cards)
-        setCards([
-            {
-                id: 'sv10.5b-034',
-                name: 'Zekrom ex',
-                image_url:
-                    'https://assets.tcgdex.net/en/sv/sv10.5b/034/low.webp',
-                rarity: 'Legendary',
-                isNew: true,
-            },
-            {
-                id: 'sv10.5b-001',
-                name: 'Snivy',
-                image_url:
-                    'https://assets.tcgdex.net/en/sv/sv10.5b/001/low.webp',
-                rarity: 'Common',
-                isNew: false,
-            },
-            {
-                id: 'sv10.5b-002',
-                name: 'Servine',
-                image_url:
-                    'https://assets.tcgdex.net/en/sv/sv10.5b/002/low.webp',
-                rarity: 'Common',
-                isNew: true,
-            },
-            {
-                id: 'sv10.5b-003',
-                name: 'Serperior ex',
-                image_url:
-                    'https://assets.tcgdex.net/en/sv/sv10.5b/003/low.webp',
-                rarity: 'Rare',
-                isNew: false,
-            },
-            {
-                id: 'sv10.5b-028',
-                name: 'Kyurem ex',
-                image_url:
-                    'https://assets.tcgdex.net/en/sv/sv10.5b/028/low.webp',
-                rarity: 'Epic',
-                isNew: true,
-            },
-        ])
-        // shake is done, now tear
+        const res = await fetch('/api/open-pack', { method: 'POST' })
+        const data = await res.json()
+        setCards(data.cards)
+
         setShaking(false)
         setTearing(true)
 
         setTimeout(() => {
             setTearing(false)
             setOpening(true)
-
             setTimeout(() => {
                 setPhase('revealing')
-            }, 600) // fade out duration
-        }, 400) // tear duration
+            }, 600)
+        }, 400)
     }
+
     function handleReveal() {
         const next = revealedCount + 1
         setRevealedCount(next)
@@ -89,8 +58,59 @@ export default function PackOpening() {
         }
     }
 
+    async function handleAddToBag() {
+        const card = remainingCards[doneIndex]
+        setAnimatingIndex(doneIndex)
+        /* await fetch('/api/add-to-bag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cardId: card.id }),
+        })*/
+    }
+
+    function handleAnimationEnd() {
+        if (animatingIndex === null) return
+
+        const card = remainingCards[animatingIndex]
+        const realIndex = cards.findIndex((c) => c === card)
+
+        setAddedIndices((prev) => {
+            const next = new Set(prev)
+            next.add(realIndex)
+            return next
+        })
+        setAnimatingIndex(null)
+
+        const newRemaining = remainingCards.filter(
+            (_, i) => i !== animatingIndex,
+        )
+        if (newRemaining.length === 0) {
+            setTimeout(() => {
+                setPhase('idle')
+                setCards([])
+                setRevealedCount(0)
+                setAddedIndices(new Set())
+                setDoneIndex(0)
+            }, 300)
+        } else {
+            setDoneIndex((prev) => Math.min(prev, newRemaining.length - 1))
+        }
+    }
+
+    const currentCard = remainingCards[doneIndex]
+
     return (
         <div className="flex flex-col items-center justify-center mt-12">
+            <div
+                className="fixed inset-0 pointer-events-none"
+                style={{
+                    background: `radial-gradient(ellipse at center, rgba(${specialGlow}, 0.5) 0%, transparent 70%)`,
+                    zIndex: 41,
+                    opacity: specialActive ? 1 : 0,
+                    transition: 'opacity 800ms ease-in-out',
+                }}
+            />
+
             {/* Pack */}
             {phase === 'idle' && (
                 <>
@@ -126,7 +146,7 @@ export default function PackOpening() {
             {phase === 'revealing' && (
                 <div
                     className="relative flex items-center justify-center mt-24"
-                    style={{ height: '400px', width: '280px' }}
+                    style={{ height: '350px', width: '280px' }}
                 >
                     {cards.map((card, index) => {
                         const isTop = index === revealedCount
@@ -138,13 +158,17 @@ export default function PackOpening() {
                                 className="absolute"
                                 style={{
                                     transform: `translateY(${(index - revealedCount) * -6}px) rotate(${(index - revealedCount) * -1}deg)`,
-                                    zIndex: isTop ? 10 : 10 - index,
+                                    zIndex: isTop ? 50 : 50 - index,
                                     pointerEvents: isTop ? 'auto' : 'none',
                                 }}
                             >
                                 <FlipCard
                                     card={card}
                                     onReveal={isTop ? handleReveal : () => {}}
+                                    onSpecialChange={(active, glow) => {
+                                        setSpecialActive(active)
+                                        setSpecialGlow(glow)
+                                    }}
                                 />
                             </div>
                         )
@@ -152,46 +176,62 @@ export default function PackOpening() {
                 </div>
             )}
 
-            {phase === 'done' && (
+            {/* Done phase */}
+            {phase === 'done' && remainingCards.length > 0 && currentCard && (
                 <div className="flex flex-col items-center gap-4 mt-8">
-                    <div className="relative">
+                    <div
+                        className={`relative ${animatingIndex === doneIndex ? 'animate-fly-down' : ''}`}
+                        onAnimationEnd={handleAnimationEnd}
+                    >
                         <img
-                            src={cards[revealedCount % cards.length].image_url}
-                            alt={cards[revealedCount % cards.length].name}
+                            src={currentCard.image_url}
+                            alt={currentCard.name}
                             className="rounded-xl"
                             style={{
                                 height: '364px',
                                 width: 'auto',
                                 boxShadow:
-                                    RARITY_GLOW[
-                                        cards[revealedCount % cards.length]
-                                            .rarity
-                                    ] === 'rainbow'
+                                    RARITY_GLOW[currentCard.rarity] ===
+                                    'rainbow'
                                         ? undefined
-                                        : `0 0 20px 4px rgba(${RARITY_GLOW[cards[revealedCount % cards.length].rarity] ?? '156,163,175'}, 0.6)`,
+                                        : `0 0 20px 4px rgba(${RARITY_GLOW[currentCard.rarity] ?? '156,163,175'}, 0.6)`,
                             }}
                         />
                     </div>
 
                     {/* Card metadata */}
-                    <div className="flex items-center gap-2">
-                        <p className="text-white font-semibold text-lg tracking-wide">
-                            {cards[revealedCount % cards.length].name}
-                        </p>
-                        {cards[revealedCount % cards.length].isNew && (
-                            <span className="text-xs bg-green-500/20 text-green-400 border border-green-500/40 px-2 py-0.5 rounded-full">
-                                NEW
+                    <div className="flex flex-col space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs text-gray-600">
+                                #{currentCard.national_pokedex_number}
                             </span>
-                        )}
+                            <p className="text-white font-semibold text-lg tracking-wide">
+                                {currentCard.name}
+                            </p>
+                            {currentCard.isNew && (
+                                <span className="text-xs bg-green-500/20 text-green-400 border border-green-500/40 px-2 py-0.5 rounded-full">
+                                    NEW
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-center">
+                            <p className="text-xs text-gray-400">
+                                raw value:{' '}
+                                <span className="text-green-600">
+                                    ${currentCard.worth?.toFixed(2)}
+                                </span>
+                            </p>
+                        </div>
                     </div>
+
                     {/* Navigation */}
                     <div className="flex items-center gap-8">
                         <button
                             onClick={() =>
-                                setRevealedCount(
+                                setDoneIndex(
                                     (prev) =>
-                                        (prev - 1 + cards.length) %
-                                        cards.length,
+                                        (prev - 1 + remainingCards.length) %
+                                        remainingCards.length,
                                 )
                             }
                             className="border border-gray-600 text-gray-300 px-4 py-2 rounded-lg hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
@@ -199,13 +239,13 @@ export default function PackOpening() {
                             ←
                         </button>
                         <span className="text-gray-400 text-sm">
-                            {(revealedCount % cards.length) + 1} /{' '}
-                            {cards.length}
+                            {doneIndex + 1} / {remainingCards.length}
                         </span>
                         <button
                             onClick={() =>
-                                setRevealedCount(
-                                    (prev) => (prev + 1) % cards.length,
+                                setDoneIndex(
+                                    (prev) =>
+                                        (prev + 1) % remainingCards.length,
                                 )
                             }
                             className="border border-gray-600 text-gray-300 px-4 py-2 rounded-lg hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
@@ -214,7 +254,10 @@ export default function PackOpening() {
                         </button>
                     </div>
 
-                    <button className="border border-gray-600 text-gray-300 px-6 py-2 rounded-lg text-sm hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all">
+                    <button
+                        onClick={handleAddToBag}
+                        className="border border-gray-600 text-gray-300 px-6 py-2 rounded-lg text-sm hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
+                    >
                         Add to Bag
                     </button>
                 </div>

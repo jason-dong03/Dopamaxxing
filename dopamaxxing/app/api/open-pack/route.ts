@@ -83,6 +83,8 @@ export async function POST() {
         const cardsWithMeta = pickedCards.map((card) => ({
             ...card,
             isNew: !ownedIds.has(card.id),
+            worth: card.market_price_usd,
+            pokedex_num: card.national_pokedex_number,
         }))
 
         return NextResponse.json({ cards: cardsWithMeta })
