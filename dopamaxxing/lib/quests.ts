@@ -47,6 +47,8 @@ export type Quest = {
     // self-report quests — shown as a hint below the claim button
     verificationHint?: string
     verificationSuggestion?: string
+    // repeatable quests — cooldown in hours before can claim again (undefined = one-time)
+    cooldownHours?: number
 }
 
 export const CATEGORY_META: Record<
@@ -172,6 +174,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '📚',
         reward: { coins: 75, xp: 80 },
+        cooldownHours: 24,
         verificationHint: 'Honor system — or screenshot a study timer',
         verificationSuggestion:
             'Try Forest, Pomodoro, or Focus Keeper and screenshot the completed session.',
@@ -185,6 +188,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'medium',
         icon: '🎓',
         reward: { coins: 200, xp: 250 },
+        cooldownHours: 168,
         verificationHint: 'Screenshot of a 2h study timer',
         verificationSuggestion:
             'Share your Forest tree, Toggl entry, or any timer showing 2h+.',
@@ -198,6 +202,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '✏️',
         reward: { coins: 60, xp: 70 },
+        cooldownHours: 24,
         verificationHint: 'Photo of your notes',
         verificationSuggestion:
             'Quick photo of your notebook or a Notion/OneNote screenshot — both work!',
@@ -211,6 +216,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'medium',
         icon: '📝',
         reward: { coins: 150, xp: 180 },
+        cooldownHours: 168,
         verificationHint: 'Screenshot of submission confirmation',
         verificationSuggestion:
             'Show the "submitted" page from Canvas, Blackboard, or your LMS.',
@@ -237,6 +243,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🔖',
         reward: { coins: 50, xp: 60 },
+        cooldownHours: 24,
         verificationHint: 'Anki/Quizlet session screenshot',
         verificationSuggestion:
             'Screenshot your Anki review stats or Quizlet study session.',
@@ -250,6 +257,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '📖',
         reward: { coins: 55, xp: 65 },
+        cooldownHours: 24,
         verificationHint: 'Honor system',
         verificationSuggestion:
             'What chapter? Write it in your notes for accountability.',
@@ -266,6 +274,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🎮',
         reward: { coins: 40, xp: 30 },
+        cooldownHours: 24,
         verificationHint: 'Honor system',
         verificationSuggestion:
             'Just play! Or screenshot your Steam/Xbox activity.',
@@ -279,6 +288,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🔫',
         reward: { coins: 80, xp: 50 },
+        cooldownHours: 24,
         verificationHint: 'Match history screenshot',
         verificationSuggestion:
             'Share your Valorant match history showing recent games played.',
@@ -292,6 +302,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'medium',
         icon: '⌛',
         reward: { coins: 100, xp: 60 },
+        cooldownHours: 168,
         verificationHint: 'Steam/Discord activity screenshot',
         verificationSuggestion:
             'Share Steam activity or Discord "Playing for X hours" status.',
@@ -305,6 +316,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'medium',
         icon: '🏅',
         reward: { coins: 120, xp: 80 },
+        cooldownHours: 24,
         verificationHint: 'Victory screen screenshot',
         verificationSuggestion:
             'Share the post-game victory screen from your game of choice.',
@@ -318,6 +330,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'medium',
         icon: '😤',
         reward: { coins: 90, xp: 70 },
+        cooldownHours: 24,
         verificationHint: 'Honor system — you know if you stayed',
         verificationSuggestion: 'Share match history showing 3 completed matches.',
     },
@@ -333,6 +346,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🌅',
         reward: { coins: 30, xp: 40 },
+        cooldownHours: 24,
         verificationHint: 'Screenshot of your clock',
         verificationSuggestion:
             'Quick phone screenshot before 8am works perfectly.',
@@ -346,6 +360,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🏃',
         reward: { coins: 90, xp: 100 },
+        cooldownHours: 24,
         verificationHint: 'Fitness app screenshot',
         verificationSuggestion:
             'Share from Apple Health, Google Fit, Strava, or gym check-in.',
@@ -359,6 +374,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '💧',
         reward: { coins: 25, xp: 30 },
+        cooldownHours: 24,
         verificationHint: 'Honor system',
         verificationSuggestion:
             'Use WaterMinder or any water tracker. You know if you did it!',
@@ -372,6 +388,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🎸',
         reward: { coins: 60, xp: 70 },
+        cooldownHours: 24,
         verificationHint: 'Share what you practiced!',
         verificationSuggestion:
             'Photo of your instrument, a voice memo clip, or a practice app screenshot.',
@@ -385,6 +402,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '😴',
         reward: { coins: 35, xp: 45 },
+        cooldownHours: 24,
         verificationHint: 'Sleep tracker screenshot',
         verificationSuggestion:
             'Apple Sleep, Oura Ring, or just your alarm/bedtime record.',
@@ -398,6 +416,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🍳',
         reward: { coins: 45, xp: 50 },
+        cooldownHours: 24,
         verificationHint: 'Photo of the meal',
         verificationSuggestion: 'Post the food pic! We want to see it.',
     },
@@ -410,6 +429,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🧹',
         reward: { coins: 40, xp: 45 },
+        cooldownHours: 168,
         verificationHint: 'Before/after photo',
         verificationSuggestion:
             'Before and after desk photo hits different as motivation.',
@@ -426,6 +446,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🎵',
         reward: { coins: 20, xp: 15 },
+        cooldownHours: 24,
         verificationHint: 'Share what you listened to!',
         verificationSuggestion:
             'Share your current queue screenshot — or just be honest!',
@@ -439,6 +460,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🎙️',
         reward: { coins: 50, xp: 55 },
+        cooldownHours: 24,
         verificationHint: 'Share the episode title!',
         verificationSuggestion:
             'Screenshot the episode + one thing you learned for bonus respect.',
@@ -452,6 +474,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🎬',
         reward: { coins: 45, xp: 30 },
+        cooldownHours: 168,
         verificationHint: 'Share the title!',
         verificationSuggestion:
             'Tell us what you watched. Extra respect for trying something new.',
@@ -465,6 +488,7 @@ export const QUEST_CATALOG: Quest[] = [
         difficulty: 'easy',
         icon: '🧠',
         reward: { coins: 55, xp: 60 },
+        cooldownHours: 168,
         verificationHint: 'Share the title!',
         verificationSuggestion:
             'YouTube, Netflix, whatever — share what you watched.',

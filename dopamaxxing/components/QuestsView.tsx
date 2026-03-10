@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
     QUEST_CATALOG,
     CATEGORY_META,
@@ -19,6 +20,7 @@ type Metrics = {
 
 type Props = {
     completedQuestIds: Set<string>
+    lastCompletedAt: Record<string, string>
     metrics: Metrics
 }
 
@@ -31,35 +33,79 @@ const CATEGORIES: Array<{ key: 'all' | QuestCategory; label: string; icon: strin
     { key: 'entertainment', label: 'Entertain', icon: '🎵' },
 ]
 
-export default function QuestsView({ completedQuestIds, metrics }: Props) {
+function msLeft(lastAt: string, cooldownHours: number): number {
+    const cooldownMs = cooldownHours * 60 * 60 * 1000
+    return cooldownMs - (Date.now() - new Date(lastAt).getTime())
+}
+
+function formatCooldown(ms: number): string {
+    if (ms <= 0) return 'Ready'
+    const h = Math.floor(ms / 3_600_000)
+    const m = Math.floor((ms % 3_600_000) / 60_000)
+    if (h > 0) return `${h}h ${m}m`
+    return `${m}m`
+}
+
+export default function QuestsView({ completedQuestIds, lastCompletedAt, metrics }: Props) {
+    const router = useRouter()
+    const [now, setNow] = useState(() => Date.now())
     const [activeCategory, setActiveCategory] = useState<'all' | QuestCategory>('all')
     const [claimingId, setClaimingId] = useState<string | null>(null)
     const [claimNotes, setClaimNotes] = useState('')
     const [localCompleted, setLocalCompleted] = useState<Set<string>>(new Set())
+    const [localLastClaimed, setLocalLastClaimed] = useState<Record<string, string>>({})
     const [claimedRewards, setClaimedRewards] = useState<Record<string, { coins: number; xp: number }>>({})
     const [claiming, setClaiming] = useState(false)
 
+    // tick every 30s to update cooldown countdowns
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 30_000)
+        return () => clearInterval(id)
+    }, [])
+
     const allCompleted = new Set([...completedQuestIds, ...localCompleted])
+    const mergedLastClaimed = { ...lastCompletedAt, ...localLastClaimed }
+
+    function isOnCooldown(quest: Quest): boolean {
+        if (!quest.cooldownHours) return false
+        const last = mergedLastClaimed[quest.id]
+        if (!last) return false
+        return msLeft(last, quest.cooldownHours) > 0
+    }
+
+    function cooldownRemaining(quest: Quest): number {
+        if (!quest.cooldownHours) return 0
+        const last = mergedLastClaimed[quest.id]
+        if (!last) return 0
+        return Math.max(0, msLeft(last, quest.cooldownHours))
+    }
 
     const filtered =
         activeCategory === 'all'
             ? QUEST_CATALOG
             : QUEST_CATALOG.filter((q) => q.category === activeCategory)
 
-    // sort: uncompleted first, then by difficulty
     const diffOrder: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
     const sorted = [...filtered].sort((a, b) => {
-        const aDone = allCompleted.has(a.id) ? 1 : 0
-        const bDone = allCompleted.has(b.id) ? 1 : 0
+        const aDone = !a.cooldownHours && allCompleted.has(a.id) ? 1 : 0
+        const bDone = !b.cooldownHours && allCompleted.has(b.id) ? 1 : 0
         if (aDone !== bDone) return aDone - bDone
-        // auto quests that are ready to claim float up
+
+        const aOnCD = isOnCooldown(a) ? 1 : 0
+        const bOnCD = isOnCooldown(b) ? 1 : 0
+        if (aOnCD !== bOnCD) return aOnCD - bOnCD
+
         const aReady = a.type === 'auto' && isAutoComplete(a, metrics) ? -1 : 0
         const bReady = b.type === 'auto' && isAutoComplete(b, metrics) ? -1 : 0
         if (aReady !== bReady) return aReady - bReady
+
         return diffOrder[a.difficulty] - diffOrder[b.difficulty]
     })
 
-    const completedCount = QUEST_CATALOG.filter((q) => allCompleted.has(q.id)).length
+    const oneTimeCompleted = QUEST_CATALOG.filter(
+        (q) => !q.cooldownHours && allCompleted.has(q.id),
+    ).length
+    const oneTimeTotal = QUEST_CATALOG.filter((q) => !q.cooldownHours).length
 
     async function handleClaim(quest: Quest) {
         if (claiming) return
@@ -71,10 +117,15 @@ export default function QuestsView({ completedQuestIds, metrics }: Props) {
                 body: JSON.stringify({ questId: quest.id, notes: claimNotes }),
             })
             if (res.ok) {
-                setLocalCompleted((prev) => new Set(prev).add(quest.id))
+                const now = new Date().toISOString()
+                if (!quest.cooldownHours) {
+                    setLocalCompleted((prev) => new Set(prev).add(quest.id))
+                }
+                setLocalLastClaimed((prev) => ({ ...prev, [quest.id]: now }))
                 setClaimedRewards((prev) => ({ ...prev, [quest.id]: quest.reward }))
                 setClaimingId(null)
                 setClaimNotes('')
+                router.refresh()
             }
         } finally {
             setClaiming(false)
@@ -94,6 +145,7 @@ export default function QuestsView({ completedQuestIds, metrics }: Props) {
             if (res.ok) {
                 setLocalCompleted((prev) => new Set(prev).add(quest.id))
                 setClaimedRewards((prev) => ({ ...prev, [quest.id]: quest.reward }))
+                router.refresh()
             }
         } finally {
             setClaiming(false)
@@ -121,7 +173,7 @@ export default function QuestsView({ completedQuestIds, metrics }: Props) {
                     fontSize: '0.62rem',
                     color: '#6b7280',
                 }}>
-                    {completedCount} / {QUEST_CATALOG.length} completed
+                    {oneTimeCompleted} / {oneTimeTotal} one-time done
                 </div>
             </div>
 
@@ -176,12 +228,15 @@ export default function QuestsView({ completedQuestIds, metrics }: Props) {
                     <QuestCard
                         key={quest.id}
                         quest={quest}
-                        completed={allCompleted.has(quest.id)}
+                        completed={!quest.cooldownHours && allCompleted.has(quest.id)}
+                        onCooldown={isOnCooldown(quest)}
+                        cooldownMs={cooldownRemaining(quest)}
                         reward={claimedRewards[quest.id]}
                         metrics={metrics}
                         isExpanded={claimingId === quest.id}
                         notes={claimNotes}
                         claiming={claiming}
+                        now={now}
                         onExpand={() => setClaimingId(claimingId === quest.id ? null : quest.id)}
                         onNotesChange={setClaimNotes}
                         onClaim={() => handleClaim(quest)}
@@ -198,11 +253,14 @@ export default function QuestsView({ completedQuestIds, metrics }: Props) {
 function QuestCard({
     quest,
     completed,
+    onCooldown,
+    cooldownMs,
     reward,
     metrics,
     isExpanded,
     notes,
     claiming,
+    now,
     onExpand,
     onNotesChange,
     onClaim,
@@ -210,11 +268,14 @@ function QuestCard({
 }: {
     quest: Quest
     completed: boolean
+    onCooldown: boolean
+    cooldownMs: number
     reward?: { coins: number; xp: number }
     metrics: Metrics
     isExpanded: boolean
     notes: string
     claiming: boolean
+    now: number
     onExpand: () => void
     onNotesChange: (v: string) => void
     onClaim: () => void
@@ -223,18 +284,25 @@ function QuestCard({
     const meta = CATEGORY_META[quest.category]
     const diffColor = DIFFICULTY_COLOR[quest.difficulty]
     const isAuto = quest.type === 'auto'
+    const isRepeatable = !!quest.cooldownHours
     const progress = isAuto ? getProgress(quest, metrics) : 0
     const isReady = isAuto && progress >= 1 && !completed
+
+    const cooldownLabel = isRepeatable
+        ? quest.cooldownHours === 24 ? 'DAILY' : 'WEEKLY'
+        : null
+
+    const dimmed = completed || onCooldown
 
     return (
         <div
             style={{
-                background: completed
+                background: dimmed
                     ? 'rgba(255,255,255,0.02)'
                     : isReady
                       ? `${meta.color}0d`
                       : 'rgba(255,255,255,0.03)',
-                border: completed
+                border: dimmed
                     ? '1px solid rgba(255,255,255,0.04)'
                     : isReady
                       ? `1px solid ${meta.color}40`
@@ -242,7 +310,7 @@ function QuestCard({
                 borderRadius: 12,
                 padding: '14px 16px',
                 transition: 'all 200ms ease',
-                opacity: completed ? 0.55 : 1,
+                opacity: dimmed ? 0.55 : 1,
             }}
         >
             {/* main row */}
@@ -258,9 +326,9 @@ function QuestCard({
                     flexShrink: 0,
                     background: `${meta.color}14`,
                     borderRadius: 8,
-                    filter: completed ? 'grayscale(0.6)' : 'none',
+                    filter: dimmed ? 'grayscale(0.6)' : 'none',
                 }}>
-                    {completed ? '✓' : quest.icon}
+                    {completed ? '✓' : onCooldown ? '⏳' : quest.icon}
                 </div>
 
                 {/* content */}
@@ -269,7 +337,7 @@ function QuestCard({
                         <span style={{
                             fontSize: '0.82rem',
                             fontWeight: 600,
-                            color: completed ? '#6b7280' : '#e5e7eb',
+                            color: dimmed ? '#6b7280' : '#e5e7eb',
                         }}>
                             {quest.title}
                         </span>
@@ -301,6 +369,22 @@ function QuestCard({
                         }}>
                             {isAuto ? 'auto' : 'self-report'}
                         </span>
+                        {/* cooldown badge */}
+                        {cooldownLabel && (
+                            <span style={{
+                                fontSize: '0.46rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                color: '#fbbf24',
+                                background: '#fbbf2418',
+                                border: '1px solid #fbbf2440',
+                                borderRadius: 4,
+                                padding: '1px 5px',
+                            }}>
+                                {cooldownLabel}
+                            </span>
+                        )}
                     </div>
 
                     <p style={{ fontSize: '0.65rem', color: '#6b7280', margin: '0 0 8px' }}>
@@ -348,9 +432,20 @@ function QuestCard({
                 <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {completed ? (
                         <div style={{ fontSize: '0.55rem', color: '#4b5563' }}>
-                            {reward && (
-                                <span style={{ color: '#ca8a04' }}>+{reward.coins}🪙</span>
-                            )}
+                            {reward && <span style={{ color: '#ca8a04' }}>+{reward.coins}🪙</span>}
+                        </div>
+                    ) : onCooldown ? (
+                        <div style={{
+                            padding: '5px 10px',
+                            borderRadius: 8,
+                            fontSize: '0.6rem',
+                            fontWeight: 600,
+                            color: '#4b5563',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            whiteSpace: 'nowrap',
+                        }}>
+                            ⏳ {formatCooldown(cooldownMs)}
                         </div>
                     ) : isAuto ? (
                         <button
@@ -394,11 +489,17 @@ function QuestCard({
                             Complete
                         </button>
                     )}
+                    {/* just claimed reward flash */}
+                    {reward && !completed && !onCooldown && (
+                        <span style={{ fontSize: '0.52rem', color: '#ca8a04' }}>
+                            +{reward.coins}🪙
+                        </span>
+                    )}
                 </div>
             </div>
 
             {/* self-report expand panel */}
-            {isExpanded && !completed && (
+            {isExpanded && !completed && !onCooldown && (
                 <div style={{
                     marginTop: 12,
                     paddingTop: 12,

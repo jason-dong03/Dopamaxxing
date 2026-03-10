@@ -78,7 +78,7 @@ export default async function Dashboard() {
                 })()}
             </div>
 
-            <PackSelector />
+            <PackSelector coins={profile?.coins ?? 0} />
         </div>
     )
 }

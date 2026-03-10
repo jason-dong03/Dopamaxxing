@@ -116,6 +116,9 @@ export default function PackOpening({ pack, onBack }: Props) {
             addedCardIds: [],
         })
 
+        // refresh server data so coin count in header updates immediately
+        router.refresh()
+
         setShaking(false)
         setTearing(true)
 

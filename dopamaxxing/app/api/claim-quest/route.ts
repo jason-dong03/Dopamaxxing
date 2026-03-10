@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse, NextRequest } from 'next/server'
 import { QUEST_CATALOG } from '@/lib/quests'
+import { applyXP } from '@/lib/xp'
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,27 +19,37 @@ export async function POST(request: NextRequest) {
         if (!quest)
             return NextResponse.json({ error: 'Quest not found' }, { status: 404 })
 
-        // check already completed
-        const { data: existing } = await supabase
-            .from('user_quest_completions')
-            .select('id')
+        // check completion / cooldown
+        const { data: lastCompletion } = await supabase
+            .from('user_quests')
+            .select('completed_at')
             .eq('user_id', user.id)
             .eq('quest_id', questId)
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false })
+            .limit(1)
             .maybeSingle()
 
-        if (existing)
-            return NextResponse.json(
-                { error: 'already_completed' },
-                { status: 409 },
-            )
+        if (lastCompletion) {
+            if (!quest.cooldownHours) {
+                return NextResponse.json({ error: 'already_completed' }, { status: 409 })
+            }
+            const cooldownMs = quest.cooldownHours * 60 * 60 * 1000
+            const msLeft = cooldownMs - (Date.now() - new Date(lastCompletion.completed_at).getTime())
+            if (msLeft > 0) {
+                return NextResponse.json({ error: 'on_cooldown', msLeft }, { status: 429 })
+            }
+        }
 
         // award coins + xp, record completion — in parallel
         const { reward } = quest
         const [, { data: profile }] = await Promise.all([
-            supabase.from('user_quest_completions').insert({
+            supabase.from('user_quests').insert({
                 user_id: user.id,
                 quest_id: questId,
+                status: 'completed',
                 notes: notes ?? null,
+                completed_at: new Date().toISOString(),
             }),
             supabase
                 .from('profiles')
@@ -48,11 +59,15 @@ export async function POST(request: NextRequest) {
         ])
 
         const newCoins = (profile?.coins ?? 0) + reward.coins
-        const newXP = (profile?.xp ?? 0) + reward.xp
+        const { xp: newXP, level: newLevel } = applyXP(
+            profile?.xp ?? 0,
+            profile?.level ?? 1,
+            reward.xp,
+        )
 
         await supabase
             .from('profiles')
-            .update({ coins: newCoins, xp: newXP })
+            .update({ coins: newCoins, xp: newXP, level: newLevel })
             .eq('id', user.id)
 
         return NextResponse.json({
@@ -60,6 +75,7 @@ export async function POST(request: NextRequest) {
             reward,
             newCoins,
             newXP,
+            newLevel,
         })
     } catch (error) {
         console.error('[claim-quest] error:', error)

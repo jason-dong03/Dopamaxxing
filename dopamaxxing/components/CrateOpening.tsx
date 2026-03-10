@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { isRainbow, rarityGlowRgb, rarityTextStyle } from '@/lib/rarityConfig'
 import { ShatterEffect } from './ShatterEffect'
 import type { Pack } from '@/lib/packs'
@@ -34,6 +35,7 @@ export default function CrateOpening({
     pack: Pack
     onBack: () => void
 }) {
+    const router = useRouter()
     const [phase, setPhase] = useState<Phase>('idle')
     const [strip, setStrip] = useState<PoolCard[]>([])
     const [wonCard, setWonCard] = useState<WonCard | null>(null)
@@ -69,6 +71,9 @@ export default function CrateOpening({
         }
 
         const data = await res.json()
+
+        // refresh server data so coin count in header updates immediately
+        router.refresh()
 
         const winner: WonCard = data.cards[0]
         const pool: PoolCard[] = data.cardPool ?? [winner]

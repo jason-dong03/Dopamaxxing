@@ -4,7 +4,7 @@ import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
 import CrateOpening from './CrateOpening'
 
-export default function PackSelector() {
+export default function PackSelector({ coins = 0 }: { coins?: number }) {
     const [selectedPack, setSelectedPack] = useState<Pack | null>(null)
     const [hoveredId, setHoveredId] = useState<string | null>(null)
 
@@ -50,6 +50,7 @@ export default function PackSelector() {
                                 key={pack.id}
                                 pack={pack}
                                 hovered={hoveredId === pack.id}
+                                canAfford={coins >= pack.cost}
                                 onHover={setHoveredId}
                                 onSelect={setSelectedPack}
                             />
@@ -73,6 +74,7 @@ export default function PackSelector() {
                                 key={pack.id}
                                 pack={pack}
                                 hovered={hoveredId === pack.id}
+                                canAfford={coins >= pack.cost}
                                 onHover={setHoveredId}
                                 onSelect={setSelectedPack}
                             />
@@ -127,11 +129,13 @@ function SectionHeader({
 function PackCard({
     pack,
     hovered,
+    canAfford,
     onHover,
     onSelect,
 }: {
     pack: Pack
     hovered: boolean
+    canAfford: boolean
     onHover: (id: string | null) => void
     onSelect: (pack: Pack) => void
 }) {
@@ -216,7 +220,7 @@ function PackCard({
                 <p style={{ fontSize: '0.52rem', color: '#374151', marginTop: 2 }}>
                     {pack.description}
                 </p>
-                <p style={{ fontSize: '0.55rem', color: '#92400e', marginTop: 3 }}>
+                <p style={{ fontSize: '0.55rem', color: canAfford ? '#4ade80' : '#ef4444', marginTop: 3 }}>
                     🪙 {pack.cost}
                 </p>
             </div>
@@ -228,11 +232,13 @@ function PackCard({
 function BoxCard({
     pack,
     hovered,
+    canAfford,
     onHover,
     onSelect,
 }: {
     pack: Pack
     hovered: boolean
+    canAfford: boolean
     onHover: (id: string | null) => void
     onSelect: (pack: Pack) => void
 }) {
@@ -344,7 +350,7 @@ function BoxCard({
                 <p style={{ fontSize: '0.6rem', color: '#4b5563', margin: '0 0 6px' }}>
                     {pack.description}
                 </p>
-                <p style={{ fontSize: '0.6rem', color: '#92400e' }}>
+                <p style={{ fontSize: '0.6rem', color: canAfford ? '#4ade80' : '#ef4444' }}>
                     🪙 {pack.cost} coins
                 </p>
             </div>

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { pickRarity, calculateBuyback } from '@/lib/rarityConfig'
 import { PACKS } from '@/lib/packs'
+import { applyXP, XP_PER_PACK } from '@/lib/xp'
 
 const pityRarities = ['Legendary', 'Divine', 'Celestial', '???']
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
         const [{ data: profile }, allCards] = await Promise.all([
             supabase
                 .from('profiles')
-                .select('pity_counter, pity_threshold, coins, packs_opened')
+                .select('pity_counter, pity_threshold, coins, xp, level')
                 .eq('id', user.id)
                 .single(),
             getCardsForSet(supabase, setId),
@@ -112,14 +113,21 @@ export async function POST(request: NextRequest) {
 
         const cardIds = pickedCards.map((c) => c.id)
 
-        // update pity + coins + packs_opened, and check ownership — in parallel
+        const { xp: newXP, level: newLevel } = applyXP(
+            profile?.xp ?? 0,
+            profile?.level ?? 1,
+            XP_PER_PACK,
+        )
+
+        // update pity + coins + xp/level, and check ownership — in parallel
         const [, { data: owned }] = await Promise.all([
             supabase
                 .from('profiles')
                 .update({
                     pity_counter: newPityCounter,
                     coins: (profile?.coins ?? 0) - cost,
-                    packs_opened: (profile?.packs_opened ?? 0) + 1,
+                    xp: newXP,
+                    level: newLevel,
                 })
                 .eq('id', user.id),
             supabase
@@ -128,6 +136,20 @@ export async function POST(request: NextRequest) {
                 .eq('user_id', user.id)
                 .in('card_id', cardIds),
         ])
+
+        // fire-and-forget packs_opened increment (requires DB migration first)
+        supabase
+            .from('profiles')
+            .select('packs_opened')
+            .eq('id', user.id)
+            .single()
+            .then(({ data: p }) =>
+                supabase
+                    .from('profiles')
+                    .update({ packs_opened: (p?.packs_opened ?? 0) + 1 })
+                    .eq('id', user.id),
+            )
+            .catch(() => {})
 
         const ownedIds = new Set(owned?.map((o) => o.card_id) ?? [])
 
