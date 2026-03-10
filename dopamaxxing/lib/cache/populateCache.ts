@@ -5,7 +5,7 @@ const tcgdex = new TCGdex('en')
 const EURO_TO_USD = 1.08
 export async function populateSet() {
     try {
-        const set = await tcgdex.set.get('Black Bolt')
+        const set = await tcgdex.set.get('White Flare')
         const supabase = await createClient()
 
         if (set && supabase) {
@@ -18,7 +18,7 @@ export async function populateSet() {
                 image_url: set.logo,
             })
             if (error) console.error('Error inserting set:', error)
-            else console.log('Set inserted!')
+            else console.log(`Set inserted: ${set?.name}!`)
         }
     } catch (error) {
         console.error('Network Error - Something went wrong:', error)
@@ -34,7 +34,7 @@ export async function getCardInfo() {
 }
 export async function populateCards() {
     try {
-        const set = await tcgdex.set.get('Black Bolt')
+        const set = await tcgdex.set.get('White Flare')
         const supabase = await createClient()
 
         if (set && supabase) {
@@ -48,7 +48,6 @@ export async function populateCards() {
                     id: card.id,
                     name: card.name,
                     subtype: card.stage ?? null,
-                    card_level: card.level ?? null,
                     hp: card.hp ?? null,
                     evolves_from: card.evolveFrom ?? null,
                     set_id: set.id,

@@ -1,20 +1,12 @@
-'use client'
+import TCGdex from '@tcgdex/sdk'
 
-import FlipCard from '@/components/FlipCard'
-
-export default function TestPage() {
+export default async function TestPage() {
+    const tcgdex = new TCGdex('ja')
+    const sets = await tcgdex.fetch('sets')
+    console.log(sets)
     return (
-        <div className="flex items-center justify-center min-h-screen">
-            <FlipCard
-                card={{
-                    id: 'sv10.5b-034',
-                    name: 'Zekrom ex',
-                    image_url:
-                        'https://assets.tcgdex.net/en/sv/sv10.5b/172/low.webp',
-                    rarity: '???',
-                }}
-                onReveal={() => console.log('card revealed!')}
-            />
+        <div className="p-6">
+            <pre className="text-xs">{JSON.stringify(sets, null, 2)}</pre>
         </div>
     )
 }

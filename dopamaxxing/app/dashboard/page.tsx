@@ -1,5 +1,6 @@
 import FlipCard from '@/components/FlipCard'
 import PackOpening from '@/components/PackOpening'
+import PackSelector from '@/components/PackSelector'
 import { createClient } from '@/lib/supabase/server'
 import Image from 'next/image'
 
@@ -18,7 +19,7 @@ export default async function Dashboard() {
 
     return (
         <div className="min-h-screen p-4">
-            <div className="bg-gray-900 rounded-2xl px-6 py-3 flex items-center gap-4 w-full max-w-sm mx-auto mt-2">
+            <div className="bg-gray-900 rounded-2xl px-6 py-3 flex items-center gap-4 w-full max-w-sm mx-auto mt-2 flex-wrap">
                 <Image
                     src={profile?.profile_url}
                     alt="Profile"
@@ -54,8 +55,30 @@ export default async function Dashboard() {
                         <span>Coins</span>
                     </div>
                 </div>
+
+                {/* XP bar spans full width on its own row */}
+                {(() => {
+                    const level = profile?.level ?? 1
+                    const xp = profile?.xp ?? 0
+                    const xpNeeded = level * 100
+                    const pct = Math.min((xp / xpNeeded) * 100, 100)
+                    return (
+                        <div className="w-full flex flex-col gap-1">
+                            <div className="w-full bg-gray-800 rounded-full h-1.5">
+                                <div
+                                    className="bg-white h-1.5 rounded-full transition-all duration-300"
+                                    style={{ width: `${pct}%` }}
+                                />
+                            </div>
+                            <p className="text-gray-600 text-xs text-right">
+                                {xp} / {xpNeeded} XP
+                            </p>
+                        </div>
+                    )
+                })()}
             </div>
-            <PackOpening />
+
+            <PackSelector />
         </div>
     )
 }

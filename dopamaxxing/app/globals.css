@@ -186,12 +186,130 @@ body {
         transform: translateY(0) scale(1);
         opacity: 1;
     }
+    20% {
+        transform: translateY(-30px) scale(1.05);
+        opacity: 1;
+    }
     100% {
-        transform: translateY(80px) scale(0.8);
+        transform: translateY(120vh) scale(0.9);
         opacity: 0;
     }
 }
 
 .animate-fly-down {
-    animation: flyDown 400ms ease-in forwards;
+    animation: flyDown 400ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes shatter-flash {
+    0% {
+        opacity: 0;
+    }
+    20% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes particle-fly {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--tx), var(--ty)) scale(0.2) rotate(var(--rot));
+        opacity: 0;
+    }
+}
+@keyframes shine {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+@keyframes hotPulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+@keyframes celestialPulse {
+    0%,
+    100% {
+        opacity: 1;
+        text-shadow:
+            0 0 8px rgba(220, 240, 255, 0.9),
+            0 0 16px rgba(220, 240, 255, 0.5);
+    }
+    50% {
+        opacity: 0.6;
+        text-shadow: 0 0 4px rgba(220, 240, 255, 0.3);
+    }
+}
+.celestial-pulse {
+    animation: celestialPulse 2s ease-in-out infinite;
+}
+@keyframes sidebarIn {
+    from {
+        transform: translateX(16px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+@keyframes overlayIn {
+    from {
+        opacity: 0;
+        transform: scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+.sidebar-anim {
+    animation: sidebarIn 180ms ease forwards;
+}
+.overlay-anim {
+    animation: overlayIn 160ms ease forwards;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+@keyframes pedestalPulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+.pedestal-pulse {
+    animation: pedestalPulse 2s ease-in-out infinite;
+}
+@keyframes profileFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.profile-fade-in {
+    animation: profileFadeIn 400ms ease-out both;
+}
+@keyframes rainbow-sprite-glow {
+    0%   { filter: drop-shadow(0 0 14px hsl(0,   100%, 65%)) drop-shadow(0 0 28px hsl(0,   100%, 65%)); }
+    16%  { filter: drop-shadow(0 0 14px hsl(60,  100%, 65%)) drop-shadow(0 0 28px hsl(60,  100%, 65%)); }
+    33%  { filter: drop-shadow(0 0 14px hsl(120, 100%, 55%)) drop-shadow(0 0 28px hsl(120, 100%, 55%)); }
+    50%  { filter: drop-shadow(0 0 14px hsl(180, 100%, 55%)) drop-shadow(0 0 28px hsl(180, 100%, 55%)); }
+    66%  { filter: drop-shadow(0 0 14px hsl(240, 100%, 70%)) drop-shadow(0 0 28px hsl(240, 100%, 70%)); }
+    83%  { filter: drop-shadow(0 0 14px hsl(300, 100%, 70%)) drop-shadow(0 0 28px hsl(300, 100%, 70%)); }
+    100% { filter: drop-shadow(0 0 14px hsl(360, 100%, 65%)) drop-shadow(0 0 28px hsl(360, 100%, 65%)); }
+}
+.rainbow-sprite-glow {
+    animation: rainbow-sprite-glow 3s linear infinite;
 }

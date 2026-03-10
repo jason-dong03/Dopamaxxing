@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { RARITY_GLOW } from '@/lib/rarityConfig'
+import { RARITY_GLOW, rarityToOdds } from '@/lib/rarityConfig'
 
 type Props = {
     card: {
@@ -12,6 +12,8 @@ type Props = {
     }
     onReveal: () => void
     onSpecialChange: (active: boolean, glowColor: string) => void
+    onFlipped: () => void
+    onConfirmed: () => void
 }
 
 const SPECIAL_RARITIES = [
@@ -23,7 +25,13 @@ const SPECIAL_RARITIES = [
     '???',
 ]
 
-export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
+export default function FlipCard({
+    card,
+    onReveal,
+    onSpecialChange,
+    onFlipped,
+    onConfirmed,
+}: Props) {
     const [flipped, setFlipped] = useState(false)
     const [confirmed, setConfirmed] = useState(false)
     const [showSpecial, setShowSpecial] = useState(false)
@@ -45,6 +53,7 @@ export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
                 setShowSpecial(true)
                 onSpecialChange(true, glowColor)
                 setFlipped(true)
+                onFlipped()
                 setPopped(true)
                 setTimeout(() => {
                     setFlash(true)
@@ -53,6 +62,7 @@ export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
                 return
             } else {
                 setFlipped(true)
+                onFlipped()
             }
             return
         }
@@ -60,6 +70,7 @@ export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
             setConfirmed(true)
             setTimeout(() => setShowSpecial(false), 100)
             onSpecialChange(false, glowColor)
+            onConfirmed()
             onReveal()
         }
     }
@@ -160,7 +171,7 @@ export default function FlipCard({ card, onReveal, onSpecialChange }: Props) {
             </div>
 
             {flipped && !confirmed && (
-                <p className="text-gray-500 text-xs animate-pulse mt-3">
+                <p className="text-gray-500 text-xs animate-pulse mt-1">
                     tap to continue
                 </p>
             )}
