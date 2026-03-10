@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import FlipCard from './FlipCard'
-import { RARITY_GLOW, rarityToOdds } from '@/lib/rarityConfig'
+import { isRainbow, rarityGlowRgb, rarityToOdds } from '@/lib/rarityConfig'
 import { useRouter } from 'next/navigation'
 import AutoCompleteSettings from './AutoCompleteSettings'
 import {
@@ -63,8 +63,10 @@ export default function PackOpening({ pack, onBack }: Props) {
     const [prefs, setPrefs] = useState<AutoCompletePrefs>(() => loadPrefs())
     const [showSettings, setShowSettings] = useState(false)
     const [resumeSession, setResumeSession] = useState<PackSession | null>(null)
+    const [coinError, setCoinError] = useState<{ cost: number; coins: number } | null>(null)
 
     const autocompleteQueue = useRef<string[]>([])
+    const autocompleteActionMap = useRef<Record<string, 'add' | 'sell' | 'feed'>>({})
     const isAutocompleting = useRef(false)
     const idleDims =
         pack.aspect === 'box'
@@ -89,6 +91,7 @@ export default function PackOpening({ pack, onBack }: Props) {
 
     async function handleClick() {
         if (shaking || opening) return
+        setCoinError(null)
         setShaking(true)
 
         const res = await fetch('/api/open-pack', {
@@ -96,6 +99,14 @@ export default function PackOpening({ pack, onBack }: Props) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ setId: pack.id }),
         })
+
+        if (res.status === 402) {
+            const data = await res.json()
+            setShaking(false)
+            setCoinError({ cost: data.cost, coins: data.coins })
+            return
+        }
+
         const data = await res.json()
         setCards(data.cards)
         saveSession({
@@ -137,6 +148,7 @@ export default function PackOpening({ pack, onBack }: Props) {
         })
         setAddedCardIds((prev) => new Set(prev).add(card.id))
     }
+
     function removeCard(index: number) {
         const card = remainingCardsRef.current[index]
         const realIndex = cards.findIndex((c) => c === card)
@@ -197,7 +209,9 @@ export default function PackOpening({ pack, onBack }: Props) {
         })
     }
 
-    async function handleAutocomplete() {
+    // ─── batch autocomplete ────────────────────────────────────────────────────
+
+    function handleAutocomplete() {
         if (isAutocompleting.current) return
         isAutocompleting.current = true
 
@@ -205,11 +219,51 @@ export default function PackOpening({ pack, onBack }: Props) {
             .map((card) => {
                 const currentIsNew = card.isNew && !addedCardIds.has(card.id)
                 const action = getActionForCard(card, prefs, currentIsNew)
-                return { id: card.id, action }
+                return { card, action }
             })
             .filter(({ action }) => action !== 'skip')
 
-        autocompleteQueue.current = queue.map(({ id }) => id)
+        if (queue.length === 0) {
+            isAutocompleting.current = false
+            return
+        }
+
+        // Map card IDs → actions for animation phase ('skip' already filtered out)
+        autocompleteActionMap.current = Object.fromEntries(
+            queue.map(({ card, action }) => [card.id, action as 'add' | 'sell' | 'feed']),
+        )
+
+        // Pre-mark adds so isNew tracking stays correct
+        setAddedCardIds((prev) => {
+            const next = new Set(prev)
+            queue
+                .filter(({ action }) => action === 'add')
+                .forEach(({ card }) => next.add(card.id))
+            return next
+        })
+
+        // Fire all actions to the server in one request — don't await,
+        // animations run independently and the request completes in the bg.
+        fetch('/api/batch-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                actions: queue.map(({ card, action }) => {
+                    if (action === 'add')
+                        return {
+                            type: 'add',
+                            cardId: card.id,
+                            coins: card.coins,
+                            isHot: card.isHot,
+                        }
+                    if (action === 'sell')
+                        return { type: 'sell', coins: card.coins }
+                    return { type: 'feed', cardId: card.id }
+                }),
+            }),
+        }).catch(console.error)
+
+        autocompleteQueue.current = queue.map(({ card }) => card.id)
         processNextAutocomplete()
     }
 
@@ -229,45 +283,22 @@ export default function PackOpening({ pack, onBack }: Props) {
         }
 
         const i = remainingCardsRef.current.indexOf(card)
-        const currentIsNew = card.isNew && !addedCardIds.has(card.id)
-        const action = getActionForCard(card, prefs, currentIsNew)
+        const action = autocompleteActionMap.current[cardId]
 
         setDoneIndex(i)
 
-        if (action === 'add') {
-            await fetch('/api/add-to-bag', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cardId: card.id,
-                    worth: card.coins,
-                    isHot: card.isHot,
-                }),
-            })
-            setAddedCardIds((prev) => new Set(prev).add(card.id))
-        } else if (action === 'sell') {
-            await fetch('/api/buyback-card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card_buyback_amount: card.coins }),
-            })
+        if (action === 'sell') {
             setShattering(true)
             await new Promise((res) => setTimeout(res, 900))
             setShattering(false)
             autocompleteQueue.current.shift()
             removeCard(i)
             setTimeout(() => processNextAutocomplete(), 50)
-            return
-        } else if (action === 'feed') {
-            await fetch('/api/feed-card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cardID: card.id }),
-            })
+        } else {
+            // add / feed — trigger fly-down; handleAnimationEnd resumes queue
+            autocompleteQueue.current.shift()
+            setAnimatingIndex(i)
         }
-
-        autocompleteQueue.current.shift()
-        setAnimatingIndex(i)
     }
 
     function handleAnimationEnd() {
@@ -315,17 +346,13 @@ export default function PackOpening({ pack, onBack }: Props) {
     const currentCard = remainingCards[doneIndex]
     const currentCardIsNew =
         currentCard?.isNew && !addedCardIds.has(currentCard.id)
+    const currentGlowRgb = currentCard
+        ? rarityGlowRgb(currentCard.rarity)
+        : '156,163,175'
+    const currentIsRainbow = currentCard ? isRainbow(currentCard.rarity) : false
 
     return (
         <div className="flex flex-col items-center justify-center mt-12">
-            {/* keyframes */}
-            <style>{`
-                @keyframes particle-fly {
-                    0%   { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
-                    100% { transform: translate(var(--tx),var(--ty)) scale(0.2) rotate(var(--rot)); opacity: 0; }
-                }
-            `}</style>
-
             <div
                 className="fixed inset-0 pointer-events-none"
                 style={{
@@ -339,6 +366,25 @@ export default function PackOpening({ pack, onBack }: Props) {
             {/* pack */}
             {phase === 'idle' && (
                 <>
+                    {coinError && (
+                        <div
+                            className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl"
+                            style={{
+                                background: 'rgba(239,68,68,0.06)',
+                                border: '1px solid rgba(239,68,68,0.2)',
+                            }}
+                        >
+                            <p className="text-red-400 text-xs">
+                                not enough coins — need{' '}
+                                <span className="font-bold">🪙 {coinError.cost}</span>
+                                , you have{' '}
+                                <span className="font-bold text-gray-400">
+                                    {coinError.coins}
+                                </span>
+                            </p>
+                        </div>
+                    )}
+
                     {resumeSession && (
                         <div
                             className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl"
@@ -455,7 +501,7 @@ export default function PackOpening({ pack, onBack }: Props) {
                     <p
                         className="text-xs tracking-widest uppercase"
                         style={{
-                            color: `rgba(${RARITY_GLOW[rarityCard.rarity]}, 1)`,
+                            color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
                         }}
                     >
                         {rarityCard.rarity} · {rarityToOdds(rarityCard.rarity)}
@@ -473,16 +519,14 @@ export default function PackOpening({ pack, onBack }: Props) {
                         <img
                             src={currentCard.image_url}
                             alt={currentCard.name}
-                            className="rounded-xl"
+                            className={`rounded-xl${currentIsRainbow ? ' glow-rainbow' : ''}`}
                             style={{
                                 height: '364px',
                                 width: 'auto',
                                 opacity: shattering ? 0 : 1,
-                                boxShadow:
-                                    RARITY_GLOW[currentCard.rarity] ===
-                                    'rainbow'
-                                        ? undefined
-                                        : `0 0 20px 4px rgba(${RARITY_GLOW[currentCard.rarity] ?? '156,163,175'}, 0.6)`,
+                                boxShadow: currentIsRainbow
+                                    ? undefined
+                                    : `0 0 20px 4px rgba(${currentGlowRgb}, 0.6)`,
                             }}
                         />
                         {shattering && (
@@ -608,46 +652,13 @@ export default function PackOpening({ pack, onBack }: Props) {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleAutocomplete}
-                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-                            style={{
-                                background: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: '#fff',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background =
-                                    'rgba(255,255,255,0.12)'
-                                e.currentTarget.style.transform =
-                                    'translateY(-2px)'
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background =
-                                    'rgba(255,255,255,0.06)'
-                                e.currentTarget.style.transform =
-                                    'translateY(0)'
-                            }}
+                            className="btn-autocomplete px-4 py-2 rounded-xl text-xs font-semibold"
                         >
                             ⚡ autocomplete
                         </button>
                         <button
                             onClick={() => setShowSettings(true)}
-                            className="p-2 transition-all"
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#4b5563',
-                                fontSize: '1rem',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#9ca3af'
-                                e.currentTarget.style.transform =
-                                    'translateY(-2px)'
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = '#4b5563'
-                                e.currentTarget.style.transform =
-                                    'translateY(0)'
-                            }}
+                            className="btn-icon p-2"
                         >
                             ⚙
                         </button>

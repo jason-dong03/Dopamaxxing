@@ -1,5 +1,5 @@
 'use client'
-import { RARITY_GLOW } from '@/lib/rarityConfig'
+import { rarityGlowRgb } from '@/lib/rarityConfig'
 
 // ─── particle field ───────────────────────────────────────────────────────────
 const PARTICLES = Array.from({ length: 28 }, (_, i) => {
@@ -37,7 +37,7 @@ const TILES = Array.from({ length: COLS * ROWS }, (_, i) => {
 type Props = { rarity: string; imageUrl: string }
 
 export function ShatterEffect({ rarity, imageUrl }: Props) {
-    const glowRgb = RARITY_GLOW[rarity] ?? '234,179,8'
+    const glowRgb = rarityGlowRgb(rarity)
 
     return (
         <>

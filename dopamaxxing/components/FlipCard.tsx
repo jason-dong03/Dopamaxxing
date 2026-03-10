@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { RARITY_GLOW, rarityToOdds } from '@/lib/rarityConfig'
+import { rarityGlowRgb, isRainbow, rarityToOdds } from '@/lib/rarityConfig'
 
 type Props = {
     card: {
@@ -39,19 +39,19 @@ export default function FlipCard({
     const [popped, setPopped] = useState(false)
     const [hovering, setHovering] = useState(false)
 
-    const glowColor = RARITY_GLOW[card.rarity] ?? '156, 163, 175'
-    const isRainbow = glowColor === 'rainbow'
+    const glowRgb = rarityGlowRgb(card.rarity)
+    const cardIsRainbow = isRainbow(card.rarity)
     const isSpecial = SPECIAL_RARITIES.includes(card.rarity)
 
-    const glowStyle = isRainbow
+    const glowStyle = cardIsRainbow
         ? undefined
-        : `0 0 30px 6px rgba(${glowColor}, 0.9)`
+        : `0 0 30px 6px rgba(${glowRgb}, 0.9)`
 
     function handleClick() {
         if (!flipped) {
             if (isSpecial) {
                 setShowSpecial(true)
-                onSpecialChange(true, glowColor)
+                onSpecialChange(true, glowRgb)
                 setFlipped(true)
                 onFlipped()
                 setPopped(true)
@@ -69,7 +69,7 @@ export default function FlipCard({
         if (!confirmed) {
             setConfirmed(true)
             setTimeout(() => setShowSpecial(false), 100)
-            onSpecialChange(false, glowColor)
+            onSpecialChange(false, glowRgb)
             onConfirmed()
             onReveal()
         }
@@ -153,7 +153,7 @@ export default function FlipCard({
                             borderRadius: '12px',
                             boxShadow: flipped ? glowStyle : undefined,
                         }}
-                        className={isRainbow ? 'glow-rainbow' : ''}
+                        className={cardIsRainbow ? 'glow-rainbow' : ''}
                     >
                         <img
                             src={card.image_url}

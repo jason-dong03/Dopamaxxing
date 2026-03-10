@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { RARITY_GLOW, isRainbow, type Rarity } from '@/lib/rarityConfig'
+import { rarityGlowRgb, isRainbow, type Rarity } from '@/lib/rarityConfig'
 import {
     getPokemonShowdownSpriteUrl,
     getPokemonAnimatedSpriteUrl,
@@ -27,9 +27,7 @@ export default function PokemonViewer({
     const [spriteStage, setSpriteStage] = useState(0)
 
     const rainbow = isRainbow(rarity as Rarity)
-    const glowRgb = rainbow
-        ? '168,85,247'
-        : (RARITY_GLOW[rarity] ?? '156,163,175')
+    const glowRgb = rarityGlowRgb(rarity)
 
     const spriteSources = [
         getPokemonShowdownSpriteUrl(pokemonName),

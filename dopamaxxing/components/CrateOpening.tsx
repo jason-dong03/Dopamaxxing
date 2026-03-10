@@ -45,12 +45,14 @@ export default function CrateOpening({
     const [flyingDown, setFlyingDown] = useState(false)
     const [actionDone, setActionDone] = useState(false)
     const [soldCoins, setSoldCoins] = useState<number | null>(null)
+    const [coinError, setCoinError] = useState<{ cost: number; coins: number } | null>(null)
 
     const containerRef = useRef<HTMLDivElement>(null)
     const startedRef = useRef(false)
 
     async function handleOpen() {
         if (phase !== 'idle') return
+        setCoinError(null)
         setPhase('loading')
 
         const res = await fetch('/api/open-pack', {
@@ -58,6 +60,14 @@ export default function CrateOpening({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ setId: pack.id }),
         })
+
+        if (res.status === 402) {
+            const data = await res.json()
+            setPhase('idle')
+            setCoinError({ cost: data.cost, coins: data.coins })
+            return
+        }
+
         const data = await res.json()
 
         const winner: WonCard = data.cards[0]
@@ -142,6 +152,24 @@ export default function CrateOpening({
     if (phase === 'idle' || phase === 'loading') {
         return (
             <div className="flex flex-col items-center mt-12 gap-7">
+                {coinError && (
+                    <div
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                        style={{
+                            background: 'rgba(239,68,68,0.06)',
+                            border: '1px solid rgba(239,68,68,0.2)',
+                        }}
+                    >
+                        <p className="text-red-400 text-xs">
+                            not enough coins — need{' '}
+                            <span className="font-bold">🪙 {coinError.cost}</span>
+                            , you have{' '}
+                            <span className="font-bold text-gray-400">
+                                {coinError.coins}
+                            </span>
+                        </p>
+                    </div>
+                )}
                 <div
                     className={
                         phase === 'loading'

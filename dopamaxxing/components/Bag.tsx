@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
     RARITY_ORDER,
-    RARITY_GLOW,
     RARITY_ABBREV,
     isRainbow,
+    rarityGlowRgb,
     rarityGlowShadow,
     rarityTextStyle,
     xpToNextLevel,
@@ -52,7 +52,7 @@ function CardTile({
 }) {
     const rarity = uc.cards.rarity as Rarity
     const rainbow = isRainbow(rarity)
-    const glowRgb = RARITY_GLOW[rarity]
+    const glowRgb = rarityGlowRgb(rarity)
     const abbrev = RARITY_ABBREV[rarity] ?? rarity[0]
     const baseShadow = isSelected
         ? rarityGlowShadow(rarity, 'md')
@@ -66,7 +66,7 @@ function CardTile({
                 transition: 'transform 110ms ease, box-shadow 110ms ease',
                 boxShadow: baseShadow,
                 outline: isSelected
-                    ? `2px solid rgba(${rainbow ? '168,85,247' : glowRgb}, 0.7)`
+                    ? `2px solid rgba(${glowRgb}, 0.7)`
                     : 'none',
                 outlineOffset: '2px',
             }}
@@ -159,7 +159,7 @@ function CardTile({
 function SellButton({ uc, onSell }: { uc: UserCard; onSell: () => void }) {
     const rarity = uc.cards.rarity as Rarity
     const rainbow = isRainbow(rarity)
-    const glowRgb = RARITY_GLOW[rarity]
+    const glowRgb = rarityGlowRgb(rarity)
 
     return (
         <div className="relative mt-2">
@@ -220,7 +220,7 @@ function CardStats({
 }) {
     const rarity = uc.cards.rarity as Rarity
     const rainbow = isRainbow(rarity)
-    const glowRgb = RARITY_GLOW[rarity]
+    const glowRgb = rarityGlowRgb(rarity)
     const xpNeeded = xpToNextLevel(rarity, uc.card_level)
     const xpPct = Math.min(100, (uc.card_xp / xpNeeded) * 100)
     const borderColor = rainbow
@@ -688,7 +688,7 @@ export default function BagPage({ userCards: initialCards }: { userCards: UserCa
                             {FILTERS.map((f) => {
                                 const isActive = filters.has(f)
                                 const rainbow = isRainbow(f as Rarity)
-                                const glowRgb = RARITY_GLOW[f as Rarity]
+                                const glowRgb = rarityGlowRgb(f)
                                 function toggle() {
                                     setFilters((prev) => {
                                         const next = new Set(prev)
@@ -826,7 +826,7 @@ export default function BagPage({ userCards: initialCards }: { userCards: UserCa
                         style={{
                             maxWidth: 680,
                             background: 'rgba(10,10,16,0.99)',
-                            border: `1px solid rgba(${isRainbow(selected.cards.rarity as Rarity) ? '168,85,247' : RARITY_GLOW[selected.cards.rarity as Rarity]}, 0.25)`,
+                            border: `1px solid rgba(${rarityGlowRgb(selected.cards.rarity)}, 0.25)`,
                             boxShadow: rarityGlowShadow(
                                 selected.cards.rarity as Rarity,
                                 'lg',

@@ -12,7 +12,7 @@ export default function Navbar({ profile }: { profile: Profile | null }) {
         <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-black border-t border-gray-800">
             <div className="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
                 <Link
-                    href="/dashboard"
+                    href="/dashboard/quests"
                     className="inline-flex flex-col items-center justify-center px-8 hover:bg-gray-900 group"
                 >
                     <svg
@@ -29,7 +29,7 @@ export default function Navbar({ profile }: { profile: Profile | null }) {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="2"
-                            d="m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5"
+                            d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"
                         />
                     </svg>
                     <span className="text-sm text-gray-400 group-hover:text-gray-200">

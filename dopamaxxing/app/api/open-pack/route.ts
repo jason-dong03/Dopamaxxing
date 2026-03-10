@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { pickRarity, calculateBuyback } from '@/lib/rarityConfig'
+import { PACKS } from '@/lib/packs'
 
 const pityRarities = ['Legendary', 'Divine', 'Celestial', '???']
 
@@ -32,20 +33,30 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const { setId } = await request.json()
-        console.log(`[open-pack] opening pack for set: ${setId}`)
+
+        // look up pack cost from catalog
+        const packDef = PACKS.find((p) => p.id === setId)
+        const cost = packDef?.cost ?? 0
 
         // fetch profile + all set cards in parallel
         const [{ data: profile }, allCards] = await Promise.all([
             supabase
                 .from('profiles')
-                .select('pity_counter, pity_threshold')
+                .select('pity_counter, pity_threshold, coins, packs_opened')
                 .eq('id', user.id)
                 .single(),
             getCardsForSet(supabase, setId),
         ])
 
+        // ── coin check ────────────────────────────────────────────────────────
+        if (cost > 0 && (profile?.coins ?? 0) < cost) {
+            return NextResponse.json(
+                { error: 'insufficient_coins', cost, coins: profile?.coins ?? 0 },
+                { status: 402 },
+            )
+        }
+
         if (allCards.length === 0) {
-            console.log(`[open-pack] set ${setId} has no cards`)
             return NextResponse.json({ error: 'No cards in set' }, { status: 400 })
         }
 
@@ -58,19 +69,21 @@ export async function POST(request: NextRequest) {
         }
 
         const isSpecialBox = byRarity.size === 1 && byRarity.has('???')
-        console.log(`[open-pack] isSpecialBox: ${isSpecialBox}, pool: ${allCards.length} cards`)
 
         const pickedCards: CardRow[] = []
 
-        // pool returned to client for crate reel animation (special boxes only)
         const cardPool = isSpecialBox
-            ? allCards.map((c) => ({ id: c.id, image_url: c.image_url, name: c.name, rarity: c.rarity }))
+            ? allCards.map((c) => ({
+                  id: c.id,
+                  image_url: c.image_url,
+                  name: c.name,
+                  rarity: c.rarity,
+              }))
             : undefined
 
         if (isSpecialBox) {
             const pool = byRarity.get('???')!
             pickedCards.push(pool[Math.floor(Math.random() * pool.length)])
-            console.log(`[open-pack] special box picked: ${(pickedCards[0].name as string)}`)
         } else {
             for (let i = 0; i < 5; i++) {
                 let selectedCard: CardRow | null = null
@@ -81,39 +94,33 @@ export async function POST(request: NextRequest) {
                     const rarity = pickRarity()
                     const pool = byRarity.get(rarity)
                     if (pool && pool.length > 0) {
-                        selectedCard = pool[Math.floor(Math.random() * pool.length)]
-                        console.log(
-                            `[open-pack] slot ${i} picked ${selectedCard.name} (${rarity}) after ${attempts} attempt(s)`,
-                        )
-                    } else {
-                        console.log(
-                            `[open-pack] slot ${i} attempt ${attempts} — rarity ${rarity} not in set, rerolling`,
-                        )
+                        selectedCard =
+                            pool[Math.floor(Math.random() * pool.length)]
                     }
                 }
 
-                if (selectedCard) {
-                    pickedCards.push(selectedCard)
-                } else {
-                    console.log(`[open-pack] slot ${i} failed after 10 rerolls — skipping`)
-                }
+                if (selectedCard) pickedCards.push(selectedCard)
             }
         }
-
-        console.log(`[open-pack] total cards picked: ${pickedCards.length}`)
 
         const hitHighRarity = pickedCards.some((c) =>
             pityRarities.includes(c.rarity as string),
         )
-        const newPityCounter = hitHighRarity ? 0 : (profile?.pity_counter ?? 0) + 1
+        const newPityCounter = hitHighRarity
+            ? 0
+            : (profile?.pity_counter ?? 0) + 1
 
         const cardIds = pickedCards.map((c) => c.id)
 
-        // update pity + check ownership in parallel
+        // update pity + coins + packs_opened, and check ownership — in parallel
         const [, { data: owned }] = await Promise.all([
             supabase
                 .from('profiles')
-                .update({ pity_counter: newPityCounter })
+                .update({
+                    pity_counter: newPityCounter,
+                    coins: (profile?.coins ?? 0) - cost,
+                    packs_opened: (profile?.packs_opened ?? 0) + 1,
+                })
                 .eq('id', user.id),
             supabase
                 .from('user_cards')
@@ -135,6 +142,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ cards: cardsWithMeta, cardPool })
     } catch (err) {
         console.error('[open-pack] unhandled error:', err)
-        return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+        return NextResponse.json(
+            { error: 'Something went wrong' },
+            { status: 500 },
+        )
     }
 }

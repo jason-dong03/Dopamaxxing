@@ -4,6 +4,7 @@ export type Pack = {
     image: string // path to pack image
     description: string
     aspect: 'pack' | 'box'
+    cost: number // coins required to open
 }
 
 export const PACKS: Pack[] = [
@@ -13,6 +14,7 @@ export const PACKS: Pack[] = [
         image: '/packs/black-bolt.jpg',
         description: 'Scarlet & Violet — Black Bolt',
         aspect: 'pack',
+        cost: 100,
     },
     {
         id: 'sv10.5w',
@@ -20,12 +22,14 @@ export const PACKS: Pack[] = [
         image: '/packs/white-flare.jpg',
         description: 'Scarlet & Violet — White Flare',
         aspect: 'pack',
+        cost: 100,
     },
     {
         id: 'xy-p-poncho',
         name: 'Poncho Pikachu',
-        image: '/packs/pikachu-poncho.png', // add your image
+        image: '/packs/pikachu-poncho.png',
         description: 'XY Promo — Poncho Pikachu',
         aspect: 'box',
+        cost: 400,
     },
 ]
