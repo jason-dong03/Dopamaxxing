@@ -215,10 +215,6 @@ export default function BattlesPage() {
                         <span style={{ fontSize: '0.56rem', color: '#4b5563', fontWeight: 600 }}>Won</span>
                         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4ade80' }}>{battlesWon ?? '—'}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.2)', borderRadius: 6 }}>
-                        <span style={{ fontSize: '0.56rem', color: '#4b5563', fontWeight: 600 }}>EXP/Win</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fb923c' }}>5–15%</span>
-                    </div>
                 </div>
             </div>
 
@@ -271,7 +267,12 @@ export default function BattlesPage() {
                         {lineups.map((lu) => (
                             <div key={lu.id}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#e2e8f0' }}>{lu.name}</span>
+                                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                        {lu.name}
+                                        <span style={{ fontSize: '0.58rem', fontWeight: 500, color: lu.cards.length < 5 ? '#f87171' : '#4b5563', marginLeft: 6 }}>
+                                            ({lu.cards.length}/5)
+                                        </span>
+                                    </span>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button onClick={() => openSetup(lu)} style={{ fontSize: '0.58rem', padding: '3px 9px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#9ca3af', cursor: 'pointer' }}>Edit</button>
                                         <button onClick={() => deleteLineup(lu.id)} style={{ fontSize: '0.58rem', padding: '3px 9px', borderRadius: 5, border: '1px solid rgba(248,113,113,0.2)', background: 'rgba(248,113,113,0.06)', color: '#f87171', cursor: 'pointer' }}>✕</button>
@@ -311,6 +312,8 @@ export default function BattlesPage() {
                     style={{
                         display: 'flex',
                         justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: 8,
                         marginBottom: 16,
                     }}
                 >
@@ -328,6 +331,10 @@ export default function BattlesPage() {
                         }}
                     >
                         Daily Challenge
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.2)', borderRadius: 6 }}>
+                        <span style={{ fontSize: '0.56rem', color: '#4b5563', fontWeight: 600 }}>EXP/Win</span>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fb923c' }}>5–15%</span>
                     </div>
                 </div>
 
@@ -825,7 +832,7 @@ export default function BattlesPage() {
                                 }}
                                 style={{ padding: '12px', borderRadius: 12, border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#6b7280', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
                             >
-                                + Choose cards manually
+                                + Create another lineup
                             </button>
                         </div>
                     </div>

@@ -6,6 +6,28 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const tcgdex = new TCGdex('en')
 const EURO_TO_USD = 1.08
 
+// Cache dex→type within a single seed run to avoid duplicate PokeAPI calls
+const typeCache = new Map<number, string | null>()
+
+async function fetchPokemonType(dexNumber: number): Promise<string | null> {
+    if (typeCache.has(dexNumber)) return typeCache.get(dexNumber)!
+    try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${dexNumber}`, {
+            next: { revalidate: 86400 },
+            signal: AbortSignal.timeout(5000),
+        })
+        if (!res.ok) { typeCache.set(dexNumber, null); return null }
+        const data = await res.json()
+        const type = (data.types as Array<{ slot: number; type: { name: string } }>)
+            .find(t => t.slot === 1)?.type.name ?? null
+        typeCache.set(dexNumber, type)
+        return type
+    } catch {
+        typeCache.set(dexNumber, null)
+        return null
+    }
+}
+
 const FIRST_ED_MULTIPLIER: Record<string, number> = {
     'Rare Holo':    18,
     'Rare Holo EX': 18,
@@ -48,6 +70,7 @@ export async function GET(request: NextRequest) {
         console.log(`\n🌱 Seeding "${label}" (${targetSetId}) — ${set.cards.length} cards\n`)
 
         const results: string[] = []
+        typeCache.clear()
         for (const cardResume of set.cards) {
             const card = await tcgdex.card.get(cardResume.id)
             if (!card || card.category !== 'Pokemon') continue
@@ -64,6 +87,11 @@ export async function GET(request: NextRequest) {
 
             const cardId = firstEdition ? `${targetSetId}/${card.localId}` : card.id
 
+            const dexNumber: number | null = card.dexId?.[0] ??
+                (card.localId ? parseInt(card.localId) || null : null)
+
+            const pokemonType = dexNumber ? await fetchPokemonType(dexNumber) : null
+
             const { error } = await admin.from('cards').upsert({
                 id:           cardId,
                 name:         card.name,
@@ -71,20 +99,19 @@ export async function GET(request: NextRequest) {
                 hp:           card.hp ?? null,
                 evolves_from: card.evolveFrom ?? null,
                 set_id:       targetSetId,
-                national_pokedex_number:
-                    card.dexId?.[0] ??
-                    (card.localId ? parseInt(card.localId) || null : null),
+                national_pokedex_number: dexNumber,
                 image_url:    card.image ? `${card.image}/low.webp`  : null,
                 image_url_hi: card.image ? `${card.image}/high.webp` : null,
                 market_price_usd: marketPrice,
                 is_special:   false,
+                ...(pokemonType ? { pokemon_type: pokemonType } : {}),
             })
 
             if (error) {
                 console.error(`❌ ${card.name}:`, error.message)
             } else {
                 results.push(card.name)
-                console.log(`✅ [${results.length}/${set.cards.length}] ${card.name} — $${marketPrice}`)
+                console.log(`✅ [${results.length}/${set.cards.length}] ${card.name} — $${marketPrice}${pokemonType ? ` (${pokemonType})` : ''}`)
             }
         }
 

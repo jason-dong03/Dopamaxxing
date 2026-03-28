@@ -189,8 +189,8 @@ const MASTERS_ACTS = new Set([
     'n-ch-10',
     'n-ch-11',
 ])
-const CASTLE_ACTS = new Set(['n-ch-6', 'n-ch-7', 'n-ch-8', 'n-ch-9', 'n-ch-10'])
-const PLAINS_ACTS = new Set(['n-ch-1', 'n-ch-2'])
+const CASTLE_ACTS = new Set(['n-ch-6', 'n-ch-7', 'n-ch-8', 'n-ch-9'])
+const PLAINS_ACTS = new Set(['n-ch-1', 'n-ch-2', 'n-ch-10', 'n-ch-11'])
 
 const N_CH2_RUN_LINE = 4
 

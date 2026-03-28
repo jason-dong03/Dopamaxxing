@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateBuyback, WEIGHTS_BULK, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS, BONUS_CARD_CHANCE, pickRarityFromWeights } from '@/lib/rarityConfig'
 import { PACKS } from '@/lib/packs'
-import { applyProfileXP, XP_PER_PACK } from '@/lib/rarityConfig'
+import { applyProfileXP, packXpGain } from '@/lib/rarityConfig'
 import { generateAttributes } from '@/lib/cardAttributes'
 import { getEventMagnitude, getTodayEvents } from '@/lib/dailyEvents'
 import { awardAchievements, getEarnedAchievements } from '@/lib/awardAchievement'
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
         const { xp: newXP, level: newLevel } = applyProfileXP(
             profile?.xp ?? 0,
             oldLevel,
-            XP_PER_PACK,
+            packXpGain(oldLevel),
         )
 
         // award level-up stash rewards for any levels crossed (fire-and-forget)

@@ -4,7 +4,7 @@ import {
     calculateBuyback,
     WEIGHTS_BULK, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS,
     BONUS_CARD_CHANCE, pickRarityFromWeights,
-    applyProfileXP, XP_PER_PACK,
+    applyProfileXP, packXpGain,
 } from '@/lib/rarityConfig'
 import { PACKS } from '@/lib/packs'
 import { generateAttributes } from '@/lib/cardAttributes'
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         const newPityCounter = hitHighRarity ? 0 : (profile?.pity_counter ?? 0) + 1
 
         const oldLevel = profile?.level ?? 1
-        const { xp: newXP, level: newLevel } = applyProfileXP(profile?.xp ?? 0, oldLevel, XP_PER_PACK * count)
+        const { xp: newXP, level: newLevel } = applyProfileXP(profile?.xp ?? 0, oldLevel, packXpGain(oldLevel) * count)
         void awardLevelUpRewards(supabase, user.id, oldLevel, newLevel)
 
         const today = new Date().toISOString().slice(0, 10)

@@ -27,14 +27,17 @@ export async function GET() {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Hydrate each lineup with card details
+    // Hydrate each lineup with card details (prune stale/deleted card IDs)
     const hydrated = await Promise.all(
-        (lineups ?? []).map(async (l: any) => ({
-            id: l.id,
-            name: l.name,
-            slots: l.slots,
-            cards: await hydrateLineup(supabase, user.id, l.slots ?? []),
-        }))
+        (lineups ?? []).map(async (l: any) => {
+            const cards = await hydrateLineup(supabase, user.id, l.slots ?? [])
+            return {
+                id: l.id,
+                name: l.name,
+                slots: (cards as any[]).map((c) => c.id),   // only IDs that still exist
+                cards,
+            }
+        })
     )
 
     return NextResponse.json({ lineups: hydrated })

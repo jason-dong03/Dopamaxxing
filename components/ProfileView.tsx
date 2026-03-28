@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { rarityTextStyle } from '@/lib/rarityConfig'
 import { NATURE_BY_NAME, NATURE_TIER_COLOR } from '@/lib/pokemon-stats'
+import { TYPE_COLOR } from '@/lib/pokemon-types'
 import { getTitleColor, getTitleRarity } from '@/lib/titleConfig'
 import PsaSlab from '@/components/card/PsaSlab'
 import FirstEditionBadge from '@/components/card/FirstEditionBadge'
@@ -56,6 +57,7 @@ const PokemonViewer = dynamic(() => import('@/components/PokemonViewer'), {
 })
 
 import type { Profile, Friend, AchievementItem, ShowcaseCard } from '@/lib/types'
+import { baseName } from '@/lib/types/cards'
 import type { BinderPreview } from '@/lib/types'
 
 function Badge({
@@ -1094,7 +1096,7 @@ export default function ProfileView({
                                 color: 'var(--app-text)',
                             }}
                         >
-                            {showcaseCard.cards.name}{' '}
+                            {baseName(showcaseCard.cards.name)}{' '}
                             <span
                                 className="font-mono px-2 py-0.5 rounded-md"
                                 style={{ fontSize: '0.8rem', color: '#9ca3af' }}
@@ -1132,6 +1134,16 @@ export default function ProfileView({
                                     </span>
                                 )
                             })()}
+                            {showcaseCard.cards.pokemon_type && (
+                                <span style={{
+                                    fontSize: '0.52rem', fontWeight: 700, textTransform: 'capitalize',
+                                    color: '#fff',
+                                    background: TYPE_COLOR[showcaseCard.cards.pokemon_type] ?? '#6b7280',
+                                    borderRadius: 5, padding: '2px 7px', letterSpacing: '0.04em',
+                                }}>
+                                    {showcaseCard.cards.pokemon_type}
+                                </span>
+                            )}
                         </div>
                         {showcaseCard.worth != null && showcaseCard.worth > 0 && (() => {
                             const GRADE_MULTIPLIER: Record<number, number> = {

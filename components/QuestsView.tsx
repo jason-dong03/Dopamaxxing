@@ -258,6 +258,18 @@ export default function QuestsView({
     ).length
     const everCompleted = quests.filter(hasEverCompleted).length
 
+    // Per-category set progress (one-time quests only, visible or already completed)
+    const setProgress: Record<string, { done: number; total: number }> = {}
+    for (const cat of ['ingame', 'story', 'recurring'] as const) {
+        const inCat = quests.filter((q) =>
+            q.category === cat && !q.is_hidden,
+        )
+        setProgress[cat] = {
+            done: inCat.filter((q) => allCompleted.has(q.id)).length,
+            total: inCat.length,
+        }
+    }
+
     function dispatchQuestComplete(quest: Quest) {
         window.dispatchEvent(
             new CustomEvent('quest-complete', {
@@ -813,6 +825,34 @@ export default function QuestsView({
                         </button>
                     )}
                 </div>
+
+                {/* set progress bar */}
+                {(activeTab === 'ingame' || activeTab === 'story' || activeTab === 'recurring') && (() => {
+                    const sp = setProgress[activeTab]
+                    const pct = sp.total > 0 ? (sp.done / sp.total) * 100 : 0
+                    const accent = TAB_ACCENT[activeTab]
+                    return (
+                        <div style={{ marginBottom: 18 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                                <span style={{ fontSize: '0.55rem', color: 'var(--app-text-ghost)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                    set progress
+                                </span>
+                                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: accent }}>
+                                    {sp.done} / {sp.total}
+                                </span>
+                            </div>
+                            <div style={{ height: 4, borderRadius: 4, background: 'var(--app-border)', overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${pct}%`,
+                                    background: accent,
+                                    borderRadius: 4,
+                                    transition: 'width 500ms ease',
+                                }} />
+                            </div>
+                        </div>
+                    )
+                })()}
 
                 {/* quest list */}
                 <div style={{ paddingRight: 4 }}>

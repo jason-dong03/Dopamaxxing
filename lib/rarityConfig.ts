@@ -112,8 +112,13 @@ export function xpForLevel(level: number): number {
     return level * 100
 }
 
-/** XP awarded for opening a pack */
+/** XP awarded for opening a pack (base) */
 export const XP_PER_PACK = 15
+
+/** XP awarded for opening a pack, scaled by player level (sqrt scaling) */
+export function packXpGain(level: number): number {
+    return Math.round(XP_PER_PACK * Math.sqrt(level))
+}
 
 /** Apply XP to a profile (not a card), handling multi-level-ups. */
 export function applyProfileXP(
@@ -133,33 +138,67 @@ export function applyProfileXP(
 // ─── leveling ─────────────────────────────────────────────────────────────────
 export const MAX_CARD_LEVEL = 100
 
-// xp gained when feeding a card of this rarity
+// XP granted to the target card when a card of this rarity is fed to it.
+// All cards share the same Erratic level-up threshold — rarity only affects
+// how much XP a fed card contributes (higher rarity = dramatic boost).
 export const RARITY_XP: Record<string, number> = {
-    Common: 10,
-    Uncommon: 20,
-    Rare: 35,
-    Epic: 55,
-    Mythical: 80,
-    Legendary: 120,
-    Divine: 175,
-    Celestial: 250,
-    '???': 500,
+    Common:    10,
+    Uncommon:  30,
+    Rare:      100,
+    Epic:      300,
+    Mythical:  800,
+    Legendary: 2_000,
+    Divine:    5_000,
+    Celestial: 12_000,
+    '???':     30_000,
 }
 
-// xp required to reach the next level
-export function xpToNextLevel(rarity: string, level: number): number {
-    const multipliers: Record<string, number> = {
-        Common: 100,
-        Uncommon: 100,
-        Rare: 100,
-        Epic: 20,
-        Mythical: 20,
-        Legendary: 20,
-        Divine: 5,
-        Celestial: 2,
-        '???': 1,
+// ─── Erratic XP growth curve ──────────────────────────────────────────────────
+// Standard Pokémon Erratic experience group — piecewise formula.
+// erraticXP(L) = total cumulative XP required to reach level L (1–100).
+// Curve is fast at early levels, expensive in the mid-range, and tapers
+// at the very end — giving a satisfying "early rush / late grind" feel.
+//
+//   1 ≤ L ≤ 50 : floor( L³ × (100 − L) / 50 )
+//  51 ≤ L ≤ 68 : floor( L³ × (150 − L) / 100 )
+//  69 ≤ L ≤ 98 : floor( L³ × floor((1911 − 10L) / 3) / 500 )
+//  99 ≤ L ≤ 100: floor( L³ × (160 − L) / 100 )
+//
+// Canonical values: erraticXP(1)=1, erraticXP(50)=125000, erraticXP(100)=600000
+
+/**
+ * Total cumulative XP required to reach level L using the Erratic growth formula.
+ * @param L integer in [1, 100]
+ */
+export function erraticXP(L: number): number {
+    if (!Number.isInteger(L) || L < 1 || L > 100) {
+        throw new RangeError(`erraticXP: L must be an integer in [1, 100], got ${L}`)
     }
-    return level * (multipliers[rarity] ?? 100)
+    const L3 = L * L * L
+    if (L <= 50) return Math.floor(L3 * (100 - L) / 50)
+    if (L <= 68) return Math.floor(L3 * (150 - L) / 100)
+    if (L <= 98) return Math.floor(L3 * Math.floor((1911 - 10 * L) / 3) / 500)
+    return Math.floor(L3 * (160 - L) / 100)   // L = 99 or 100
+}
+
+/**
+ * Incremental XP needed to advance from level L to L+1 (Erratic curve).
+ * Equivalent to erraticXP(L+1) − erraticXP(L).
+ * @param L integer in [1, 99]
+ */
+export function erraticXpToNext(L: number): number {
+    if (!Number.isInteger(L) || L < 1 || L >= 100) {
+        throw new RangeError(`erraticXpToNext: L must be an integer in [1, 99], got ${L}`)
+    }
+    return erraticXP(L + 1) - erraticXP(L)
+}
+
+// XP required to advance from `level` to `level+1`.
+// All rarities share the same Erratic threshold — rarity affects only
+// what gets fed, not how much is needed to level up.
+export function xpToNextLevel(_rarity: string, level: number): number {
+    const clampedLevel = Math.min(Math.max(level, 1), 99)
+    return erraticXpToNext(clampedLevel)
 }
 
 // applies xp gain and handles multi-level-ups, capped at MAX_CARD_LEVEL

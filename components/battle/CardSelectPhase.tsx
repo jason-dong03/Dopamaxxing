@@ -45,7 +45,7 @@ export function CardSelectPhase({
 }: Props) {
     const narrow = useNarrow(480)
     const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set())
-    type SavedLineup = { id: string; name: string; slots: string[] }
+    type SavedLineup = { id: string; name: string; slots: string[]; cards?: { id: string }[] }
     const [savedLineups, setSavedLineups] = useState<SavedLineup[]>([])
     const [lineupMenuOpen, setLineupMenuOpen] = useState(false)
 
@@ -179,7 +179,7 @@ export function CardSelectPhase({
                                         >
                                             {lu.name}
                                             <span style={{ color: '#4b5563', fontSize: '0.58rem', marginLeft: 6 }}>
-                                                {lu.slots.length} cards
+                                                {(lu.cards ?? lu.slots).length} cards
                                             </span>
                                         </button>
                                     ))}

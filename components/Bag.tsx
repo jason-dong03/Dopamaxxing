@@ -14,6 +14,7 @@ import type { UserCard } from '@/lib/types'
 import { CardTile } from '@/components/bag/CardTile'
 import { CardStats } from '@/components/bag/CardStats'
 import { ITEM_MAP, type ItemId } from '@/lib/items'
+import { TYPE_COLOR } from '@/lib/pokemon-types'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const FILTERS = ['All', ...RARITY_ORDER]
@@ -44,6 +45,8 @@ export default function BagPage({
     )
     const [batchProcessing, setBatchProcessing] = useState(false)
     const [filters, setFilters] = useState<Set<string>>(new Set(['All']))
+    const [favoritesOnly, setFavoritesOnly] = useState(false)
+    const [typeFilter, setTypeFilter] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [sort, setSort] = useState<
         'rarity' | 'level' | 'name' | 'price' | 'grade'
@@ -83,7 +86,7 @@ export default function BagPage({
 
     useEffect(() => {
         if (headerRef.current) setHeaderHeight(headerRef.current.offsetHeight)
-    }, [filters, search, sort])
+    }, [filters, favoritesOnly, typeFilter, search, sort])
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -93,8 +96,14 @@ export default function BagPage({
         return () => window.removeEventListener('keydown', handler)
     }, [])
 
+    const allTypes = Array.from(
+        new Set(userCards.map((uc) => uc.cards.pokemon_type).filter(Boolean) as string[])
+    ).sort()
+
     const filtered = userCards
         .filter((uc) => filters.has('All') || filters.has(uc.cards.rarity))
+        .filter((uc) => !favoritesOnly || uc.is_favorited)
+        .filter((uc) => !typeFilter || uc.cards.pokemon_type === typeFilter)
         .filter((uc) =>
             uc.cards.name.toLowerCase().includes(search.toLowerCase()),
         )
@@ -257,18 +266,6 @@ export default function BagPage({
         const next = !selected.is_favorited
         const supabase = createClient()
 
-        if (next) {
-            // Only 1 favorite allowed — unfavorite all others first
-            const {
-                data: { user },
-            } = await supabase.auth.getUser()
-            await supabase
-                .from('user_cards')
-                .update({ is_favorited: false })
-                .eq('user_id', user?.id ?? '')
-                .neq('id', selected.id)
-        }
-
         const { error } = await supabase
             .from('user_cards')
             .update({ is_favorited: next })
@@ -277,15 +274,9 @@ export default function BagPage({
         if (!error) {
             const updated = { ...selected, is_favorited: next }
             setUserCards((prev) =>
-                prev.map((uc) => ({
-                    ...uc,
-                    is_favorited:
-                        uc.id === selected.id
-                            ? next
-                            : next
-                              ? false
-                              : uc.is_favorited,
-                })),
+                prev.map((uc) =>
+                    uc.id === selected.id ? { ...uc, is_favorited: next } : uc,
+                ),
             )
             setSelected(updated)
         }
@@ -561,6 +552,23 @@ export default function BagPage({
                                     paddingBottom: 2,
                                 }}
                             >
+                                {/* Favorites chip */}
+                                <button
+                                    onClick={() => setFavoritesOnly(f => !f)}
+                                    className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
+                                    style={{
+                                        fontSize: '0.62rem',
+                                        border: favoritesOnly
+                                            ? '1px solid rgba(234,179,8,0.6)'
+                                            : '1px solid rgba(255,255,255,0.1)',
+                                        background: favoritesOnly
+                                            ? 'rgba(234,179,8,0.12)'
+                                            : 'transparent',
+                                        color: favoritesOnly ? '#eab308' : 'var(--app-text-muted)',
+                                    }}
+                                >
+                                    ★
+                                </button>
                                 {FILTERS.map((f) => {
                                     const isActive = filters.has(f)
                                     const rainbow = isRainbow(f as Rarity)
@@ -686,6 +694,35 @@ export default function BagPage({
                                 {selectMode ? 'Done' : 'Select'}
                             </button>
                         </div>}
+
+                        {/* type filter chips */}
+                        {activeTab === 'cards' && allTypes.length > 0 && (
+                            <div
+                                className="flex gap-1.5 mt-2"
+                                style={{ overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 2 }}
+                            >
+                                {allTypes.map((t) => {
+                                    const active = typeFilter === t
+                                    const bg = TYPE_COLOR[t] ?? '#6b7280'
+                                    return (
+                                        <button
+                                            key={t}
+                                            onClick={() => setTypeFilter(active ? null : t)}
+                                            className="flex-shrink-0 px-3 py-1 rounded-full capitalize transition-all"
+                                            style={{
+                                                fontSize: '0.58rem',
+                                                fontWeight: 600,
+                                                border: active ? `1px solid ${bg}` : '1px solid rgba(255,255,255,0.08)',
+                                                background: active ? bg : 'transparent',
+                                                color: active ? '#fff' : 'var(--app-text-muted)',
+                                            }}
+                                        >
+                                            {t}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
 
                         {/* quick-select rarity chips — only in select mode */}
                         {activeTab === 'cards' && selectMode && (
@@ -833,7 +870,12 @@ export default function BagPage({
                                                 border: item.item_id === 'n-crown' ? '1px solid rgba(250,204,21,0.25)' : '1px solid rgba(255,255,255,0.07)',
                                                 borderRadius: 12, padding: '12px 16px',
                                             }}>
-                                                <span style={{ fontSize: '1.8rem' }}>{def.icon}</span>
+                                                {def.icon.startsWith('/') ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img src={def.icon} alt={def.name} style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }} />
+                                                ) : (
+                                                    <span style={{ fontSize: '1.8rem' }}>{def.icon}</span>
+                                                )}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{def.name}</p>
                                                     <p style={{ margin: '3px 0 0', fontSize: '0.68rem', color: '#6b7280', lineHeight: 1.5 }}>{def.description}</p>
@@ -987,6 +1029,8 @@ export default function BagPage({
                         className={`overlay-anim relative w-full rounded-2xl${isRainbow(selected.cards.rarity) ? ' glow-rainbow' : ''}`}
                         style={{
                             maxWidth: 680,
+                            maxHeight: 'calc(100vh - 4rem)',
+                            overflowY: 'auto',
                             background: 'rgba(10,10,16,0.99)',
                             border: isRainbow(selected.cards.rarity)
                                 ? '1px solid transparent'

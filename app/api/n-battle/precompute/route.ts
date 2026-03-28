@@ -26,6 +26,15 @@ export async function POST(request: NextRequest) {
     const nSpdStage = (nActive as any).speedStage   ?? 0
     const uAtkStage = (userActive as any).attackStage  ?? 0
     const uDefStage = (userActive as any).defenseStage ?? 0
+    const uSpdStage = (userActive as any).speedStage   ?? 0
+
+    // Find the last move N used (to avoid blindly repeating it)
+    const battleLog: any[] = battle.battle_log ?? []
+    const lastNEntry = [...battleLog].reverse().find(e => e.actor === 'n' && e.attackName !== 'Status')
+    const lastNMoveName: string | null = lastNEntry?.attackName ?? null
+    const lastNMoveIndex: number = lastNMoveName != null
+        ? ((nActive.attacks as any[]).findIndex((a: any) => a.name === lastNMoveName))
+        : -1
 
     const attackList = (nActive.attacks as any[])
         .map((a, i) => {
@@ -51,13 +60,14 @@ export async function POST(request: NextRequest) {
                 {
                     role: 'system',
                     content: `You are N from Pokémon Black/White — a cold, tactical battler who treats Pokémon as partners. Choose the best move index using real competitive strategy:
-- Use status moves (paralysis/poison/burn/sleep) when the foe doesn't have a status yet
-- Use stat-boosting moves (Nasty Plot, Dragon Dance, etc.) early game while HP is high (>60%)
+- Use status moves (paralysis/poison/burn/sleep) when the foe has no status condition yet
+- Use self-buff moves (selfBoosts tag) when HP > 60% AND the relevant stat stage is below +2
+- Use enemy-debuff moves (enemyDrops tag) when the foe's relevant stat stage is above -2 and you are not at risk of fainting this turn
 - Use healing moves when your HP is below 40%
-- Use debuff moves (Scary Face, Charm) when the foe hasn't been debuffed yet
-- Use your strongest attacking move when you have an ATK boost already
-- Use priority moves when the foe is near KO range
-- Don't stack the same stat boost if already at +2 or higher
+- Use your strongest attacking move when you already have a relevant stat boost (+1 or more)
+- Use priority moves when the foe is at low HP and a normal move might not land first
+- Never use a self-buff move if the relevant stage is already at +2 or higher — use an attack instead
+- Never use a debuff move if the foe's relevant stage is already at -2 or lower
 Reply with ONLY a single digit (the move index).`,
                 },
                 {
@@ -67,12 +77,13 @@ Reply with ONLY a single digit (the move index).`,
                         `N's stat stages — ATK:${nAtkStage} DEF:${nDefStage} SPD:${nSpdStage}`,
                         ``,
                         `Foe: ${userActive.name} | HP: ${userActive.hp}/${userActive.maxHp} (${uHpPct}%) | status: ${userActive.statusEffect} | type: ${userActive.pokemon_type}`,
-                        `Foe stat stages — ATK:${uAtkStage} DEF:${uDefStage}`,
+                        `Foe stat stages — ATK:${uAtkStage} DEF:${uDefStage} SPD:${uSpdStage}`,
                         ``,
                         `Moves:\n${attackList}`,
                         ``,
+                        lastNMoveName ? `Last move used: ${lastNMoveName} (index ${lastNMoveIndex}) — avoid repeating unless it's clearly optimal.` : '',
                         `Pick the best move index (single digit):`,
-                    ].join('\n'),
+                    ].filter(Boolean).join('\n'),
                 },
             ],
             max_tokens: 3,
@@ -85,11 +96,17 @@ Reply with ONLY a single digit (the move index).`,
             moveIndex = parsed
         }
     } catch {
-        // Fallback: pick highest-damage attack
-        moveIndex = (nActive.attacks as any[]).reduce(
-            (best, a, i) => a.damage > (nActive.attacks as any[])[best].damage ? i : best,
-            0,
-        )
+        // Fallback: weighted random — higher-damage moves are preferred,
+        // but the last-used move gets half weight to encourage variety
+        const attacks = nActive.attacks as any[]
+        const weights = attacks.map((a, i) => {
+            const base = Math.max(1, a.damage ?? 1)
+            return i === lastNMoveIndex ? base * 0.5 : base
+        })
+        const total = weights.reduce((s, w) => s + w, 0)
+        let roll = Math.random() * total
+        moveIndex = weights.findIndex(w => { roll -= w; return roll <= 0 })
+        if (moveIndex === -1) moveIndex = 0
     }
 
     await supabase

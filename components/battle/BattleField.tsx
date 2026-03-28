@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import type { BattleState } from '@/lib/n-battle'
+import { statStageMult } from '@/lib/n-battle'
 import { HpBar } from './HpBar'
 import { TeamDots } from './TeamDots'
 import { StatusBadge } from './StatusBadge'
 import { backSprite, frontSprite } from './sprites'
+import { baseName } from '@/lib/types/cards'
+import { xpToNextLevel } from '@/lib/rarityConfig'
 
 function useBreakpoint() {
     const [w, setW] = useState(
@@ -57,8 +60,33 @@ type BattleFieldProps = {
 
 const FONT = "'PokemonClassic', monospace"
 
-function baseName(name: string): string {
-    return name.replace(/\s+(VMAX|VSTAR|GX|EX|V|TAG\s+TEAM|ex|gx|vmax|vstar)\b/gi, '').trim()
+
+function StatStages({ atk, def, spd }: { atk?: number; def?: number; spd?: number }) {
+    const stages = [
+        { label: 'ATK', val: atk ?? 0 },
+        { label: 'DEF', val: def ?? 0 },
+        { label: 'SPD', val: spd ?? 0 },
+    ].filter(s => s.val !== 0)
+    if (stages.length === 0) return null
+    return (
+        <>
+            {stages.map(s => (
+                <span key={s.label} style={{
+                    fontSize: 'clamp(0.3rem,0.8vw,0.38rem)',
+                    fontWeight: 700,
+                    color: s.val > 0 ? '#4ade80' : '#f87171',
+                    background: s.val > 0 ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)',
+                    border: `1px solid ${s.val > 0 ? 'rgba(74,222,128,0.4)' : 'rgba(248,113,113,0.4)'}`,
+                    borderRadius: 3,
+                    padding: '0 3px',
+                    lineHeight: 1.6,
+                    flexShrink: 0,
+                }}>
+                    {s.label}{s.val > 0 ? '+' : ''}{s.val} ×{statStageMult(s.val).toFixed(2)}
+                </span>
+            ))}
+        </>
+    )
 }
 
 export function BattleField({
@@ -80,7 +108,7 @@ export function BattleField({
     const nActive = battle.n_cards[battle.n_active_index]
     const baseExp = uActive.exp ?? 0
     const expGained = sessionExp[uActive.id] ?? 0
-    const expNeeded = Math.max(1, uActive.level * 80)
+    const expNeeded = Math.max(1, xpToNextLevel(uActive.rarity, uActive.level))
     const expPct = Math.min(100, ((baseExp + expGained) / expNeeded) * 100)
 
     return (
@@ -146,6 +174,7 @@ export function BattleField({
                                 {baseName(nActive.name)}
                             </span>
                             <StatusBadge status={nActive.statusEffect} />
+                            <StatStages atk={nActive.attackStage} def={nActive.defenseStage} spd={nActive.speedStage} />
                             {nActive.nature && (
                                 <span style={{ fontSize: 'clamp(0.36rem,1vw,0.46rem)', color: '#7c4d9e', fontWeight: 600, flexShrink: 0 }}>
                                     {nActive.nature}
@@ -473,6 +502,7 @@ export function BattleField({
                                 {baseName(uActive.name)}
                             </span>
                             <StatusBadge status={uActive.statusEffect} />
+                            <StatStages atk={uActive.attackStage} def={uActive.defenseStage} spd={uActive.speedStage} />
                             {uActive.nature && (
                                 <span style={{ fontSize: 'clamp(0.36rem,1vw,0.46rem)', color: '#7c4d9e', fontWeight: 600, flexShrink: 0 }}>
                                     {uActive.nature}

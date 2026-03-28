@@ -9,10 +9,11 @@ import {
     DEFEAT_QUOTE,
 } from '@/content/n-battle/dialogue'
 import { buildRevealTeam } from '@/content/n-battle/team'
+import { TRAINER_INFO } from '@/lib/n-battle'
 import type { TeamRevealEntry } from '@/content/n-battle/team'
 
 import { TeamRevealPhase } from '@/components/battle/TeamRevealPhase'
-import { CardSelectPhase } from '@/components/battle/CardSelectPhase'
+import { LineupSelectPhase } from '@/components/battle/LineupSelectPhase'
 import { BattleField } from '@/components/battle/BattleField'
 import { BattleBottomBar } from '@/components/battle/BattleBottomBar'
 import { useBattle } from '@/hooks/useBattle'
@@ -41,10 +42,11 @@ export default function NBattleScreen({
         'He places it on the\nground before you.',
         "\"These Pokémon were\nnever mine to keep.\nThey chose to stay.\nI never deserved that.\"",
         "\"The Crown of Truth...\nhas fallen.\"",
-        '👑\n\nAdded to your bag.',
+        'Added to your bag.',
     ]
     const [crownCutsceneLine, setCrownCutsceneLine] = useState(0)
     const [crownCutsceneDone, setCrownCutsceneDone] = useState(false)
+    const [wonPreScreenDone, setWonPreScreenDone] = useState(false)
 
     // ── Pre-dialogue state ────────────────────────────────────────────────────
     const [dialogueIdx, setDialogueIdx] = useState(0)
@@ -335,15 +337,9 @@ export default function NBattleScreen({
     // ── CARD SELECT ───────────────────────────────────────────────────────────
     if (battle.phase === 'card-select') {
         return createPortal(
-            <CardSelectPhase
-                cards={battle.cards}
-                selected={battle.selected}
-                loadingCards={battle.loadingCards}
+            <LineupSelectPhase
                 acting={battle.acting}
-                sortBy={battle.sortBy}
-                setSortBy={battle.setSortBy}
-                onToggleCard={battle.toggleCard}
-                onStartBattle={battle.startBattle}
+                onStartWithLineup={battle.startBattleWith}
                 onClose={onClose}
             />,
             document.body,
@@ -543,6 +539,70 @@ export default function NBattleScreen({
             )
         }
 
+        if (!wonPreScreenDone) {
+            const trainerInfo = TRAINER_INFO[battle.trainerId]
+            const totalExp = battle.awardedExp.reduce((s, c) => s + c.gained, 0)
+            return createPortal(
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 99999,
+                        background: 'rgba(0,0,0,0.97)',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        padding: 24,
+                    }}
+                >
+                    <div style={{ textAlign: 'center', maxWidth: 380, width: '100%' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={trainerInfo.sprite} alt={trainerInfo.name}
+                            style={{ height: 80, imageRendering: 'pixelated', display: 'block', margin: '0 auto 16px',
+                                filter: `drop-shadow(0 0 16px ${trainerInfo.color}66)`, opacity: 0.7 }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                        <p style={{ fontSize: '0.65rem', color: '#6b7280', margin: '0 0 2px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                            {trainerInfo.title}
+                        </p>
+                        <p style={{ fontSize: '1.1rem', fontWeight: 800, color: trainerInfo.color, margin: '0 0 20px' }}>
+                            {trainerInfo.name} defeated!
+                        </p>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 24 }}>
+                            <div style={{
+                                background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)',
+                                borderRadius: 10, padding: '10px 20px', minWidth: 100,
+                            }}>
+                                <p style={{ fontSize: '0.56rem', color: '#6b7280', margin: '0 0 4px', letterSpacing: '0.06em' }}>EXP EARNED</p>
+                                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#4ade80', margin: 0 }}>
+                                    {totalExp > 0 ? `+${totalExp}` : '…'}
+                                </p>
+                            </div>
+                            <div style={{
+                                background: 'rgba(251,204,21,0.06)', border: '1px solid rgba(250,204,21,0.2)',
+                                borderRadius: 10, padding: '10px 20px', minWidth: 100,
+                            }}>
+                                <p style={{ fontSize: '0.56rem', color: '#6b7280', margin: '0 0 4px', letterSpacing: '0.06em' }}>COINS</p>
+                                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#facc15', margin: 0 }}>
+                                    {battle.wonCoins != null ? `+${battle.wonCoins}` : '…'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setWonPreScreenDone(true)}
+                            style={{
+                                padding: '10px 36px', borderRadius: 10, fontSize: '0.82rem', fontWeight: 700,
+                                background: `${trainerInfo.color}22`, border: `1px solid ${trainerInfo.color}55`,
+                                color: trainerInfo.color, cursor: 'pointer',
+                            }}
+                        >
+                            Continue →
+                        </button>
+                    </div>
+                </div>,
+                document.body,
+            )
+        }
+
         if (battle.crownDropped && !crownCutsceneDone) {
             return createPortal(
                 <div
@@ -571,7 +631,8 @@ export default function NBattleScreen({
                     />
                     {crownCutsceneLine === CROWN_LINES.length - 1 ? (
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: 16, filter: 'drop-shadow(0 0 12px rgba(250,204,21,0.8))' }}>👑</div>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/assets/n-crown.png" alt="N's Crown" style={{ width: 64, height: 64, objectFit: 'contain', marginBottom: 16, filter: 'drop-shadow(0 0 16px rgba(250,204,21,0.9))' }} />
                             <p style={{ fontFamily: "'PokemonClassic',monospace", fontSize: 'clamp(0.7rem,2vw,0.85rem)', color: '#facc15', lineHeight: 1.9, whiteSpace: 'pre-line', maxWidth: 320, margin: '0 auto 12px' }}>
                                 {CROWN_LINES[crownCutsceneLine]}
                             </p>

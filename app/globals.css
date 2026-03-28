@@ -167,6 +167,16 @@ body {
     }
 }
 
+@keyframes evolutionPulse {
+    0%, 100% { filter: drop-shadow(0 0 3px #34d39966); }
+    50% { filter: drop-shadow(0 0 8px #34d399cc); }
+}
+
+@keyframes pendingPulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(239,68,68,0.5); }
+    50% { box-shadow: 0 0 10px rgba(239,68,68,0.9), 0 0 20px rgba(239,68,68,0.4); }
+}
+
 .animate-subtle-pulse {
     animation: subtle-pulse 2s ease-in-out infinite;
 }

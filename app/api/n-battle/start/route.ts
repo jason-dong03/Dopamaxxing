@@ -15,6 +15,24 @@ const FALLBACK_MOVE_NAME: Record<string, string> = {
     steel: 'Metal Claw', fairy: 'Fairy Wind',
 }
 
+// Known damage moves that Groq sometimes misclassifies — enforce correct power/type
+const FORCE_DAMAGE: Record<string, number> = {
+    'confusion':     50,
+    'psybeam':       65,
+    'swift':         60,
+    'tackle':        40,
+    'pound':         40,
+    'scratch':       40,
+    'vine-whip':     45,
+    'ember':         40,
+    'water-gun':     40,
+    'thunder-shock': 40,
+    'bubble':        40,
+    'cut':           50,
+    'bite':          60,
+    'headbutt':      70,
+}
+
 function hasEffect(attack: Attack): boolean {
     return attack.damage > 0
         || attack.healFraction !== undefined
@@ -26,8 +44,16 @@ function hasEffect(attack: Attack): boolean {
 
 function storedMovesToAttacks(moves: StoredMove[] | null, hp: number, rarity: string): Attack[] {
     if (!moves?.length) return getSyntheticAttacks(hp, rarity)
-    return moves.map(m => {
-        const dmg = m.power ?? 0
+    // Deduplicate stored moves by name (prevents duplicate Tackle etc.)
+    const seenNames = new Set<string>()
+    const deduped = moves.filter(m => {
+        const key = (m.name || '').toLowerCase()
+        if (seenNames.has(key)) return false
+        seenNames.add(key)
+        return true
+    })
+    return deduped.map(m => {
+        const dmg = FORCE_DAMAGE[m.name] ?? m.power ?? 0
         // Stored extras (Groq-classified at card creation time) are the base layer
         const storedExtras = {
             ...(m.healFraction !== undefined  && { healFraction:      m.healFraction }),
@@ -42,6 +68,13 @@ function storedMovesToAttacks(moves: StoredMove[] | null, hp: number, rarity: st
         // Hardcoded MOVE_EXTRAS take precedence over stored extras
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const extras: Partial<Omit<Attack, 'name' | 'damage' | 'attackType' | 'effect' | 'maxPp'>> = { ...storedExtras, ...MOVE_EXTRAS[m.name] } as any
+        // If we forced a damage value for this move, strip any Groq-added status extras
+        // that would make the move behave as a pure status move
+        if (FORCE_DAMAGE[m.name] !== undefined) {
+            delete (extras as any).statusInflict
+            delete (extras as any).alwaysInflict
+            delete (extras as any).selfStatusInflict
+        }
         const attack: Attack = {
             name:         m.displayName || m.name,
             damage:       extras.healFraction !== undefined ? 0 : dmg,
@@ -52,7 +85,8 @@ function storedMovesToAttacks(moves: StoredMove[] | null, hp: number, rarity: st
             ...extras,
         }
         // Backfill: if move has no real effect, replace with a type-appropriate basic attack
-        if (!hasEffect(attack)) {
+        const isDamageMove = m.damageClass === 'physical' || m.damageClass === 'special'
+        if (!hasEffect(attack) || (isDamageMove && attack.damage === 0)) {
             const fallbackName = FALLBACK_MOVE_NAME[m.type] ?? 'Tackle'
             return {
                 name:       fallbackName,

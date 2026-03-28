@@ -5,10 +5,12 @@ import AchievementsTab from '@/components/admin/AchievementsTab'
 import EventsTab from '@/components/admin/EventsTab'
 import QuestsTab from '@/components/admin/QuestsTab'
 import PacksTab from '@/components/admin/PacksTab'
-import BackfillTab from '@/components/admin/BackfillTab'
 import UsersTab from '@/components/admin/UsersTab'
 import RepriceTab from '@/components/admin/RepriceTab'
-const TABS = ['Users', 'Achievements', 'Events', 'Quests', 'Packs', 'Backfill', 'Reprice'] as const
+import CardMovesTab from '@/components/admin/CardMovesTab'
+import SeedMovesTab from '@/components/admin/SeedMovesTab'
+import BackfillTypesTab from '@/components/admin/BackfillTypesTab'
+const TABS = ['Users', 'Achievements', 'Events', 'Quests', 'Packs', 'Reprice', 'CardMoves', 'SeedMoves', 'BackfillTypes'] as const
 type Tab = (typeof TABS)[number]
 
 export default function AdminPage() {
@@ -22,11 +24,13 @@ export default function AdminPage() {
 
             {/* Tab bar */}
             <div
+                className="scrollbar-none"
                 style={{
                     display: 'flex',
                     gap: 4,
                     borderBottom: '1px solid #1e1e30',
                     marginBottom: 24,
+                    overflowX: 'auto',
                 }}
             >
                 {TABS.map((t) => (
@@ -44,6 +48,8 @@ export default function AdminPage() {
                             borderBottom: tab === t ? '2px solid #60a5fa' : '2px solid transparent',
                             marginBottom: -1,
                             transition: 'color 0.15s',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
                         }}
                     >
                         {t}
@@ -57,8 +63,10 @@ export default function AdminPage() {
             {tab === 'Events' && <EventsTab />}
             {tab === 'Quests' && <QuestsTab />}
             {tab === 'Packs' && <PacksTab />}
-            {tab === 'Backfill' && <BackfillTab />}
             {tab === 'Reprice' && <RepriceTab />}
+            {tab === 'CardMoves' && <CardMovesTab />}
+            {tab === 'SeedMoves' && <SeedMovesTab />}
+            {tab === 'BackfillTypes' && <BackfillTypesTab />}
         </div>
     )
 }

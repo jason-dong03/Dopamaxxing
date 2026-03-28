@@ -208,15 +208,17 @@ export default async function Dashboard() {
                         </a>
                     )}
 
-                    <LinkDiscord discordLinked={!!profile?.discord_id} />
+                    <span className="hidden sm:contents">
+                        <LinkDiscord discordLinked={!!profile?.discord_id} />
+                    </span>
 
                     {/* coins */}
                     <CoinDisplay initialCoins={Number(profile?.coins ?? 0)} />
 
-                    {/* level + xp bar */}
+                    {/* level + xp bar — hidden on mobile */}
                     <div
+                        className="hidden sm:flex"
                         style={{
-                            display: 'flex',
                             alignItems: 'center',
                             gap: 8,
                             flexShrink: 0,
@@ -302,6 +304,7 @@ export default async function Dashboard() {
                             background: 'var(--app-surface-2)',
                             border: '1px solid var(--app-border)',
                             color: '#475569',
+                            marginRight: 4,
                         }}
                         title="Settings"
                     >

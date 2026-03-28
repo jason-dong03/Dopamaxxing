@@ -15,7 +15,7 @@ export default async function Bag() {
         supabase
             .from('user_cards')
             .select(
-                'id, card_id, card_level, card_xp, is_favorited, worth, is_hot, attr_centering, attr_corners, attr_edges, attr_surface, grade, grade_count, stat_atk, stat_def, stat_spatk, stat_spdef, stat_spd, stat_accuracy, stat_evasion, nature, moves, pending_moves, cards(id, name, image_url, image_url_hi, rarity, national_pokedex_number, hp, set_id)',
+                'id, card_id, card_level, card_xp, is_favorited, is_showcased, worth, is_hot, attr_centering, attr_corners, attr_edges, attr_surface, grade, grade_count, stat_atk, stat_def, stat_spatk, stat_spdef, stat_spd, stat_accuracy, stat_evasion, nature, moves, pending_moves, cards(id, name, image_url, image_url_hi, rarity, national_pokedex_number, hp, set_id, pokemon_type)',
             )
             .eq('user_id', user?.id)
             .order('obtained_at', { ascending: false }),

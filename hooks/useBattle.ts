@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import type { BattleState, BattleCard, BattleLogEntry } from '@/lib/n-battle'
 import { TRAINER_INFO } from '@/lib/n-battle'
 import type { CardForBattle } from '@/lib/types'
+import { baseName } from '@/lib/types/cards'
 
 export type BattlePhase = 'pre-dialogue' | 'team-reveal' | 'card-select' | 'battle' | 'won' | 'lost'
 
@@ -49,6 +50,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [trainerSprite, setTrainerSprite]         = useState('/trainers/N-masters.gif')
     const [isCriticalHit, setIsCriticalHit]         = useState(false)
     const [crownDropped, setCrownDropped]           = useState(false)
+    const [wonCoins, setWonCoins]                   = useState<number | null>(null)
 
     const advanceResolveRef = useRef<(() => void) | null>(null)
     // Ref-based acting guard — prevents concurrent doAttack/doSwitch calls
@@ -100,6 +102,43 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             .catch(() => setLoadingCards(false))
     }
 
+    async function startBattleWith(cardIds: string[]) {
+        if (cardIds.length !== 5 || acting) return
+        setActing(true)
+        setSelected(cardIds)
+        try {
+            const res = await fetch('/api/n-battle/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userCardIds: cardIds, trainerId: options?.trainerId ?? 'n' }),
+            })
+            const json = await res.json()
+            if (!res.ok || !json.battle) {
+                console.error('[startBattle] failed:', json.error ?? json)
+                setActing(false)
+                return
+            }
+            setBattle(json.battle)
+            setPhase('battle')
+            setBattleMenu('main')
+            const tid = (options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO
+            setTrainerSprite(TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif')
+            const pp: Record<string, number[]> = {}
+            for (const card of json.battle.user_cards) {
+                pp[card.id] = card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
+            }
+            setCardPp(pp)
+            fetch('/api/items')
+                .then(r => r.json())
+                .then(d => { setBagFullHeals(d.inventory?.['full-heal'] ?? 0) })
+                .catch(() => {})
+        } catch (err) {
+            console.error('[startBattle] exception:', err)
+        } finally {
+            setActing(false)
+        }
+    }
+
     async function startBattle() {
         if (selected.length !== 5 || acting) return
         setActing(true)
@@ -139,13 +178,6 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     }
 
     // ── Attack ────────────────────────────────────────────────────────────────
-    // Strip TCG suffixes from a card name for display in battle text
-    function battleName(name: string): string {
-        return name
-            .replace(/\s+(VMAX|VSTAR|GX|EX|V|TAG\s+TEAM|ex|gx|vmax|vstar)\b/gi, '')
-            .replace(/[''']s\s+/i, '')   // strip possessives like "Team Rocket's"
-            .trim()
-    }
 
     async function doAttack(attackIndex: number) {
         if (!battle || actingRef.current || battle.status !== 'active') return
@@ -175,8 +207,8 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             if (!updated) return
 
             const log = updated.battle_log as BattleLogEntry[]
-            const prevLogLen = battle.battle_log.length
-            const newEntries = log.slice(prevLogLen)
+            const newTurn = updated.turn as number
+            const newEntries = log.filter((e: BattleLogEntry) => e.turn === newTurn)
 
             // Console log turn order
             const firstActor = (newEntries.find(e => e.attackName !== 'Status'))?.actor
@@ -205,7 +237,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 }
 
                 // Show "used X!" and immediately update HP/heal bars
-                const baseMsg = `${prefix}${battleName(actorCard.name)} used\n${entry.attackName}!`
+                const baseMsg = `${prefix}${baseName(actorCard.name)} used\n${entry.attackName}!`
                 setBattleTextOverride(baseMsg)
 
                 // Update HP bar right as "used X!" text appears
@@ -288,17 +320,17 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                         setSessionExp(prev => ({ ...prev, [activeCardId]: (prev[activeCardId] ?? 0) + gained }))
                     }
 
-                    setBattleTextOverride(`${battleName(entry.fainted)}\nfainted!`)
+                    setBattleTextOverride(`${baseName(entry.fainted)}\nfainted!`)
                     await waitForAdvance()
 
                     if (isUser) {
                         // User KO'd N's pokemon — N recalls + throws next one
                         const nRecallLines = [
-                            `...you were free.\nRest now, ${battleName(entry.fainted)}.`,
-                            `Come back,\n${battleName(entry.fainted)}.`,
-                            `That's enough,\n${battleName(entry.fainted)}.`,
-                            `Forgive me,\n${battleName(entry.fainted)}.`,
-                            `You gave your all,\n${battleName(entry.fainted)}.`,
+                            `...you were free.\nRest now, ${baseName(entry.fainted)}.`,
+                            `Come back,\n${baseName(entry.fainted)}.`,
+                            `That's enough,\n${baseName(entry.fainted)}.`,
+                            `Forgive me,\n${baseName(entry.fainted)}.`,
+                            `You gave your all,\n${baseName(entry.fainted)}.`,
                         ]
                         setBattleTextOverride(nRecallLines[Math.floor(Math.random() * nRecallLines.length)])
                         await waitForAdvance()
@@ -317,10 +349,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                             const nextCard = updated.n_cards[updated.n_active_index]
                             if (nextCard) {
                                 const sendOutLines = [
-                                    `Your turn,\n${battleName(nextCard.name)}!`,
-                                    `Come on,\n${battleName(nextCard.name)}!`,
-                                    `Go,\n${battleName(nextCard.name)}!`,
-                                    `...${battleName(nextCard.name)},\nlet's go.`,
+                                    `Your turn,\n${baseName(nextCard.name)}!`,
+                                    `Come on,\n${baseName(nextCard.name)}!`,
+                                    `Go,\n${baseName(nextCard.name)}!`,
+                                    `...${baseName(nextCard.name)},\nlet's go.`,
                                 ]
                                 setBattleTextOverride(sendOutLines[Math.floor(Math.random() * sendOutLines.length)])
                                 await waitForAdvance()
@@ -329,10 +361,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     } else {
                         // N KO'd player's pokemon — player recalls
                         const playerRecallLines = [
-                            `You did your best,\n${battleName(entry.fainted)}!`,
-                            `Come back,\n${battleName(entry.fainted)}!`,
-                            `Return,\n${battleName(entry.fainted)}!`,
-                            `You were great,\n${battleName(entry.fainted)}!`,
+                            `You did your best,\n${baseName(entry.fainted)}!`,
+                            `Come back,\n${baseName(entry.fainted)}!`,
+                            `Return,\n${baseName(entry.fainted)}!`,
+                            `You were great,\n${baseName(entry.fainted)}!`,
                         ]
                         setBattleTextOverride(playerRecallLines[Math.floor(Math.random() * playerRecallLines.length)])
                         await waitForAdvance()
@@ -356,6 +388,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     .then(d => {
                         if (d.evolveEligible?.length) setEvolveCandidates(d.evolveEligible)
                         if (d.perCard?.length) setAwardedExp(d.perCard)
+                        if (d.coinsAwarded) setWonCoins(d.coinsAwarded)
                     })
                     .catch(() => {})
                 fetch('/api/n-battle/award-crown', { method: 'POST' })
@@ -374,7 +407,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     setBattleMenu('pokemon')
                     setBattleTextOverride(`Choose your\nnext Pokémon!`)
                 } else {
-                    setBattleTextOverride(`What will\n${battleName(newActive.name).toUpperCase()} do?`)
+                    setBattleTextOverride(`What will\n${baseName(newActive.name).toUpperCase()} do?`)
                 }
             }
         } catch (err) {
@@ -426,7 +459,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         const newActive = updatedBattle
             ? updatedBattle.user_cards[updatedBattle.user_active_index]
             : battle.user_cards[toIndex]
-        setBattleTextOverride(`What will\n${battleName(newActive.name).toUpperCase()} do?`)
+        setBattleTextOverride(`What will\n${baseName(newActive.name).toUpperCase()} do?`)
 
         actingRef.current = false
         setActing(false)
@@ -494,7 +527,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         if (!battle) return ''
         if (acting) return '...'
         const log = battle.battle_log
-        if (log.length === 0) return `What will\n${battleName(battle.user_cards[battle.user_active_index]?.name ?? '').toUpperCase()} do?`
+        if (log.length === 0) return `What will\n${baseName(battle.user_cards[battle.user_active_index]?.name ?? '').toUpperCase()} do?`
         const last = log[log.length - 1]
         if (last.missed) return `${last.actor === 'user' ? 'Your attack' : `N's ${last.attackName}`} missed!`
         if (last.fainted) return `${last.fainted} fainted!`
@@ -510,7 +543,8 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         battleMenu, setBattleMenu,
         cards, selected, loadingCards,
         sortBy, setSortBy,
-        playerLunge, enemyLunge, enemyHit, playerHit, isCriticalHit, crownDropped,
+        playerLunge, enemyLunge, enemyHit, playerHit, isCriticalHit, crownDropped, wonCoins,
+        trainerId: (options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO,
         switchPhase, switchText,
         sessionExp,
         cardPp,
@@ -521,6 +555,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         toggleCard,
         proceedToCardSelect,
         startBattle,
+        startBattleWith,
         doAttack,
         doSwitch,
         doUseItem,

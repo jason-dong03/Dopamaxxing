@@ -594,8 +594,10 @@ export default function PackOpening({
         const toSell = remainingCardsRef.current
         if (toSell.length === 0) return
         const totalCoins = toSell.reduce((sum, c) => sum + c.coins, 0)
-        setUserCoins((prev) => (prev ?? 0) + totalCoins)
-        triggerCoinFlash(totalCoins, true)
+        if (!pack.test) {
+            setUserCoins((prev) => (prev ?? 0) + totalCoins)
+            triggerCoinFlash(totalCoins, true)
+        }
         if (!pack.test) {
             fetch('/api/batch-action', {
                 method: 'POST',
@@ -910,7 +912,7 @@ export default function PackOpening({
                 {phase === 'idle' && (
                     <div
                         style={{
-                            transform: isMobile ? 'translateY(120px)' : 'translateY(24px)',
+                            transform: isMobile ? 'translateY(120px)' : 'translateY(60px)',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -1169,7 +1171,7 @@ export default function PackOpening({
 
                 {/* card stack + flip button — offset downward to sit more centred */}
                 {phase === 'revealing' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 'min(60px, 10vw)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 'min(60px, 10vw)', transform: isMobile ? 'translateY(80px)' : 'translateY(24px)' }}>
                     <div
                         className="relative flex items-center justify-center"
                         style={{
@@ -1294,7 +1296,7 @@ export default function PackOpening({
                                 <div
                                     className="flex flex-col items-center gap-4"
                                     style={{
-                                        transform: 'translateY(-10px)',
+                                        transform: isMobile ? 'translateY(110px)' : 'translateY(24px)',
                                         padding: isMobile ? '0 10px' : 0,
                                         width: '100%',
                                         boxSizing: 'border-box',

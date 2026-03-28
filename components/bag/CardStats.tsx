@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import EvolutionCutscene from './EvolutionCutscene'
 import {
     isRainbow,
     rarityGlowRgb,
@@ -11,14 +12,50 @@ import {
 } from '@/lib/rarityConfig'
 import { conditionFilter, centeringSkew } from '@/lib/cardAttributes'
 import { NATURE_BY_NAME, NATURE_TIER_COLOR } from '@/lib/pokemon-stats'
-import { TYPE_COLOR } from '@/lib/pokemon-moves'
+import { TYPE_COLOR } from '@/lib/pokemon-types'
 import PsaSlab from '@/components/card/PsaSlab'
 import FirstEditionBadge from '@/components/card/FirstEditionBadge'
 import WearOverlay from '@/components/card/WearOverlay'
 import { rarityClassName, cardImgSrc } from './utils'
+import { baseName } from '@/lib/types/cards'
 import { SellButton } from './SellButton'
 import { GradeSection } from './GradeSection'
 import type { UserCard } from '@/lib/types'
+
+function ShowcaseButton({ uc }: { uc: UserCard }) {
+    const [loading, setLoading] = useState(false)
+    const [showcased, setShowcased] = useState(uc.is_showcased)
+
+    async function toggle() {
+        setLoading(true)
+        const method = showcased ? 'DELETE' : 'POST'
+        const res = await fetch(`/api/user-cards/${uc.id}/showcase`, { method })
+        if (res.ok) setShowcased(s => !s)
+        setLoading(false)
+    }
+
+    return (
+        <button
+            onClick={toggle}
+            disabled={loading}
+            title={showcased ? 'Remove from showcase' : 'Set as profile showcase'}
+            className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+            style={{ cursor: loading ? 'wait' : 'pointer', background: 'none', border: 'none', padding: 0 }}
+        >
+            <span style={{
+                fontSize: '0.95rem', lineHeight: 1,
+                color: showcased ? '#818cf8' : '#4b5563',
+                filter: showcased ? 'drop-shadow(0 0 6px rgba(129,140,248,0.8))' : 'none',
+                transition: 'filter 0.15s ease',
+            }}>
+                ◈
+            </span>
+            <span style={{ fontSize: '0.58rem', color: showcased ? '#818cf8' : '#6b7280' }}>
+                {showcased ? 'showcased' : 'showcase'}
+            </span>
+        </button>
+    )
+}
 
 export function CardStats({
     uc,
@@ -41,6 +78,20 @@ export function CardStats({
     const [detailTab, setDetailTab] = useState<'overview' | 'pokemon'>('overview')
     const [learnSlot, setLearnSlot] = useState<{ moveIdx: number } | null>(null)
     const [learnLoading, setLearnLoading] = useState(false)
+    const [refreshLoading, setRefreshLoading] = useState(false)
+    const [refreshResult, setRefreshResult] = useState<{ poolSize: number; hasChoice: boolean } | null>(null)
+    const [evolutionCards, setEvolutionCards] = useState<Array<{ id: string; name: string; image_url: string; image_url_hi?: string | null; rarity: string }>>([])
+    const [showEvolutionTooltip, setShowEvolutionTooltip] = useState(false)
+    const [showEvolutionCutscene, setShowEvolutionCutscene] = useState(false)
+    const [pendingOpen, setPendingOpen] = useState(false)
+
+    useEffect(() => {
+        const name = baseName(uc.cards.name)
+        fetch(`/api/cards/evolution?name=${encodeURIComponent(name)}`)
+            .then(r => r.ok ? r.json() : { cards: [] })
+            .then(data => setEvolutionCards(data.cards ?? []))
+            .catch(() => {})
+    }, [uc.cards.name])
 
     async function handleSellWithAnimation(): Promise<void> {
         setWearFading(true)
@@ -106,15 +157,17 @@ export function CardStats({
             label: 'pokédex',
             value: `#${String(uc.cards.national_pokedex_number).padStart(3, '0')}`,
             color: '#9ca3af',
+            isLevel: false,
         },
-        { label: 'hp', value: uc.cards.hp, color: '#f87171' },
-        { label: 'level', value: uc.card_level, color: '#60a5fa' },
+        { label: 'hp', value: uc.cards.hp, color: '#f87171', isLevel: false },
+        { label: 'level', value: uc.card_level, color: '#60a5fa', isLevel: true },
         ...(overallCond != null
             ? [
                   {
                       label: 'overall condition',
                       value: overallCond.toFixed(1),
                       color: gradeColor(overallCond),
+                      isLevel: false,
                   },
               ]
             : []),
@@ -205,6 +258,21 @@ export function CardStats({
     ] as const
     const maxStat = Math.max(1, ...combatStats.map(s => s.val ?? 0))
 
+    async function handleRefreshMoves() {
+        setRefreshLoading(true)
+        setRefreshResult(null)
+        try {
+            const res = await fetch(`/api/user-cards/${uc.id}/refresh-moves`, { method: 'POST' })
+            const json = await res.json()
+            if (res.ok) {
+                setRefreshResult({ poolSize: json.poolSize ?? 0, hasChoice: json.hasChoice ?? false })
+                window.location.reload()
+            }
+        } finally {
+            setRefreshLoading(false)
+        }
+    }
+
     async function handleLearnMove(moveIdx: number, slotIdx: number) {
         setLearnLoading(true)
         try {
@@ -222,7 +290,7 @@ export function CardStats({
     }
 
     const infoBlock = (
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
             {/* tab switcher */}
             <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: 3 }}>
                 {(['overview', 'pokemon'] as const).map(tab => (
@@ -253,35 +321,28 @@ export function CardStats({
             {detailTab === 'overview' ? (<>
             {/* name + rarity */}
             <div className="mb-4">
-                <button
-                    onClick={onToggleFavorite}
-                    className="flex items-center gap-2 mb-2 transition-all hover:scale-105 active:scale-95"
-                    style={{ cursor: 'pointer' }}
-                >
-                    <span
-                        style={{
-                            fontSize: '1.15rem',
-                            color: '#facc15',
-                            filter: uc.is_favorited
-                                ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))'
-                                : 'none',
+                <div className="flex items-center gap-3 mb-2">
+                    {/* favorites toggle */}
+                    <button
+                        onClick={onToggleFavorite}
+                        className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+                        style={{ cursor: 'pointer' }}
+                        title={uc.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                        <span style={{
+                            fontSize: '1rem', color: '#facc15', lineHeight: 1,
+                            filter: uc.is_favorited ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))' : 'none',
                             transition: 'filter 0.15s ease',
-                            lineHeight: 1,
-                        }}
-                    >
-                        {uc.is_favorited ? '★' : '☆'}
-                    </span>
-                    <span
-                        style={{
-                            fontSize: '0.62rem',
-                            letterSpacing: '0.04em',
-                            color: uc.is_favorited ? '#facc15' : '#d1d5db',
-                            transition: 'color 0.15s ease',
-                        }}
-                    >
-                        {uc.is_favorited ? 'showcased' : 'add to showcase'}
-                    </span>
-                </button>
+                        }}>
+                            {uc.is_favorited ? '★' : '☆'}
+                        </span>
+                        <span style={{ fontSize: '0.58rem', color: uc.is_favorited ? '#facc15' : '#6b7280' }}>
+                            {uc.is_favorited ? 'favorited' : 'favorite'}
+                        </span>
+                    </button>
+                    {/* showcase toggle (1 per user) */}
+                    <ShowcaseButton uc={uc} />
+                </div>
                 {uc.is_hot && (
                     <span
                         className="block mb-1"
@@ -296,14 +357,30 @@ export function CardStats({
                         fontSize: mode === 'overlay' ? '1.3rem' : '0.95rem',
                     }}
                 >
-                    {uc.cards.name}
+                    {baseName(uc.cards.name)}
                 </h3>
-                <span
-                    className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
-                    style={{ fontSize: '0.58rem', ...rarityTextStyle(rarity) }}
-                >
-                    {rarity}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                        className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
+                        style={{ fontSize: '0.58rem', ...rarityTextStyle(rarity) }}
+                    >
+                        {rarity}
+                    </span>
+                    {uc.cards.pokemon_type && (
+                        <span style={{
+                            fontSize: '0.55rem',
+                            fontWeight: 700,
+                            textTransform: 'capitalize',
+                            color: '#fff',
+                            background: TYPE_COLOR[uc.cards.pokemon_type] ?? '#6b7280',
+                            borderRadius: 4,
+                            padding: '1px 6px',
+                            letterSpacing: '0.04em',
+                        }}>
+                            {uc.cards.pokemon_type}
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-center gap-1.5 mt-2">
                     <span style={{ fontSize: '0.55rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>raw value</span>
                     <span style={{ fontSize: mode === 'overlay' ? '1.05rem' : '0.88rem', fontWeight: 700, fontFamily: 'monospace', color: '#4ade80' }}>
@@ -314,53 +391,84 @@ export function CardStats({
 
             {/* stat rows */}
             <div style={{ borderTop: `1px solid ${borderColor}` }}>
-                {stats.map(({ label, value, color }) => (
+                {stats.map(({ label, value, color, isLevel }) => (
                     <div
                         key={label}
-                        className="flex justify-between items-center py-2.5"
-                        style={{ borderBottom: `1px solid ${borderColor}` }}
+                        className="flex justify-between items-center"
+                        style={{ borderBottom: `1px solid ${borderColor}`, padding: '5px 0' }}
                     >
                         <span
                             className="font-semibold uppercase tracking-widest text-gray-600"
-                            style={{ fontSize: '0.58rem' }}
+                            style={{ fontSize: '0.55rem' }}
                         >
                             {label}
                         </span>
-                        <span
-                            className="font-mono font-bold"
-                            style={{
-                                fontSize:
-                                    mode === 'overlay' ? '0.95rem' : '0.78rem',
-                                color,
-                            }}
-                        >
-                            {value}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isLevel && evolutionCards.length > 0 && (
+                                <div style={{ position: 'relative' }}>
+                                    <button
+                                        onMouseEnter={() => setShowEvolutionTooltip(true)}
+                                        onMouseLeave={() => setShowEvolutionTooltip(false)}
+                                        onClick={() => setShowEvolutionCutscene(true)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            width: 20, height: 20, borderRadius: '50%',
+                                            background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+                                            animation: 'evolutionPulse 2s ease-in-out infinite',
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                            <circle cx="8" cy="8" r="7" stroke="#34d399" strokeWidth="1.5"
+                                                style={{ filter: 'drop-shadow(0 0 4px #34d39988)' }} />
+                                            <path d="M8 11V5M5.5 7.5L8 5l2.5 2.5" stroke="#34d399" strokeWidth="1.5"
+                                                strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                    {showEvolutionTooltip && (
+                                        <div style={{
+                                            position: 'absolute', bottom: '130%', right: 0,
+                                            background: '#111', border: '1px solid #333',
+                                            borderRadius: 6, padding: '4px 8px',
+                                            fontSize: '0.6rem', color: '#94a3b8',
+                                            whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 50,
+                                        }}>
+                                            whats this..?
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <span
+                                className="font-mono font-bold"
+                                style={{
+                                    fontSize: mode === 'overlay' ? '0.88rem' : '0.75rem',
+                                    color,
+                                }}
+                            >
+                                {value}
+                            </span>
+                        </div>
                     </div>
                 ))}
 
                 {/* xp bar */}
-                <div className="py-3">
-                    <div className="flex justify-between mb-2">
+                <div style={{ padding: '6px 0' }}>
+                    <div className="flex justify-between" style={{ marginBottom: 4 }}>
                         <span
                             className="font-semibold uppercase tracking-widest text-gray-600"
-                            style={{ fontSize: '0.58rem' }}
+                            style={{ fontSize: '0.55rem' }}
                         >
                             xp
                         </span>
                         <span
                             className="font-mono"
-                            style={{ fontSize: '0.58rem', color: '#4ade80' }}
+                            style={{ fontSize: '0.55rem', color: '#4ade80' }}
                         >
                             {uc.card_xp} / {xpNeeded}
                         </span>
                     </div>
                     <div
                         className="w-full rounded-full overflow-hidden"
-                        style={{
-                            height: 4,
-                            background: 'rgba(255,255,255,0.05)',
-                        }}
+                        style={{ height: 3, background: 'rgba(255,255,255,0.05)' }}
                     >
                         <div
                             className="h-full rounded-full"
@@ -493,10 +601,46 @@ export function CardStats({
 
                 {/* moveset */}
                 <div>
-                    <div style={{ fontSize: '0.5rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Moves</div>
-                    {(uc.moves?.length ?? 0) > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {(uc.moves ?? []).map((mv, i) => {
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <div style={{ fontSize: '0.5rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Moves</div>
+                            {hasPending && (
+                                <button
+                                    onClick={() => setPendingOpen(v => !v)}
+                                    title="New move available!"
+                                    style={{
+                                        width: 12, height: 12, borderRadius: '50%',
+                                        background: '#ef4444', border: 'none', cursor: 'pointer',
+                                        padding: 0, flexShrink: 0,
+                                        boxShadow: pendingOpen ? '0 0 8px rgba(239,68,68,0.9)' : '0 0 5px rgba(239,68,68,0.6)',
+                                        animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                    }}
+                                />
+                            )}
+                        </div>
+                        <button
+                            onClick={handleRefreshMoves}
+                            disabled={refreshLoading}
+                            title="Update this card's moves from the move library (respects current level)"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 3,
+                                fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.04em',
+                                padding: '2px 7px', borderRadius: 5,
+                                background: refreshLoading ? 'rgba(255,255,255,0.03)' : 'rgba(96,165,250,0.1)',
+                                border: `1px solid ${refreshLoading ? 'rgba(255,255,255,0.06)' : 'rgba(96,165,250,0.35)'}`,
+                                color: refreshLoading ? '#4b5563' : '#60a5fa',
+                                cursor: refreshLoading ? 'not-allowed' : 'pointer',
+                            }}
+                        >
+                            {refreshLoading ? '...' : '↻ Update Moves'}
+                        </button>
+                    </div>
+
+                    {/* Always show 4 slots */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {Array.from({ length: 4 }).map((_, i) => {
+                            const mv = uc.moves?.[i]
+                            if (mv) {
                                 const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
                                 return (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -506,63 +650,68 @@ export function CardStats({
                                         <span style={{ fontSize: '0.48rem', color: '#6b7280', flexShrink: 0 }}>PP {mv.pp}</span>
                                     </div>
                                 )
-                            })}
-                        </div>
-                    ) : (
-                        <span style={{ fontSize: '0.62rem', color: '#4b5563', fontStyle: 'italic' }}>No moves — add to bag to learn moves.</span>
-                    )}
-                </div>
-
-                {/* pending moves */}
-                {hasPending && (
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                            <div style={{ fontSize: '0.5rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>New Move Available!</div>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', flexShrink: 0, display: 'inline-block' }} />
-                        </div>
-                        {(uc.pending_moves ?? []).map((mv, moveIdx) => {
-                            const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
+                            }
                             return (
-                                <div key={moveIdx} style={{ marginBottom: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                        <span style={{ fontSize: '0.5rem', background: typeColor + '33', color: typeColor, border: `1px solid ${typeColor}44`, borderRadius: 4, padding: '1px 5px', textTransform: 'uppercase' }}>{mv.type}</span>
-                                        <span style={{ flex: 1, fontSize: '0.7rem', fontWeight: 700, color: '#fbbf24' }}>{mv.displayName}</span>
-                                        {mv.power && <span style={{ fontSize: '0.6rem', fontFamily: 'monospace', color: '#f87171' }}>{mv.power} dmg</span>}
-                                    </div>
-                                    {mv.effect && <p style={{ fontSize: '0.52rem', color: '#9ca3af', margin: '0 0 8px', lineHeight: 1.4 }}>{mv.effect}</p>}
-                                    {learnSlot?.moveIdx === moveIdx ? (
-                                        <div>
-                                            <div style={{ fontSize: '0.5rem', color: '#9ca3af', marginBottom: 5 }}>Replace which move?</div>
-                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                {(uc.moves ?? []).map((existing, slotIdx) => (
-                                                    <button key={slotIdx} disabled={learnLoading} onClick={() => handleLearnMove(moveIdx, slotIdx)}
-                                                        style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', color: '#fbbf24', cursor: 'pointer' }}>
-                                                        {existing.displayName}
-                                                    </button>
-                                                ))}
-                                                {(uc.moves?.length ?? 0) < 4 && (
-                                                    <button disabled={learnLoading} onClick={() => handleLearnMove(moveIdx, uc.moves?.length ?? 0)}
-                                                        style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', cursor: 'pointer' }}>
-                                                        Add (open slot)
-                                                    </button>
-                                                )}
-                                                <button onClick={() => setLearnSlot(null)}
-                                                    style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#6b7280', cursor: 'pointer' }}>
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => setLearnSlot({ moveIdx })}
-                                            style={{ fontSize: '0.55rem', padding: '4px 12px', borderRadius: 6, border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', cursor: 'pointer', fontWeight: 600 }}>
-                                            Learn Move
-                                        </button>
-                                    )}
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <span style={{ fontSize: '0.58rem', color: '#374151', fontStyle: 'italic' }}>— empty slot —</span>
                                 </div>
                             )
                         })}
                     </div>
-                )}
+
+                    {/* Pending moves panel */}
+                    {hasPending && pendingOpen && (
+                        <div style={{ marginTop: 8 }}>
+                            {(uc.pending_moves ?? []).map((mv, moveIdx) => {
+                                const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
+                                return (
+                                    <div key={moveIdx} style={{ marginBottom: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.04)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                            <span style={{ fontSize: '0.5rem', background: typeColor + '33', color: typeColor, border: `1px solid ${typeColor}44`, borderRadius: 4, padding: '1px 5px', textTransform: 'uppercase' }}>{mv.type}</span>
+                                            <span style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: '#fca5a5' }}>{mv.displayName}</span>
+                                            {mv.power && <span style={{ fontSize: '0.6rem', fontFamily: 'monospace', color: '#f87171' }}>{mv.power}</span>}
+                                        </div>
+                                        {mv.effect && <p style={{ fontSize: '0.52rem', color: '#9ca3af', margin: '0 0 8px', lineHeight: 1.4 }}>{mv.effect}</p>}
+                                        {learnSlot?.moveIdx === moveIdx ? (
+                                            <div>
+                                                <div style={{ fontSize: '0.5rem', color: '#9ca3af', marginBottom: 5 }}>Replace which move?</div>
+                                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                    {(uc.moves ?? []).map((existing, slotIdx) => (
+                                                        <button key={slotIdx} disabled={learnLoading} onClick={() => handleLearnMove(moveIdx, slotIdx)}
+                                                            style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5', cursor: 'pointer' }}>
+                                                            {existing.displayName}
+                                                        </button>
+                                                    ))}
+                                                    {(uc.moves?.length ?? 0) < 4 && (
+                                                        <button disabled={learnLoading} onClick={() => handleLearnMove(moveIdx, uc.moves?.length ?? 0)}
+                                                            style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', cursor: 'pointer' }}>
+                                                            Add (open slot)
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => setLearnSlot(null)}
+                                                        style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#6b7280', cursor: 'pointer' }}>
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                <button onClick={() => setLearnSlot({ moveIdx })}
+                                                    style={{ fontSize: '0.55rem', padding: '4px 12px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5', cursor: 'pointer', fontWeight: 600 }}>
+                                                    Learn Move
+                                                </button>
+                                                <button onClick={() => setPendingOpen(false)}
+                                                    style={{ fontSize: '0.52rem', padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#4b5563', cursor: 'pointer' }}>
+                                                    Skip
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
 
                 {/* sell button at bottom */}
                 <SellButton uc={uc} onSell={handleSellWithAnimation} />
@@ -570,6 +719,16 @@ export function CardStats({
             )}
         </div>
     )
+
+    const evolutionCutscene = showEvolutionCutscene && evolutionCards.length > 0 ? (
+        <EvolutionCutscene
+            userCardId={uc.id}
+            pokemonName={baseName(uc.cards.name)}
+            cards={evolutionCards}
+            onComplete={() => { setShowEvolutionCutscene(false); window.location.reload() }}
+            onCancel={() => setShowEvolutionCutscene(false)}
+        />
+    ) : null
 
     if (mode === 'overlay') {
         const conditionBlock = (
@@ -640,6 +799,7 @@ export function CardStats({
         )
         return (
             <div style={{ width: '100%' }}>
+                {evolutionCutscene}
                 {/* toolbar: ○/◎ toggle + ✕ close in one row */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                     <div style={{ position: 'relative' }}>
@@ -691,8 +851,8 @@ export function CardStats({
                         </div>
                     </div>
                 ) : (
-                    <div className="flex gap-8 w-full">
-                        <div style={{ width: 240, flexShrink: 0 }}>
+                    <div className="flex w-full" style={{ gap: 'clamp(12px, 3vw, 32px)', alignItems: 'flex-start' }}>
+                        <div style={{ width: 'clamp(120px, 35%, 200px)', flexShrink: 0 }}>
                             {imageBlock}
                             {conditionBlock}
                         </div>
@@ -706,6 +866,7 @@ export function CardStats({
     // sidebar mode — compact layout so sell button is never cut off
     return (
         <div className="flex flex-col">
+            {evolutionCutscene}
             <div
                 className="flex items-center justify-between px-4 pt-3 pb-2"
                 style={{ borderBottom: `1px solid ${borderColor}` }}
@@ -766,7 +927,9 @@ export function CardStats({
                             display: 'block',
                             borderRadius: 8,
                             objectFit: 'contain',
-                            maxHeight: 120,
+                            maxHeight: 88,
+                            maxWidth: '55%',
+                            margin: '0 auto',
                             boxShadow: rainbow
                                 ? undefined
                                 : rarityGlowShadow(rarity, 'sm'),
@@ -802,12 +965,12 @@ export function CardStats({
                         className="text-white font-bold leading-snug"
                         style={{ fontSize: '0.76rem' }}
                     >
-                        {uc.cards.name}
+                        {baseName(uc.cards.name)}
                     </h3>
                 </div>
                 {/* compact stat rows */}
                 <div style={{ borderTop: `1px solid ${borderColor}` }}>
-                    {stats.map(({ label, value, color }) => (
+                    {stats.map(({ label, value, color, isLevel }) => (
                         <div
                             key={label}
                             className="flex justify-between items-center"
@@ -819,12 +982,44 @@ export function CardStats({
                             >
                                 {label}
                             </span>
-                            <span
-                                className="font-mono font-bold"
-                                style={{ fontSize: '0.68rem', color }}
-                            >
-                                {value}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                {isLevel && evolutionCards.length > 0 && (
+                                    <div style={{ position: 'relative' }}>
+                                        <button
+                                            onMouseEnter={() => setShowEvolutionTooltip(true)}
+                                            onMouseLeave={() => setShowEvolutionTooltip(false)}
+                                            onClick={() => setShowEvolutionCutscene(true)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                width: 16, height: 16, background: 'transparent',
+                                                border: 'none', cursor: 'pointer', padding: 0,
+                                                animation: 'evolutionPulse 2s ease-in-out infinite',
+                                            }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                                <circle cx="8" cy="8" r="7" stroke="#34d399" strokeWidth="1.5"
+                                                    style={{ filter: 'drop-shadow(0 0 3px #34d39988)' }} />
+                                                <path d="M8 11V5M5.5 7.5L8 5l2.5 2.5" stroke="#34d399" strokeWidth="1.5"
+                                                    strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
+                                        {showEvolutionTooltip && (
+                                            <div style={{
+                                                position: 'absolute', bottom: '130%', right: 0,
+                                                background: '#111', border: '1px solid #333',
+                                                borderRadius: 6, padding: '3px 7px',
+                                                fontSize: '0.55rem', color: '#94a3b8',
+                                                whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 50,
+                                            }}>
+                                                whats this..?
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <span className="font-mono font-bold" style={{ fontSize: '0.68rem', color }}>
+                                    {value}
+                                </span>
+                            </div>
                         </div>
                     ))}
                     {/* xp bar */}
@@ -938,27 +1133,22 @@ export function CardStats({
                     <GradeSection uc={uc} onGraded={onGraded} />
 
                     <SellButton uc={uc} onSell={handleSellWithAnimation} />
-                    <button
-                        onClick={onToggleFavorite}
-                        className="w-full rounded-lg font-semibold transition-all active:scale-95 hover:scale-[1.02] mt-1"
-                        style={{
-                            padding: '4px 0',
-                            fontSize: '0.58rem',
-                            letterSpacing: '0.06em',
-                            cursor: 'pointer',
-                            background: uc.is_favorited
-                                ? 'rgba(250,204,21,0.08)'
-                                : 'rgba(255,255,255,0.04)',
-                            border: uc.is_favorited
-                                ? '1px solid rgba(250,204,21,0.35)'
-                                : '1px solid rgba(255,255,255,0.08)',
-                            color: uc.is_favorited ? '#facc15' : '#9ca3af',
-                        }}
-                    >
-                        {uc.is_favorited
-                            ? '★ remove from showcase'
-                            : '☆ add to showcase'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                        <button
+                            onClick={onToggleFavorite}
+                            className="rounded-lg font-semibold transition-all active:scale-95"
+                            style={{
+                                flex: 1, padding: '4px 0', fontSize: '0.55rem',
+                                cursor: 'pointer',
+                                background: uc.is_favorited ? 'rgba(250,204,21,0.08)' : 'rgba(255,255,255,0.04)',
+                                border: uc.is_favorited ? '1px solid rgba(250,204,21,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                                color: uc.is_favorited ? '#facc15' : '#6b7280',
+                            }}
+                        >
+                            {uc.is_favorited ? '★ favorited' : '☆ favorite'}
+                        </button>
+                        <ShowcaseButton uc={uc} />
+                    </div>
                 </div>
             </div>
         </div>

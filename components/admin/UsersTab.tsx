@@ -35,6 +35,7 @@ const cell: React.CSSProperties = {
     color: '#e2e8f0',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
     verticalAlign: 'middle',
+    textAlign: 'center',
 }
 const hdr: React.CSSProperties = {
     ...cell,
@@ -44,6 +45,7 @@ const hdr: React.CSSProperties = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     background: '#0a0a12',
+    textAlign: 'center',
 }
 const inputSm: React.CSSProperties = {
     width: 72,
@@ -67,6 +69,11 @@ export default function UsersTab() {
     const [edits, setEdits]         = useState<Record<string, { coins?: string; level?: string }>>({})
     const [saving, setSaving]       = useState<Record<string, boolean>>({})
     const [saveMsg, setSaveMsg]     = useState<Record<string, string>>({})
+
+    // delete account
+    const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
+    const [deleting, setDeleting]         = useState(false)
+    const [deleteMsg, setDeleteMsg]       = useState('')
 
     // gift pack modal
     const [giftTarget, setGiftTarget] = useState<UserRow | null>(null)
@@ -119,6 +126,26 @@ export default function UsersTab() {
         }
     }
 
+    async function deleteUser() {
+        if (!deleteTarget) return
+        setDeleting(true)
+        setDeleteMsg('')
+        const res = await fetch('/api/admin/users', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: deleteTarget.id }),
+        })
+        setDeleting(false)
+        if (res.ok) {
+            setUsers(prev => prev.filter(u => u.id !== deleteTarget.id))
+            setTotal(t => t - 1)
+            setDeleteTarget(null)
+        } else {
+            const b = await res.json().catch(() => ({}))
+            setDeleteMsg(b.error ?? 'Error deleting user')
+        }
+    }
+
     async function giftPacks() {
         if (!giftTarget) return
         setGifting(true)
@@ -154,16 +181,16 @@ export default function UsersTab() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
-                            {['Username', 'Name', 'Coins', 'Level', 'XP', 'Joined', 'Actions'].map(h => (
+                            {['Username', 'Name', 'Coins', 'Level', 'XP', 'Joined', 'Actions', 'Delete'].map(h => (
                                 <th key={h} style={hdr}>{h}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={7} style={{ ...cell, textAlign: 'center', color: '#64748b', padding: '24px' }}>Loading…</td></tr>
+                            <tr><td colSpan={8} style={{ ...cell, color: '#64748b', padding: '24px' }}>Loading…</td></tr>
                         ) : users.length === 0 ? (
-                            <tr><td colSpan={7} style={{ ...cell, textAlign: 'center', color: '#64748b', padding: '24px' }}>No users found</td></tr>
+                            <tr><td colSpan={8} style={{ ...cell, color: '#64748b', padding: '24px' }}>No users found</td></tr>
                         ) : users.map(u => {
                             const e = edits[u.id] ?? {}
                             const isDirty = e.coins !== undefined || e.level !== undefined
@@ -188,7 +215,7 @@ export default function UsersTab() {
                                     <td style={{ ...cell, color: '#64748b' }}>{u.xp.toLocaleString()}</td>
                                     <td style={{ ...cell, color: '#64748b', whiteSpace: 'nowrap' }}>{new Date(u.created_at).toLocaleDateString()}</td>
                                     <td style={cell}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                                             {isDirty && (
                                                 <button
                                                     onClick={() => saveUser(u)}
@@ -209,6 +236,14 @@ export default function UsersTab() {
                                             </button>
                                         </div>
                                     </td>
+                                    <td style={cell}>
+                                        <button
+                                            onClick={() => { setDeleteTarget(u); setDeleteMsg('') }}
+                                            style={{ fontSize: '0.65rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)', color: '#f87171', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
                                 </tr>
                             )
                         })}
@@ -228,6 +263,35 @@ export default function UsersTab() {
                         style={{ fontSize: '0.7rem', padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#9ca3af', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.4 : 1 }}>
                         Next →
                     </button>
+                </div>
+            )}
+
+            {/* Delete confirmation modal */}
+            {deleteTarget && (
+                <div onClick={() => setDeleteTarget(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: '#0e0e16', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 14, width: '100%', maxWidth: 380, padding: 24 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f87171' }}>Delete Account</span>
+                            <button onClick={() => setDeleteTarget(null)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '1.1rem' }}>×</button>
+                        </div>
+                        <p style={{ fontSize: '0.72rem', color: '#9ca3af', margin: '0 0 6px' }}>
+                            Permanently delete <strong style={{ color: '#e2e8f0' }}>{deleteTarget.username ?? ([deleteTarget.first_name, deleteTarget.last_name].filter(Boolean).join(' ') || deleteTarget.id)}</strong>?
+                        </p>
+                        <p style={{ fontSize: '0.68rem', color: '#6b7280', margin: '0 0 20px' }}>
+                            This will remove their auth account and all associated data. This cannot be undone.
+                        </p>
+                        {deleteMsg && (
+                            <div style={{ fontSize: '0.7rem', marginBottom: 12, color: '#f87171' }}>{deleteMsg}</div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#9ca3af', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button onClick={deleteUser} disabled={deleting} style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}>
+                                {deleting ? 'Deleting…' : 'Confirm Delete'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

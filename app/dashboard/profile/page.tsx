@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { RARITY_ORDER, type Rarity } from '@/lib/rarityConfig'
 import { awardAchievements } from '@/lib/awardAchievement'
 import ProfileView from '@/components/ProfileView'
 import type { RawCard } from '@/lib/types'
@@ -26,10 +25,10 @@ export default async function ProfilePage() {
             .single(),
         supabase
             .from('user_cards')
-            .select('id, card_level, grade, worth, nature, cards(id, name, image_url, image_url_hi, rarity, national_pokedex_number, set_id)')
+            .select('id, card_level, grade, worth, nature, cards(id, name, image_url, image_url_hi, rarity, national_pokedex_number, set_id, pokemon_type)')
             .eq('user_id', user?.id)
-            .eq('is_favorited', true)
-            .limit(50),
+            .eq('is_showcased', true)
+            .limit(1),
         admin
             .from('friendships')
             .select('id, requester_id, addressee_id')
@@ -51,14 +50,8 @@ export default async function ProfilePage() {
             .not('quests.title_reward', 'is', null),
     ])
 
-    // showcase card
-    const favorited = ((favoritedRaw ?? []) as unknown as RawCard[]).filter((uc) => uc.cards !== null)
-    favorited.sort((a, b) => {
-        const ai = RARITY_ORDER.indexOf(a.cards!.rarity as Rarity)
-        const bi = RARITY_ORDER.indexOf(b.cards!.rarity as Rarity)
-        return ai - bi
-    })
-    const showcaseRaw = favorited[0] ?? null
+    // showcase card — now driven by is_showcased (1 per user)
+    const showcaseRaw = ((favoritedRaw ?? []) as unknown as RawCard[]).find((uc) => uc.cards !== null) ?? null
     const showcaseCard = showcaseRaw
         ? { id: showcaseRaw.id, card_level: showcaseRaw.card_level, grade: showcaseRaw.grade, worth: (showcaseRaw as any).worth ?? null, nature: (showcaseRaw as any).nature ?? null, cards: showcaseRaw.cards! }
         : null

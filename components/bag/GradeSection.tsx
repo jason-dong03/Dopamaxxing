@@ -82,70 +82,10 @@ export function GradeSection({
                   : '#f87171'
 
     return (
-        <div className="py-3">
-            <div className="flex items-center justify-between mb-2">
-                <span
-                    className="font-semibold uppercase tracking-widest text-gray-600"
-                    style={{ fontSize: '0.55rem' }}
-                >
-                    PSA Grade
-                </span>
-                {uc.grade != null && (
-                    <span
-                        style={{
-                            fontSize: '0.55rem',
-                            color: gradeColor(uc.grade),
-                            fontWeight: 700,
-                        }}
-                    >
-                        {PSA_LABEL[uc.grade]}
-                    </span>
-                )}
-            </div>
-            {uc.grade != null ? (
-                <div className="flex items-center gap-3 mb-2">
-                    <div
-                        className="flex items-center justify-center rounded-lg"
-                        style={{
-                            width: 40,
-                            height: 40,
-                            flexShrink: 0,
-                            background: `${gradeColor(uc.grade)}15`,
-                            border: `2px solid ${gradeColor(uc.grade)}50`,
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontSize: '1.1rem',
-                                fontWeight: 800,
-                                color: gradeColor(uc.grade),
-                            }}
-                        >
-                            {uc.grade}
-                        </span>
-                    </div>
-                    <div>
-                        <p
-                            style={{
-                                fontSize: '0.6rem',
-                                color: '#9ca3af',
-                                margin: 0,
-                            }}
-                        >
-                            Graded {count}x · Next regrade: ${' '}
-                            {cost.toLocaleString()}
-                        </p>
-                    </div>
-                </div>
-            ) : (
-                <p
-                    style={{
-                        fontSize: '0.6rem',
-                        color: '#6b7280',
-                        marginBottom: 6,
-                    }}
-                >
-                    Ungraded
+        <div className="py-1.5">
+            {uc.grade != null && (
+                <p style={{ fontSize: '0.55rem', color: '#6b7280', margin: '0 0 4px' }}>
+                    Graded {count}x · Next regrade: ${cost.toLocaleString()}
                 </p>
             )}
             {result != null && (

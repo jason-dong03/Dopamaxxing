@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PendingPack, StashRow } from '@/lib/types'
 import { ITEMS } from '@/lib/items'
 
-type Tab = 'drops' | 'rewards' | 'items'
+type Tab = 'drops' | 'rewards' | 'items' | 'misc'
 
 export default function DropsButton() {
     const [drops, setDrops] = useState<PendingPack[]>([])
@@ -317,17 +317,27 @@ export default function DropsButton() {
                                     style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1 }}
                                 >×</button>
                             </div>
-                            <div style={{ display: 'flex' }}>
-                                <button style={tabStyle('drops')} onClick={() => setTab('drops')}>
-                                    Drops {drops.length > 0 && `(${drops.length})`}
-                                </button>
-                                <button style={tabStyle('rewards')} onClick={() => setTab('rewards')}>
-                                    Rewards {rewards.length > 0 && `(${rewards.length})`}
-                                </button>
-                                <button style={tabStyle('items')} onClick={() => setTab('items')}>
-                                    Items
-                                </button>
-                            </div>
+                            {(() => {
+                                const miscItems = ITEMS.filter(i => i.category === 'misc' && (inventory[i.id] ?? 0) > 0)
+                                return (
+                                    <div style={{ display: 'flex' }}>
+                                        <button style={tabStyle('drops')} onClick={() => setTab('drops')}>
+                                            Drops {drops.length > 0 && `(${drops.length})`}
+                                        </button>
+                                        <button style={tabStyle('rewards')} onClick={() => setTab('rewards')}>
+                                            Rewards {rewards.length > 0 && `(${rewards.length})`}
+                                        </button>
+                                        <button style={tabStyle('items')} onClick={() => setTab('items')}>
+                                            Items
+                                        </button>
+                                        {miscItems.length > 0 && (
+                                            <button style={tabStyle('misc')} onClick={() => setTab('misc')}>
+                                                Misc
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })()}
                         </div>
 
                         {/* content */}
@@ -447,7 +457,7 @@ export default function DropsButton() {
 
                             {tab === 'items' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {ITEMS.map(item => {
+                                    {ITEMS.filter(i => i.category === 'battle').map(item => {
                                         const qty = inventory[item.id] ?? 0
                                         return (
                                             <div key={item.id} style={{
@@ -457,7 +467,12 @@ export default function DropsButton() {
                                                 border: `1px solid ${qty > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`,
                                                 opacity: qty > 0 ? 1 : 0.5,
                                             }}>
-                                                <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{item.icon}</span>
+                                                {item.icon.startsWith('/') ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img src={item.icon} alt={item.name} style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }} />
+                                                ) : (
+                                                    <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{item.icon}</span>
+                                                )}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>{item.name}</div>
                                                     <div style={{ fontSize: '0.58rem', color: '#6b7280', marginTop: 2 }}>{item.description}</div>
@@ -470,6 +485,41 @@ export default function DropsButton() {
                                             </div>
                                         )
                                     })}
+                                </div>
+                            )}
+
+                            {tab === 'misc' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {ITEMS.filter(i => i.category === 'misc' && (inventory[i.id] ?? 0) > 0).map(item => (
+                                        <div key={item.id} style={{
+                                            display: 'flex', alignItems: 'center', gap: 12,
+                                            padding: '10px 14px', borderRadius: 10,
+                                            background: 'rgba(250,204,21,0.04)',
+                                            border: '1px solid rgba(250,204,21,0.2)',
+                                        }}>
+                                            {item.icon.startsWith('/') ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={item.icon} alt={item.name} style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0 }} />
+                                            ) : (
+                                                <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{item.icon}</span>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>{item.name}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#6b7280', marginTop: 2 }}>{item.description}</div>
+                                            </div>
+                                            {item.id === 'n-crown' && (
+                                                <a href="/dashboard/n-crown" style={{
+                                                    fontSize: '0.62rem', fontWeight: 700,
+                                                    padding: '4px 10px', borderRadius: 7,
+                                                    border: '1px solid rgba(250,204,21,0.35)',
+                                                    background: 'rgba(250,204,21,0.1)',
+                                                    color: '#facc15', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                                                }}>
+                                                    Inspect
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

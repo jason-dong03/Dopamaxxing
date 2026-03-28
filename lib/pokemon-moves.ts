@@ -157,7 +157,49 @@ async function fetchLevelMoveList(dexNumber: number): Promise<PokeApiLevelMove[]
 }
 
 /** Fetch detailed stats for a single move. */
+/** Try to build a StoredMove from the `moves` DB table. Returns null if not found or table not seeded. */
+async function getMoveFromDb(name: string, learnedAt: number): Promise<StoredMove | null> {
+    try {
+        const { createClient } = await import('@/lib/supabase/server')
+        const supabase = await createClient()
+        const { data: db } = await supabase
+            .from('moves')
+            .select('*')
+            .eq('identifier', name)
+            .not('seeded_at', 'is', null)
+            .maybeSingle()
+        if (!db) return null
+        const { MOVE_EXTRAS } = await import('@/lib/pokemon-status-moves')
+        const extras = (MOVE_EXTRAS as any)[db.identifier] ?? {}
+        return {
+            name: db.identifier,
+            displayName: db.display_name,
+            learnedAt,
+            pp: db.pp,
+            power: db.power,
+            accuracy: db.accuracy,
+            type: db.type,
+            damageClass: db.damage_class,
+            effect: db.effect ?? '',
+            ...(extras.healFraction !== undefined ? { healFraction: extras.healFraction } : db.heal_fraction != null ? { healFraction: db.heal_fraction } : {}),
+            ...(extras.statusInflict ? { statusInflict: extras.statusInflict } : db.status_inflict ? { statusInflict: db.status_inflict } : {}),
+            ...(extras.alwaysInflict !== undefined ? { alwaysInflict: extras.alwaysInflict } : db.always_inflict != null ? { alwaysInflict: db.always_inflict } : {}),
+            ...(extras.selfStatusInflict ? { selfStatusInflict: extras.selfStatusInflict } : db.self_status_inflict ? { selfStatusInflict: db.self_status_inflict } : {}),
+            ...(extras.selfDamage !== undefined ? { selfDamage: extras.selfDamage } : db.self_damage != null ? { selfDamage: db.self_damage } : {}),
+            ...(extras.selfBoosts?.length ? { selfBoosts: extras.selfBoosts } : db.self_boosts?.length ? { selfBoosts: db.self_boosts } : {}),
+            ...(extras.enemyDrops?.length ? { enemyDrops: extras.enemyDrops } : db.enemy_drops?.length ? { enemyDrops: db.enemy_drops } : {}),
+            ...(extras.priority !== undefined ? { priority: extras.priority } : db.priority !== 0 ? { priority: db.priority } : {}),
+        } as StoredMove
+    } catch {
+        return null
+    }
+}
+
 export async function fetchMoveDetail(name: string, learnedAt: number): Promise<StoredMove | null> {
+    // DB table is the primary source — faster and avoids Groq calls for known moves
+    const fromDb = await getMoveFromDb(name, learnedAt)
+    if (fromDb) return fromDb
+
     const [d, { MOVE_EXTRAS }] = await Promise.all([
         safeFetch(`${POKEAPI}/move/${name}`) as Promise<any>,
         import('@/lib/pokemon-status-moves'),
@@ -238,12 +280,4 @@ export async function getNewMovesInRange(
     return results.filter(Boolean) as StoredMove[]
 }
 
-/** Pokemon type colors for display. */
-export const TYPE_COLOR: Record<string, string> = {
-    normal:   '#a8a878', fire:     '#f08030', water:    '#6890f0',
-    electric: '#f8d030', grass:    '#78c850', ice:      '#98d8d8',
-    fighting: '#c03028', poison:   '#a040a0', ground:   '#e0c068',
-    flying:   '#a890f0', psychic:  '#f85888', bug:      '#a8b820',
-    rock:     '#b8a038', ghost:    '#705898', dragon:   '#7038f8',
-    dark:     '#705848', steel:    '#b8b8d0', fairy:    '#ee99ac',
-}
+export { TYPE_COLOR } from '@/lib/pokemon-types'

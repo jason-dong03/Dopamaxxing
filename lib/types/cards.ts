@@ -1,5 +1,13 @@
 import type { StoredMove } from '@/lib/pokemon-moves'
 
+/** Strip TCG set suffixes (VMAX, GX, EX, V, etc.) from a card name */
+export function baseName(name: string): string {
+    return name
+        .replace(/\s+(VMAX|VSTAR|GX|EX|V|TAG\s+TEAM|ex|gx|vmax|vstar)\b/gi, '')
+        .replace(/[''']s\s+/i, '')   // strip possessives like "Team Rocket's"
+        .trim()
+}
+
 /** Core card info as stored in the `cards` DB table */
 export type CardInfo = {
     id: string
@@ -10,6 +18,7 @@ export type CardInfo = {
     national_pokedex_number: number
     set_id?: string | null
     hp?: number
+    pokemon_type?: string | null
 }
 
 /** A user's owned card with all metadata (bag view) */
@@ -37,6 +46,7 @@ export type UserCard = {
     nature: string | null
     moves: StoredMove[] | null
     pending_moves: StoredMove[] | null
+    is_showcased: boolean
     cards: CardInfo
 }
 
@@ -70,6 +80,7 @@ export type ShowcaseCard = {
         rarity: string
         national_pokedex_number: number
         set_id: string | null
+        pokemon_type?: string | null
     }
 }
 
