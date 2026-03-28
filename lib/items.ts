@@ -1,4 +1,4 @@
-export type ItemId = 'full-heal' | 'potion' | 'super-potion' | 'revive'
+export type ItemId = 'full-heal' | 'potion' | 'super-potion' | 'revive' | 'n-crown'
 
 export type ItemDef = {
     id: ItemId
@@ -41,6 +41,14 @@ export const ITEMS: ItemDef[] = [
         icon:        '✨',
         shopCost:    1500,
         inBattle:    true,
+    },
+    {
+        id:          'n-crown',
+        name:        "N's Crown",
+        description: 'The crown worn by N. It radiates a quiet, haunting warmth. Inspect it to unlock a hidden memory.',
+        icon:        '👑',
+        shopCost:    0,
+        inBattle:    false,
     },
 ]
 

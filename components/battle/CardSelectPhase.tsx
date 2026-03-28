@@ -45,17 +45,27 @@ export function CardSelectPhase({
 }: Props) {
     const narrow = useNarrow(480)
     const [expandedStats, setExpandedStats] = useState<Set<string>>(new Set())
-    const [savedLineup, setSavedLineup] = useState<string[]>([])
+    type SavedLineup = { id: string; name: string; slots: string[] }
+    const [savedLineups, setSavedLineups] = useState<SavedLineup[]>([])
+    const [lineupMenuOpen, setLineupMenuOpen] = useState(false)
 
-    // Load saved lineup on mount
+    // Load saved lineups on mount
     useEffect(() => {
         fetch('/api/battle-lineup')
             .then((r) => r.json())
             .then((d) => {
-                if (Array.isArray(d.lineup)) setSavedLineup(d.lineup)
+                if (Array.isArray(d.lineups)) setSavedLineups(d.lineups)
             })
             .catch(() => {})
     }, [])
+
+    function applyLineup(slots: string[]) {
+        const valid = slots.filter((id) => cards.some((c) => c.userCardId === id))
+        // Deselect current, select new
+        selected.filter((id) => !valid.includes(id)).forEach((id) => onToggleCard(id))
+        valid.forEach((id) => { if (!selected.includes(id)) onToggleCard(id) })
+        setLineupMenuOpen(false)
+    }
 
     const filtered = [...cards].sort((a, b) => {
         if (sortBy === 'hp-desc') return b.hp - a.hp
@@ -120,24 +130,9 @@ export function CardSelectPhase({
                             gap: 8,
                         }}
                     >
-                        <button
-                                onClick={() => {
-                                    if (savedLineup.length === 5) {
-                                        // Load saved lineup — select all IDs that exist in current cards
-                                        const valid = savedLineup.filter((id) =>
-                                            cards.some((c) => c.userCardId === id),
-                                        )
-                                        valid.forEach((id) => {
-                                            if (!selected.includes(id))
-                                                onToggleCard(id)
-                                        })
-                                        selected
-                                            .filter((id) => !valid.includes(id))
-                                            .forEach((id) => onToggleCard(id))
-                                    } else {
-                                        onClose()
-                                    }
-                                }}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setLineupMenuOpen(o => !o)}
                                 style={{
                                     padding: '5px 10px',
                                     borderRadius: 8,
@@ -149,8 +144,48 @@ export function CardSelectPhase({
                                     cursor: 'pointer',
                                 }}
                             >
-                                {savedLineup.length === 5 ? 'Use Lineup' : 'Create Lineup'}
+                                {savedLineups.length > 0 ? 'Lineups ▾' : 'No Lineups'}
                             </button>
+                            {lineupMenuOpen && savedLineups.length > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '110%',
+                                    right: 0,
+                                    zIndex: 10,
+                                    background: '#0f172a',
+                                    border: '1px solid rgba(168,139,250,0.3)',
+                                    borderRadius: 8,
+                                    minWidth: 160,
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                                    overflow: 'hidden',
+                                }}>
+                                    {savedLineups.map((lu) => (
+                                        <button
+                                            key={lu.id}
+                                            onClick={() => applyLineup(lu.slots)}
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '8px 12px',
+                                                background: 'none',
+                                                border: 'none',
+                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                color: '#e2e8f0',
+                                                fontSize: '0.68rem',
+                                                fontWeight: 600,
+                                                textAlign: 'left',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            {lu.name}
+                                            <span style={{ color: '#4b5563', fontSize: '0.58rem', marginLeft: 6 }}>
+                                                {lu.slots.length} cards
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         <div
                             style={{
                                 display: 'flex',

@@ -11,7 +11,7 @@ export default async function Bag() {
         data: { user },
     } = await supabase.auth.getUser()
 
-    const [{ data: userCards }, { data: profile }] = await Promise.all([
+    const [{ data: userCards }, { data: profile }, { data: userItemsData }] = await Promise.all([
         supabase
             .from('user_cards')
             .select(
@@ -20,6 +20,7 @@ export default async function Bag() {
             .eq('user_id', user?.id)
             .order('obtained_at', { ascending: false }),
         supabase.from('profiles').select('coins, bag_capacity').eq('id', user?.id).single(),
+        supabase.from('user_items').select('id, item_id, quantity').eq('user_id', user?.id),
     ])
 
     return (
@@ -29,6 +30,7 @@ export default async function Bag() {
                 userCards={(userCards ?? []) as unknown as UserCards}
                 coins={profile?.coins ?? 0}
                 bagCapacity={profile?.bag_capacity ?? 50}
+                userItems={(userItemsData ?? []) as Array<{ id: string; item_id: string; quantity: number }>}
             />
         </>
     )

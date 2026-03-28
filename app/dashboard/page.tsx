@@ -230,7 +230,7 @@ export default async function Dashboard() {
                                 background: 'var(--app-surface-2)',
                                 border: '1px solid var(--app-border)',
                                 borderRadius: 20,
-                                padding: '3px 10px',
+                                padding: '3px 14px 3px 10px',
                             }}
                         >
                             <span

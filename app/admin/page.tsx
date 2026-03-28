@@ -7,7 +7,8 @@ import QuestsTab from '@/components/admin/QuestsTab'
 import PacksTab from '@/components/admin/PacksTab'
 import BackfillTab from '@/components/admin/BackfillTab'
 import UsersTab from '@/components/admin/UsersTab'
-const TABS = ['Users', 'Achievements', 'Events', 'Quests', 'Packs', 'Backfill'] as const
+import RepriceTab from '@/components/admin/RepriceTab'
+const TABS = ['Users', 'Achievements', 'Events', 'Quests', 'Packs', 'Backfill', 'Reprice'] as const
 type Tab = (typeof TABS)[number]
 
 export default function AdminPage() {
@@ -57,6 +58,7 @@ export default function AdminPage() {
             {tab === 'Quests' && <QuestsTab />}
             {tab === 'Packs' && <PacksTab />}
             {tab === 'Backfill' && <BackfillTab />}
+            {tab === 'Reprice' && <RepriceTab />}
         </div>
     )
 }

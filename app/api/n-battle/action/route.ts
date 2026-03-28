@@ -83,7 +83,9 @@ function applyAttack(
         }
     }
 
-    const dmg = calcDamage(attack, attacker, defender)
+    const isCritical = attack.damage > 0 && Math.random() < 0.0625
+    const rawDmg = calcDamage(attack, attacker, defender)
+    const dmg = isCritical ? Math.round(rawDmg * 1.5) : rawDmg
     const effectiveness = getTypeEffectiveness(attack.attackType, defender.pokemon_type)
     let defHp = Math.max(0, defender.hp - dmg)
     let defStatus = { ...defender, hp: defHp }
@@ -133,6 +135,7 @@ function applyAttack(
         attackName: attack.name,
         damage: dmg,
         typeEffectiveness: effectiveness !== 1 ? effectiveness : undefined,
+        critical: isCritical || undefined,
         effect: defStatus.statusEffect !== defender.statusEffect
             ? `${defender.name} is now ${STATUS_LABEL[defStatus.statusEffect]}!`
             : attack.selfDamage ? `${attacker.name} took ${attack.selfDamage} recoil.` : undefined,
@@ -187,13 +190,22 @@ export async function POST(request: NextRequest) {
 
     // ── Shared outcome container ─────────────────────────────────────────────
     let outcome: 'won_u' | 'won_n' | null = null
+    // When a pokemon faints mid-turn, the REMAINING actions for that side are
+    // skipped. The client handles the visual switch; the DB stores the fainted
+    // index so the client can trigger a forced-switch UI.
+    let userFaintedMidTurn = false
+    let nFaintedMidTurn    = false
 
     // ── Helper: N attacks user ───────────────────────────────────────────────
     function doNAttack() {
-        if (outcome) return
+        if (outcome || nFaintedMidTurn) return
         const nTick = tickStatus(nCurrent)
 
-        if (nTick.skip) {
+        if (nTick.snappedOut) {
+            nCurrent = { ...nCurrent, statusEffect: 'none', statusTurns: 0 }
+            nCards[nIdx] = nCurrent
+            log.push({ turn, actor: 'n', attackName: 'Status', damage: 0, effect: `${nCurrent.name} snapped out\nof confusion!` })
+        } else if (nTick.skip) {
             if (nTick.confusionSelfHit > 0) {
                 nCurrent = { ...nCurrent, hp: Math.max(0, nCurrent.hp - nTick.confusionSelfHit) }
                 log.push({ turn, actor: 'n', attackName: 'Status', damage: nTick.confusionSelfHit, effect: `${nCurrent.name} hurt itself in confusion!` })
@@ -201,7 +213,10 @@ export async function POST(request: NextRequest) {
                 if (nCurrent.hp <= 0) {
                     const nextN = nextAlive(nCards, nIdx)
                     if (nextN === -1) { outcome = 'won_u'; return }
+                    // Auto-switch N to next pokemon but don't let it attack this turn
                     nIdx = nextN; nCurrent = { ...nCards[nIdx] }
+                    nFaintedMidTurn = true
+                    return
                 }
             } else {
                 log.push({ turn, actor: 'n', attackName: 'Status', damage: 0, effect: `${nCurrent.name} couldn't move!` })
@@ -214,7 +229,6 @@ export async function POST(request: NextRequest) {
             const { attacker: nAfter, defender: uAfterN, logEntry: nLog } =
                 applyAttack(nCurrent, uActive, nAttackIdx, turn, 'n')
             nCurrent = nAfter
-            // Speed boost from move (e.g. Sucker Punch, Flare Blitz, Prehistoric Rage)
             if (usedAttack.speedBoost && !nLog.missed) {
                 nCurrent = { ...nCurrent, speed: nCurrent.speed + usedAttack.speedBoost }
             }
@@ -225,8 +239,10 @@ export async function POST(request: NextRequest) {
                 userCards[uIdx] = uActive
                 const nextU = nextAlive(userCards, uIdx)
                 if (nextU === -1) { outcome = 'won_n'; return }
-                uIdx = nextU
-                uActive = { ...userCards[uIdx] }
+                // Do NOT advance uIdx — client handles the forced switch.
+                // Keep uIdx pointing at the fainted pokemon so the client sees hp <= 0.
+                userFaintedMidTurn = true
+                return
             }
         }
 
@@ -236,9 +252,15 @@ export async function POST(request: NextRequest) {
 
     // ── Helper: user attacks N ───────────────────────────────────────────────
     function doUserAttack() {
-        if (outcome) return
-        // Check if user is skip-locked (sleep / paralysis / confusion)
+        // Skip entirely if user's pokemon already fainted this turn
+        if (outcome || userFaintedMidTurn) return
         const uTick = tickStatus(uActive)
+        if (uTick.snappedOut) {
+            uActive = { ...uActive, statusEffect: 'none', statusTurns: 0 }
+            userCards[uIdx] = uActive
+            log.push({ turn, actor: 'user', attackName: 'Status', damage: 0, effect: `${uActive.name} snapped out\nof confusion!` })
+            return
+        }
         if (uTick.skip) {
             if (uTick.confusionSelfHit > 0) {
                 uActive = { ...uActive, hp: Math.max(0, uActive.hp - uTick.confusionSelfHit) }
@@ -247,19 +269,20 @@ export async function POST(request: NextRequest) {
                 if (uActive.hp <= 0) {
                     const nextU = nextAlive(userCards, uIdx)
                     if (nextU === -1) { outcome = 'won_n'; return }
-                    uIdx = nextU; uActive = { ...userCards[uIdx] }
+                    // Don't advance — client handles the switch
+                    userFaintedMidTurn = true
+                    return
                 }
             } else {
                 log.push({ turn, actor: 'user', attackName: 'Status', damage: 0, effect: `${uActive.name} couldn't move!` })
             }
-                if (uTick.woke) uActive = { ...uActive, statusEffect: 'none', statusTurns: 0 }
+            if (uTick.woke) uActive = { ...uActive, statusEffect: 'none', statusTurns: 0 }
             return
         }
         if (uTick.woke) {
             log.push({ turn, actor: 'user', attackName: 'Status', damage: 0, effect: `${uActive.name} woke up!` })
             uActive = { ...uActive, statusEffect: 'none', statusTurns: 0 }
         }
-        // original attack code below...
         const { attacker: uAfter, defender: nAfterAttack, logEntry: uLog } =
             applyAttack(uActive, nCurrent, attackIndex, turn, 'user')
         uActive  = uAfter
@@ -270,14 +293,18 @@ export async function POST(request: NextRequest) {
             nCards[nIdx] = nCurrent
             const nextN = nextAlive(nCards, nIdx)
             if (nextN === -1) { outcome = 'won_u'; return }
+            // Auto-switch N to next pokemon but don't let it attack this turn
             nIdx = nextN
             nCurrent = { ...nCards[nIdx] }
+            nFaintedMidTurn = true
+            return
         }
     }
 
     // ── Helper: end-of-turn status damage on N ───────────────────────────────
     function doNStatusDamage() {
-        if (outcome) return
+        // Skip if N's pokemon just fainted/switched — new pokemon gets no status tick
+        if (outcome || nFaintedMidTurn) return
         const nTick = tickStatus(nCurrent)
         if (nTick.damage > 0) {
             nCurrent = { ...nCurrent, hp: Math.max(0, nCurrent.hp - nTick.damage) }
@@ -295,7 +322,8 @@ export async function POST(request: NextRequest) {
 
     // ── Helper: end-of-turn status damage on user ────────────────────────────
     function doUserStatusDamage() {
-        if (outcome) return
+        // Skip if user's pokemon fainted this turn — dead pokemon don't tick
+        if (outcome || userFaintedMidTurn) return
         const uTick = tickStatus(uActive)
         if (uTick.damage > 0) {
             uActive = { ...uActive, hp: Math.max(0, uActive.hp - uTick.damage) }

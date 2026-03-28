@@ -13,6 +13,7 @@ import {
 import type { UserCard } from '@/lib/types'
 import { CardTile } from '@/components/bag/CardTile'
 import { CardStats } from '@/components/bag/CardStats'
+import { ITEM_MAP, type ItemId } from '@/lib/items'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const FILTERS = ['All', ...RARITY_ORDER]
@@ -22,10 +23,12 @@ export default function BagPage({
     userCards: initialCards,
     coins: initialCoins = 0,
     bagCapacity: initialCapacity = 50,
+    userItems,
 }: {
     userCards: UserCard[]
     coins?: number
     bagCapacity?: number
+    userItems?: Array<{ id: string; item_id: string; quantity: number }>
 }) {
     const router = useRouter()
     const [userCards, setUserCards] = useState(initialCards)
@@ -48,6 +51,7 @@ export default function BagPage({
     const [selected, setSelected] = useState<UserCard | null>(null)
     const [isWide, setIsWide] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
+    const [activeTab, setActiveTab] = useState<'cards' | 'misc'>('cards')
     const headerRef = useRef<HTMLDivElement>(null)
     const [headerHeight, setHeaderHeight] = useState(0)
 
@@ -308,12 +312,41 @@ export default function BagPage({
                         }}
                     >
                         <div className="flex items-center justify-between mb-3">
-                            <h1
-                                className="font-bold text-lg tracking-tight"
-                                style={{ color: 'var(--app-text)' }}
-                            >
-                                Bag
-                            </h1>
+                            <div>
+                                <h1
+                                    className="font-bold text-lg tracking-tight"
+                                    style={{ color: 'var(--app-text)', marginBottom: 6 }}
+                                >
+                                    Bag
+                                </h1>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    {(['cards', 'misc'] as const).map((tab) => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveTab(tab)}
+                                            style={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: 600,
+                                                padding: '3px 12px',
+                                                borderRadius: 20,
+                                                border: activeTab === tab
+                                                    ? '1px solid rgba(74,222,128,0.4)'
+                                                    : '1px solid rgba(255,255,255,0.1)',
+                                                background: activeTab === tab
+                                                    ? 'rgba(74,222,128,0.1)'
+                                                    : 'rgba(255,255,255,0.04)',
+                                                color: activeTab === tab
+                                                    ? '#4ade80'
+                                                    : 'var(--app-text-muted)',
+                                                cursor: 'pointer',
+                                                transition: 'all 150ms ease',
+                                            }}
+                                        >
+                                            {tab === 'cards' ? 'Cards' : 'Misc'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                             <div
                                 style={{
                                     display: 'flex',
@@ -445,6 +478,7 @@ export default function BagPage({
                             </div>
                         </div>
 
+                        {activeTab === 'cards' && (
                         <input
                             type="text"
                             placeholder="search..."
@@ -466,9 +500,10 @@ export default function BagPage({
                                     'var(--input-border)')
                             }
                         />
+                        )}
 
                         {/* sort buttons */}
-                        <div
+                        {activeTab === 'cards' && <div
                             className="flex gap-1.5 mb-2.5"
                             style={{
                                 overflowX: 'auto',
@@ -508,10 +543,10 @@ export default function BagPage({
                                     {s}
                                 </button>
                             ))}
-                        </div>
+                        </div>}
 
                         {/* rarity filter pills + Select button */}
-                        <div
+                        {activeTab === 'cards' && <div
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -650,10 +685,10 @@ export default function BagPage({
                             >
                                 {selectMode ? 'Done' : 'Select'}
                             </button>
-                        </div>
+                        </div>}
 
                         {/* quick-select rarity chips — only in select mode */}
-                        {selectMode && (
+                        {activeTab === 'cards' && selectMode && (
                             <div
                                 className="flex gap-1.5 mt-2"
                                 style={{
@@ -782,7 +817,41 @@ export default function BagPage({
                             className="flex-1 px-3 pt-4 pb-6"
                             style={{ minWidth: 0 }}
                         >
-                            {filtered.length === 0 ? (
+                            {activeTab === 'misc' ? (
+                                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {(userItems ?? []).length === 0 ? (
+                                        <p style={{ color: '#4b5563', fontSize: '0.82rem', textAlign: 'center', padding: '48px 0' }}>
+                                            No misc items yet.
+                                        </p>
+                                    ) : (userItems ?? []).map(item => {
+                                        const def = ITEM_MAP[item.item_id as ItemId]
+                                        if (!def) return null
+                                        return (
+                                            <div key={item.id} style={{
+                                                display: 'flex', alignItems: 'center', gap: 14,
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: item.item_id === 'n-crown' ? '1px solid rgba(250,204,21,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                                                borderRadius: 12, padding: '12px 16px',
+                                            }}>
+                                                <span style={{ fontSize: '1.8rem' }}>{def.icon}</span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{def.name}</p>
+                                                    <p style={{ margin: '3px 0 0', fontSize: '0.68rem', color: '#6b7280', lineHeight: 1.5 }}>{def.description}</p>
+                                                </div>
+                                                {item.item_id === 'n-crown' && (
+                                                    <a href="/dashboard/n-crown" style={{
+                                                        padding: '6px 14px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700,
+                                                        background: 'rgba(250,204,21,0.1)', border: '1px solid rgba(250,204,21,0.35)',
+                                                        color: '#facc15', textDecoration: 'none', whiteSpace: 'nowrap',
+                                                    }}>
+                                                        Inspect
+                                                    </a>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : filtered.length === 0 ? (
                                 <div className="flex items-center justify-center mt-24">
                                     <p className="text-gray-800 text-sm">
                                         no cards found

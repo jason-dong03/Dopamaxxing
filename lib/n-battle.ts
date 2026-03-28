@@ -202,6 +202,7 @@ export type BattleLogEntry = {
     missed?: boolean
     typeEffectiveness?: number // 0 = immune, 0.5 = not very effective, 2 = super effective
     statChanges?: string[] // e.g. ["Gengar's ATK sharply rose!", "Gengar's SPD rose!"]
+    critical?: boolean
 }
 
 export type BattleState = {
@@ -1992,23 +1993,31 @@ export function calcDamage(
     return Math.max(0, dmg)
 }
 
-/** Returns { damage, skip, woke, confusionSelfHit } where skip=true means the card can't act this turn */
+/** Returns { damage, skip, woke, confusionSelfHit, snappedOut } where skip=true means the card can't act this turn */
 export function tickStatus(card: BattleCard): {
     damage: number
     skip: boolean
     woke: boolean
     confusionSelfHit: number
+    snappedOut: boolean
 } {
     let damage = 0
     let skip = false
     let woke = false
     let confusionSelfHit = 0
+    let snappedOut = false
 
     if (card.statusEffect === 'burn') damage = 35
     if (card.statusEffect === 'poison') damage = 25
     if (card.statusEffect === 'sleep') skip = Math.random() >= 0.4
     if (card.statusEffect === 'paralysis') skip = Math.random() < 0.45
-    if (card.statusEffect === 'confusion') skip = Math.random() < 0.5
+    if (card.statusEffect === 'confusion') {
+        if (Math.random() < 0.33) {
+            snappedOut = true
+        } else {
+            skip = Math.random() < 0.5
+        }
+    }
 
     if (card.statusEffect === 'sleep' && !skip) {
         woke = true
@@ -2021,7 +2030,7 @@ export function tickStatus(card: BattleCard): {
         )
     }
 
-    return { damage, skip, woke, confusionSelfHit }
+    return { damage, skip, woke, confusionSelfHit, snappedOut }
 }
 
 export function decrementStatus(card: BattleCard): BattleCard {

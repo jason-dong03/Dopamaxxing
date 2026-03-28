@@ -40,12 +40,15 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [forcedSwitch, setForcedSwitch]   = useState(false)
     const [bagFullHeals, setBagFullHeals]   = useState(1)
     const [evolveCandidates, setEvolveCandidates] = useState<EvolveCandidate[]>([])
+    const [awardedExp, setAwardedExp] = useState<Array<{ id: string; name: string; gained: number; newLevel: number | null }>>([])
     const [battleTextOverride, setBattleTextOverride] = useState<string | null>(null)
     const [waitingForAdvance, setWaitingForAdvance] = useState(false)
     const [faintedSide, setFaintedSide]             = useState<'player' | 'enemy' | null>(null)
     const [nSendingOut, setNSendingOut]             = useState(false)
     const [nRecalling, setNRecalling]               = useState(false)
     const [trainerSprite, setTrainerSprite]         = useState('/trainers/N-masters.gif')
+    const [isCriticalHit, setIsCriticalHit]         = useState(false)
+    const [crownDropped, setCrownDropped]           = useState(false)
 
     const advanceResolveRef = useRef<(() => void) | null>(null)
     // Ref-based acting guard — prevents concurrent doAttack/doSwitch calls
@@ -153,7 +156,6 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
 
         const prevNActive  = battle.n_cards[battle.n_active_index]
         const prevUActive  = battle.user_cards[battle.user_active_index]
-        const prevNCards   = battle.n_cards.map(c => ({ id: c.id, hp: c.hp, level: c.level }))
         const activeCardId = prevUActive.id
 
         setCardPp(prev => {
@@ -209,14 +211,15 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 // Update HP bar right as "used X!" text appears
                 if (!entry.missed) {
                     if (entry.damage > 0) {
+                        if (entry.critical) setIsCriticalHit(true)
                         if (isUser) {
                             setEnemyHit(entry.damage)
                             setBattle(prev => prev ? { ...prev, n_cards: updated.n_cards } : prev)
-                            setTimeout(() => setEnemyHit(null), 1800)
+                            setTimeout(() => { setEnemyHit(null); setIsCriticalHit(false) }, 1800)
                         } else {
                             setPlayerHit(entry.damage)
                             setBattle(prev => prev ? { ...prev, user_cards: updated.user_cards } : prev)
-                            setTimeout(() => setPlayerHit(null), 1800)
+                            setTimeout(() => { setPlayerHit(null); setIsCriticalHit(false) }, 1800)
                         }
                     } else if (entry.effect?.includes('restored') || entry.effect?.includes('HP')) {
                         setBattle(prev => prev ? { ...prev, user_cards: updated.user_cards, n_cards: updated.n_cards } : prev)
@@ -236,7 +239,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 // Wait for click after "used X!"
                 await waitForAdvance()
 
-                // Post-click dialogue: miss / effectiveness / heal message
+                // Post-click dialogue: miss / effectiveness / crit / heal message
                 if (entry.missed) {
                     setBattleTextOverride('But it missed!')
                     await waitForAdvance()
@@ -249,6 +252,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                         await waitForAdvance()
                     } else if (entry.typeEffectiveness !== undefined && entry.typeEffectiveness <= 0.5) {
                         setBattleTextOverride("It's not very effective...")
+                        await waitForAdvance()
+                    }
+                    if (entry.critical) {
+                        setBattleTextOverride("A critical hit!")
                         await waitForAdvance()
                     }
                 } else if (entry.effect?.includes('restored') || entry.effect?.includes('HP')) {
@@ -274,6 +281,12 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 if (entry.fainted) {
                     setFaintedSide(isUser ? 'enemy' : 'player')
                     await wait(400)   // let faint animation play
+
+                    // Update EXP bar immediately as enemy pokemon faints
+                    if (isUser) {
+                        const gained = Math.max(12, Math.floor(prevNActive.level * 1.5))
+                        setSessionExp(prev => ({ ...prev, [activeCardId]: (prev[activeCardId] ?? 0) + gained }))
+                    }
 
                     setBattleTextOverride(`${battleName(entry.fainted)}\nfainted!`)
                     await waitForAdvance()
@@ -332,14 +345,6 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             // Finalise
             setBattle(updated)
 
-            const koed = updated.n_cards.filter((c: BattleCard, i: number) =>
-                (prevNCards[i]?.hp ?? 0) > 0 && c.hp <= 0
-            )
-            if (koed.length > 0) {
-                const gained = koed.reduce((s: number, c: BattleCard) => s + Math.max(12, Math.floor(c.level * 1.5)), 0)
-                setSessionExp(prev => ({ ...prev, [activeCardId]: (prev[activeCardId] ?? 0) + gained }))
-            }
-
             if (updated.status === 'won') {
                 setPhase('won')
                 fetch('/api/n-battle/award-exp', {
@@ -348,7 +353,14 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     body: JSON.stringify({ battleId: updated.id }),
                 })
                     .then(r => r.json())
-                    .then(d => { if (d.evolveEligible?.length) setEvolveCandidates(d.evolveEligible) })
+                    .then(d => {
+                        if (d.evolveEligible?.length) setEvolveCandidates(d.evolveEligible)
+                        if (d.perCard?.length) setAwardedExp(d.perCard)
+                    })
+                    .catch(() => {})
+                fetch('/api/n-battle/award-crown', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => { if (d.granted) setCrownDropped(true) })
                     .catch(() => {})
             } else if (updated.status === 'lost') {
                 setPhase('lost')
@@ -498,13 +510,14 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         battleMenu, setBattleMenu,
         cards, selected, loadingCards,
         sortBy, setSortBy,
-        playerLunge, enemyLunge, enemyHit, playerHit,
+        playerLunge, enemyLunge, enemyHit, playerHit, isCriticalHit, crownDropped,
         switchPhase, switchText,
         sessionExp,
         cardPp,
         forcedSwitch,
         bagFullHeals,
         evolveCandidates,
+        awardedExp,
         toggleCard,
         proceedToCardSelect,
         startBattle,

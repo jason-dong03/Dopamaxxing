@@ -14,10 +14,34 @@ const CONFIGURABLE_RARITIES = ['Uncommon', 'Rare', 'Epic', 'Mythical'] as const
 // Legendary and above — auto-skip, user handles manually
 const AUTO_SKIP_RARITIES = ['Legendary', 'Divine', 'Celestial', '???'] as const
 
-const PREMIUM_ACTIONS: { value: CardAction; label: string; color: string; bg: string; border: string }[] = [
-    { value: 'add',  label: 'Add',             color: '#4ade80', bg: 'rgba(74,222,128,0.08)',   border: 'rgba(74,222,128,0.3)'  },
-    { value: 'feed', label: 'Feed into best',  color: '#a855f7', bg: 'rgba(168,85,247,0.08)',   border: 'rgba(168,85,247,0.3)'  },
-    { value: 'sell', label: 'Sell',            color: '#eab308', bg: 'rgba(234,179,8,0.08)',    border: 'rgba(234,179,8,0.3)'   },
+const PREMIUM_ACTIONS: {
+    value: CardAction
+    label: string
+    color: string
+    bg: string
+    border: string
+}[] = [
+    {
+        value: 'add',
+        label: 'Add',
+        color: '#4ade80',
+        bg: 'rgba(74,222,128,0.08)',
+        border: 'rgba(74,222,128,0.3)',
+    },
+    {
+        value: 'feed',
+        label: 'Feed into best',
+        color: '#a855f7',
+        bg: 'rgba(168,85,247,0.08)',
+        border: 'rgba(168,85,247,0.3)',
+    },
+    {
+        value: 'sell',
+        label: 'Sell',
+        color: '#eab308',
+        bg: 'rgba(234,179,8,0.08)',
+        border: 'rgba(234,179,8,0.3)',
+    },
 ]
 
 type Props = {
@@ -26,7 +50,13 @@ type Props = {
     onClose: () => void
 }
 
-function Toggle({ on, onChange, activeColor = '#eab308', activeBg = 'rgba(234,179,8,0.25)', activeBorder = 'rgba(234,179,8,0.5)' }: {
+function Toggle({
+    on,
+    onChange,
+    activeColor = '#eab308',
+    activeBg = 'rgba(234,179,8,0.25)',
+    activeBorder = 'rgba(234,179,8,0.5)',
+}: {
     on: boolean
     onChange: (v: boolean) => void
     activeColor?: string
@@ -36,17 +66,21 @@ function Toggle({ on, onChange, activeColor = '#eab308', activeBg = 'rgba(234,17
     return (
         <button
             onClick={() => onChange(!on)}
-            className="relative flex-shrink-0 rounded-full transition-all duration-200"
+            className="relative flex-shrink-0 rounded-full transition-all duration-200 hover:cursor-pointer"
             style={{
-                width: 44, height: 24,
+                width: 34,
+                height: 14,
                 background: on ? activeBg : 'rgba(255,255,255,0.06)',
-                border: on ? `1px solid ${activeBorder}` : '1px solid rgba(255,255,255,0.1)',
+                border: on
+                    ? `1px solid ${activeBorder}`
+                    : '1px solid rgba(255,255,255,0.1)',
             }}
         >
             <span
                 className="absolute rounded-full transition-all duration-200"
                 style={{
-                    width: 16, height: 16,
+                    width: 6,
+                    height: 6,
                     top: 3,
                     left: on ? 23 : 3,
                     background: on ? activeColor : '#4b5563',
@@ -56,21 +90,41 @@ function Toggle({ on, onChange, activeColor = '#eab308', activeBg = 'rgba(234,17
     )
 }
 
-export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) {
+export default function AutoCompleteSettings({
+    prefs,
+    onSave,
+    onClose,
+}: Props) {
     const [bulkSell, setBulkSell] = useState<boolean>(prefs.bulk === 'sell')
-    const [rarityActions, setRarityActions] = useState<Record<string, CardAction>>(
+    const [autoReverse, setAutoReverse] = useState<boolean>(
+        prefs.autoReverse ?? false,
+    )
+    const [rarityActions, setRarityActions] = useState<
+        Record<string, CardAction>
+    >(
         typeof prefs.fullArt === 'object'
             ? prefs.fullArt
-            : Object.fromEntries(CONFIGURABLE_RARITIES.map((r) => [r, 'add' as CardAction])),
+            : Object.fromEntries(
+                  CONFIGURABLE_RARITIES.map((r) => [r, 'add' as CardAction]),
+              ),
     )
-    const [gradeThreshold, setGradeThreshold] = useState(prefs.gradeThreshold ?? 0)
-    const [gradeAction, setGradeAction] = useState<GradeAction>(prefs.gradeAction ?? 'off')
-    const [gradeAboveSkip, setGradeAboveSkip] = useState<boolean>(prefs.gradeAboveSkip ?? false)
-    const [gradeOverridesPremium, setGradeOverridesPremium] = useState<boolean>(prefs.gradeOverridesPremium ?? true)
+    const [gradeThreshold, setGradeThreshold] = useState(
+        prefs.gradeThreshold ?? 0,
+    )
+    const [gradeAction, setGradeAction] = useState<GradeAction>(
+        prefs.gradeAction ?? 'off',
+    )
+    const [gradeAboveSkip, setGradeAboveSkip] = useState<boolean>(
+        prefs.gradeAboveSkip ?? false,
+    )
+    const [gradeOverridesPremium, setGradeOverridesPremium] = useState<boolean>(
+        prefs.gradeOverridesPremium ?? true,
+    )
 
     function handleSave() {
         const next: AutoCompletePrefs = {
             bulk: bulkSell ? 'sell' : 'skip',
+            autoReverse: autoReverse,
             fullArt: rarityActions,
             gradeThreshold,
             gradeAction,
@@ -84,7 +138,12 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
 
     function handleReset() {
         setBulkSell(true)
-        setRarityActions(Object.fromEntries(CONFIGURABLE_RARITIES.map((r) => [r, 'add' as CardAction])))
+        setAutoReverse(false)
+        setRarityActions(
+            Object.fromEntries(
+                CONFIGURABLE_RARITIES.map((r) => [r, 'add' as CardAction]),
+            ),
+        )
         setGradeThreshold(0)
         setGradeAction('off')
         setGradeAboveSkip(false)
@@ -96,7 +155,10 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)' }}
+            style={{
+                background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(16px)',
+            }}
             onClick={onClose}
         >
             <div
@@ -117,11 +179,17 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                 >
                     <div>
-                        <h2 className="text-white font-bold" style={{ fontSize: '1.1rem' }}>
+                        <h2
+                            className="text-white font-bold"
+                            style={{ fontSize: '1.1rem' }}
+                        >
                             autocomplete rules
                         </h2>
-                        <p className="text-gray-600 mt-0.5" style={{ fontSize: '0.75rem' }}>
-                            applied when you hit ⚡ autocomplete
+                        <p
+                            className="text-gray-600 mt-0.5"
+                            style={{ fontSize: '0.75rem' }}
+                        >
+                            applied when you hit 'auto' btn
                         </p>
                     </div>
                     <button
@@ -133,85 +201,267 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 p-6" style={{ scrollbarWidth: 'none' }}>
-                    <div className="grid grid-cols-2 gap-4" style={{ alignItems: 'start' }}>
-
+                <div
+                    className="overflow-y-auto flex-1 p-6"
+                    style={{ scrollbarWidth: 'none' }}
+                >
+                    <div
+                        className="grid grid-cols-2 gap-4"
+                        style={{ alignItems: 'start' }}
+                    >
                         {/* ── LEFT COLUMN ── */}
                         <div className="flex flex-col gap-4">
-
                             {/* bulk section */}
-                            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div
+                                className="rounded-xl overflow-hidden"
+                                style={{
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                            >
                                 <div
                                     className="px-4 py-3"
-                                    style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderBottom:
+                                            '1px solid rgba(255,255,255,0.06)',
+                                    }}
                                 >
-                                    <p className="text-white font-semibold" style={{ fontSize: '0.95rem' }}>⬜ bulk</p>
-                                    <p className="text-gray-600 mt-0.5" style={{ fontSize: '0.73rem' }}>Common cards only</p>
+                                    <p
+                                        className="text-white font-semibold"
+                                        style={{ fontSize: '0.85rem' }}
+                                    >
+                                        bulk -
+                                        <span
+                                            style={{
+                                                color: '#5a5a5a',
+                                                fontSize: '0.6rem',
+                                                textDecoration: 'none',
+                                            }}
+                                        >
+                                            {' '}
+                                            common cards only
+                                        </span>
+                                    </p>
                                 </div>
                                 <div
                                     className="px-4 py-3 flex items-center justify-between"
-                                    style={{ background: 'rgba(255,255,255,0.01)' }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.01)',
+                                    }}
                                 >
-                                    <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>auto-sell commons</span>
-                                    <Toggle on={bulkSell} onChange={setBulkSell} />
+                                    <span
+                                        style={{
+                                            fontSize: '0.75rem',
+                                            color: '#9ca3af',
+                                        }}
+                                    >
+                                        auto-sell commons
+                                    </span>
+                                    <Toggle
+                                        on={bulkSell}
+                                        onChange={setBulkSell}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* auto filter in reverse */}
+                            <div
+                                className="rounded-xl overflow-hidden"
+                                style={{
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                            >
+                                <div
+                                    className="px-4 py-3"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderBottom:
+                                            '1px solid rgba(255,255,255,0.06)',
+                                    }}
+                                >
+                                    <p
+                                        className="text-white font-semibold"
+                                        style={{ fontSize: '0.85rem' }}
+                                    >
+                                        auto (reversed) -
+                                        <span
+                                            style={{
+                                                color: '#5a5a5a',
+                                                fontSize: '0.6rem',
+                                                textDecoration: 'none',
+                                            }}
+                                        >
+                                            {' '}
+                                            start from the back
+                                        </span>
+                                    </p>
+                                </div>
+                                <div
+                                    className="px-4 py-3 flex items-center justify-between"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.01)',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: '0.75rem',
+                                            color: '#9ca3af',
+                                        }}
+                                    >
+                                        enable
+                                    </span>
+                                    <Toggle
+                                        on={autoReverse}
+                                        onChange={(v) => {
+                                            console.log(
+                                                'TOGGLE CLICK → new value:',
+                                                v,
+                                            )
+                                            setAutoReverse(v)
+                                        }}
+                                    />
                                 </div>
                             </div>
 
                             {/* grade filter */}
-                            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div
+                                className="rounded-xl overflow-hidden"
+                                style={{
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                            >
                                 <div
                                     className="px-4 py-3"
-                                    style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderBottom:
+                                            '1px solid rgba(255,255,255,0.06)',
+                                    }}
                                 >
-                                    <p className="text-white font-semibold" style={{ fontSize: '0.95rem' }}>📊 grade filter</p>
-                                    <p className="text-gray-600 mt-0.5" style={{ fontSize: '0.73rem' }}>override action based on condition score</p>
+                                    <p
+                                        className="text-white font-semibold"
+                                        style={{ fontSize: '0.85rem' }}
+                                    >
+                                        grade filter
+                                    </p>
+                                    <p
+                                        className="text-gray-600 mt-0.5"
+                                        style={{ fontSize: '0.73rem' }}
+                                    >
+                                        override action based on condition score
+                                    </p>
                                 </div>
-                                <div className="px-4 py-3 flex flex-col gap-3" style={{ background: 'rgba(255,255,255,0.01)' }}>
+                                <div
+                                    className="px-4 py-3 flex flex-col gap-3"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.01)',
+                                    }}
+                                >
                                     {/* threshold slider */}
                                     <div>
                                         <div className="flex justify-between mb-1.5">
-                                            <span style={{ fontSize: '0.73rem', color: '#6b7280' }}>threshold</span>
                                             <span
                                                 style={{
-                                                    fontSize: '0.79rem', fontWeight: 700, fontFamily: 'monospace',
-                                                    color: !thresholdActive ? '#4b5563'
-                                                        : gradeThreshold >= 8 ? '#f87171'
-                                                        : gradeThreshold >= 6 ? '#fbbf24'
-                                                        : '#4ade80',
+                                                    fontSize: '0.73rem',
+                                                    color: '#6b7280',
                                                 }}
                                             >
-                                                {!thresholdActive ? 'off' : gradeThreshold.toFixed(1)}
+                                                threshold
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: '0.79rem',
+                                                    fontWeight: 700,
+                                                    fontFamily: 'monospace',
+                                                    color: !thresholdActive
+                                                        ? '#4b5563'
+                                                        : gradeThreshold >= 8
+                                                          ? '#f87171'
+                                                          : gradeThreshold >= 6
+                                                            ? '#fbbf24'
+                                                            : '#4ade80',
+                                                }}
+                                            >
+                                                {!thresholdActive
+                                                    ? 'off'
+                                                    : gradeThreshold.toFixed(1)}
                                             </span>
                                         </div>
                                         <input
-                                            type="range" min={0} max={10} step={0.5}
+                                            type="range"
+                                            min={0}
+                                            max={10}
+                                            step={0.5}
                                             value={gradeThreshold}
-                                            onChange={(e) => setGradeThreshold(Number(e.target.value))}
-                                            style={{ width: '100%', accentColor: '#fbbf24', cursor: 'pointer' }}
+                                            onChange={(e) =>
+                                                setGradeThreshold(
+                                                    Number(e.target.value),
+                                                )
+                                            }
+                                            style={{
+                                                width: '100%',
+                                                accentColor: '#fbbf24',
+                                                cursor: 'pointer',
+                                            }}
                                         />
                                     </div>
 
                                     {/* below threshold action */}
                                     <div className="flex items-center justify-between">
-                                        <span style={{ fontSize: '0.73rem', color: '#6b7280' }}>if below →</span>
+                                        <span
+                                            style={{
+                                                fontSize: '0.73rem',
+                                                color: '#6b7280',
+                                            }}
+                                        >
+                                            if below →
+                                        </span>
                                         <div className="flex gap-1.5">
-                                            {(['sell', 'skip', 'off'] as GradeAction[]).map((a) => {
-                                                const isActive = gradeAction === a
-                                                const cfg = a === 'sell'
-                                                    ? { color: '#eab308', bg: 'rgba(234,179,8,0.12)',     border: 'rgba(234,179,8,0.35)'     }
-                                                    : a === 'skip'
-                                                    ? { color: '#9ca3af', bg: 'rgba(107,114,128,0.12)',   border: 'rgba(107,114,128,0.3)'    }
-                                                    : { color: '#4b5563', bg: 'rgba(255,255,255,0.04)',   border: 'rgba(255,255,255,0.08)'   }
+                                            {(
+                                                [
+                                                    'sell',
+                                                    'skip',
+                                                    'off',
+                                                ] as GradeAction[]
+                                            ).map((a) => {
+                                                const isActive =
+                                                    gradeAction === a
+                                                const cfg =
+                                                    a === 'sell'
+                                                        ? {
+                                                              color: '#eab308',
+                                                              bg: 'rgba(234,179,8,0.12)',
+                                                              border: 'rgba(234,179,8,0.35)',
+                                                          }
+                                                        : a === 'skip'
+                                                          ? {
+                                                                color: '#9ca3af',
+                                                                bg: 'rgba(107,114,128,0.12)',
+                                                                border: 'rgba(107,114,128,0.3)',
+                                                            }
+                                                          : {
+                                                                color: '#4b5563',
+                                                                bg: 'rgba(255,255,255,0.04)',
+                                                                border: 'rgba(255,255,255,0.08)',
+                                                            }
                                                 return (
                                                     <button
                                                         key={a}
-                                                        onClick={() => setGradeAction(a)}
+                                                        onClick={() =>
+                                                            setGradeAction(a)
+                                                        }
                                                         className="px-2.5 py-1 rounded-md font-semibold transition-all"
                                                         style={{
                                                             fontSize: '0.71rem',
-                                                            background: isActive ? cfg.bg : 'transparent',
-                                                            border: isActive ? `1px solid ${cfg.border}` : '1px solid rgba(255,255,255,0.05)',
-                                                            color: isActive ? cfg.color : '#4b5563',
+                                                            background: isActive
+                                                                ? cfg.bg
+                                                                : 'transparent',
+                                                            border: isActive
+                                                                ? `1px solid ${cfg.border}`
+                                                                : '1px solid rgba(255,255,255,0.05)',
+                                                            color: isActive
+                                                                ? cfg.color
+                                                                : '#4b5563',
                                                         }}
                                                     >
                                                         {a}
@@ -224,9 +474,20 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                                     {/* above threshold skip */}
                                     <div
                                         className="flex items-center justify-between"
-                                        style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}
+                                        style={{
+                                            borderTop:
+                                                '1px solid rgba(255,255,255,0.05)',
+                                            paddingTop: 10,
+                                        }}
                                     >
-                                        <span style={{ fontSize: '0.73rem', color: '#6b7280' }}>if above → skip</span>
+                                        <span
+                                            style={{
+                                                fontSize: '0.73rem',
+                                                color: '#6b7280',
+                                            }}
+                                        >
+                                            if above → skip
+                                        </span>
                                         <Toggle
                                             on={gradeAboveSkip}
                                             onChange={setGradeAboveSkip}
@@ -239,11 +500,28 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                                     {/* precedence toggle */}
                                     <div
                                         className="flex items-center justify-between"
-                                        style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}
+                                        style={{
+                                            borderTop:
+                                                '1px solid rgba(255,255,255,0.05)',
+                                            paddingTop: 10,
+                                        }}
                                     >
                                         <div>
-                                            <span style={{ fontSize: '0.73rem', color: '#6b7280' }}>grade overrides premium</span>
-                                            <p style={{ fontSize: '0.65rem', color: '#4b5563', marginTop: 2 }}>
+                                            <span
+                                                style={{
+                                                    fontSize: '0.73rem',
+                                                    color: '#6b7280',
+                                                }}
+                                            >
+                                                grade overrides premium
+                                            </span>
+                                            <p
+                                                style={{
+                                                    fontSize: '0.65rem',
+                                                    color: '#4b5563',
+                                                    marginTop: 2,
+                                                }}
+                                            >
                                                 {gradeOverridesPremium
                                                     ? 'grade filter applies to all cards'
                                                     : 'premium cards follow rarity rules regardless'}
@@ -262,48 +540,94 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                         </div>
 
                         {/* ── RIGHT COLUMN — premium ── */}
-                        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div
+                            className="rounded-xl overflow-hidden"
+                            style={{
+                                border: '1px solid rgba(255,255,255,0.06)',
+                            }}
+                        >
                             <div
                                 className="px-4 py-3"
-                                style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                                style={{
+                                    background: 'rgba(255,255,255,0.02)',
+                                    borderBottom:
+                                        '1px solid rgba(255,255,255,0.06)',
+                                }}
                             >
-                                <p className="text-white font-semibold" style={{ fontSize: '0.95rem' }}>✨ premium</p>
-                                <p className="text-gray-600 mt-0.5" style={{ fontSize: '0.73rem' }}>Uncommon and above</p>
+                                <p
+                                    className="text-white font-semibold"
+                                    style={{ fontSize: '0.95rem' }}
+                                >
+                                    premium
+                                </p>
+                                <p
+                                    className="text-gray-600 mt-0.5"
+                                    style={{ fontSize: '0.73rem' }}
+                                >
+                                    Uncommon and above
+                                </p>
                             </div>
 
                             {CONFIGURABLE_RARITIES.map((rarity) => {
                                 const rainbow = isRainbow(rarity as Rarity)
-                                const rarityColor = rainbow ? '#f472b4' : (RARITY_COLOR[rarity as Rarity] ?? '#9ca3af')
+                                const rarityColor = rainbow
+                                    ? '#f472b4'
+                                    : (RARITY_COLOR[rarity as Rarity] ??
+                                      '#9ca3af')
                                 const current = rarityActions[rarity] ?? 'add'
                                 return (
                                     <div
                                         key={rarity}
                                         className="flex items-center justify-between px-4 py-3"
                                         style={{
-                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                            background: 'rgba(255,255,255,0.01)',
+                                            borderBottom:
+                                                '1px solid rgba(255,255,255,0.04)',
+                                            background:
+                                                'rgba(255,255,255,0.01)',
                                         }}
                                     >
                                         <span
                                             className="font-bold uppercase tracking-widest flex-shrink-0"
-                                            style={{ fontSize: '0.73rem', color: rarityColor, width: 80 }}
+                                            style={{
+                                                fontSize: '0.73rem',
+                                                color: rarityColor,
+                                                width: 80,
+                                            }}
                                         >
                                             {rarity}
                                         </span>
-                                        <div className="flex gap-2" style={{ marginLeft: 12 }}>
+                                        <div
+                                            className="flex gap-2"
+                                            style={{ marginLeft: 12 }}
+                                        >
                                             {PREMIUM_ACTIONS.map((a) => {
-                                                const isActive = current === a.value
+                                                const isActive =
+                                                    current === a.value
                                                 return (
                                                     <button
                                                         key={a.value}
-                                                        onClick={() => setRarityActions((prev) => ({ ...prev, [rarity]: a.value }))}
+                                                        onClick={() =>
+                                                            setRarityActions(
+                                                                (prev) => ({
+                                                                    ...prev,
+                                                                    [rarity]:
+                                                                        a.value,
+                                                                }),
+                                                            )
+                                                        }
                                                         className="rounded-md font-semibold transition-all"
                                                         style={{
                                                             fontSize: '0.71rem',
                                                             padding: '3px 14px',
-                                                            background: isActive ? a.bg : 'transparent',
-                                                            border: isActive ? `1px solid ${a.border}` : '1px solid rgba(255,255,255,0.05)',
-                                                            color: isActive ? a.color : '#4b5563',
+                                                            background: isActive
+                                                                ? a.bg
+                                                                : 'transparent',
+                                                            border: isActive
+                                                                ? `1px solid ${a.border}`
+                                                                : '1px solid rgba(255,255,255,0.05)',
+                                                            color: isActive
+                                                                ? a.color
+                                                                : '#4b5563',
                                                         }}
                                                     >
                                                         {a.label}
@@ -318,20 +642,40 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                             {/* auto-skip note */}
                             <div
                                 className="px-4 py-3"
-                                style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.005)' }}
+                                style={{
+                                    borderTop:
+                                        '1px solid rgba(255,255,255,0.06)',
+                                    background: 'rgba(255,255,255,0.005)',
+                                }}
                             >
-                                <p style={{ fontSize: '0.73rem', color: '#4b5563', lineHeight: 1.5 }}>
-                                    <span style={{ color: '#6b7280' }}>Legendary and above</span> auto-skip — handle manually
+                                <p
+                                    style={{
+                                        fontSize: '0.73rem',
+                                        color: '#4b5563',
+                                        lineHeight: 1.5,
+                                    }}
+                                >
+                                    <span style={{ color: '#6b7280' }}>
+                                        Legendary and above
+                                    </span>{' '}
+                                    auto-skip — handle manually
                                 </p>
                                 <div className="flex flex-wrap gap-x-2.5 gap-y-1 mt-2">
                                     {AUTO_SKIP_RARITIES.map((r) => {
                                         const rainbow = isRainbow(r as Rarity)
-                                        const c = rainbow ? '#f472b4' : (RARITY_COLOR[r as Rarity] ?? '#9ca3af')
+                                        const c = rainbow
+                                            ? '#f472b4'
+                                            : (RARITY_COLOR[r as Rarity] ??
+                                              '#9ca3af')
                                         return (
                                             <span
                                                 key={r}
                                                 className="font-bold uppercase tracking-widest"
-                                                style={{ fontSize: '0.65rem', color: c, opacity: 0.4 }}
+                                                style={{
+                                                    fontSize: '0.65rem',
+                                                    color: c,
+                                                    opacity: 0.4,
+                                                }}
                                             >
                                                 {r}
                                             </span>
@@ -340,7 +684,6 @@ export default function AutoCompleteSettings({ prefs, onSave, onClose }: Props) 
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
 

@@ -6,11 +6,12 @@ export type GradeAction = 'sell' | 'skip' | 'off'
 
 export type AutoCompletePrefs = {
     bulk: CardAction
+    autoReverse: boolean
     fullArt: Record<string, CardAction> // keyed by rarity
     // If overall attr grade < gradeThreshold, override action with gradeAction
-    gradeThreshold: number    // 1–10, e.g. 5 means "if overall < 5, do gradeAction"
-    gradeAction: GradeAction  // what to do when below threshold
-    gradeAboveSkip?: boolean  // if true and grade >= threshold, skip (keep the card)
+    gradeThreshold: number // 1–10, e.g. 5 means "if overall < 5, do gradeAction"
+    gradeAction: GradeAction // what to do when below threshold
+    gradeAboveSkip?: boolean // if true and grade >= threshold, skip (keep the card)
     gradeOverridesPremium?: boolean // if false, premium cards ignore grade filter (rarity rules win)
 }
 
@@ -18,6 +19,7 @@ const STORAGE_KEY = 'dopamaxxing_autocomplete_prefs'
 
 export const DEFAULT_PREFS: AutoCompletePrefs = {
     bulk: 'sell',
+    autoReverse: false,
     fullArt: {
         Uncommon: 'add',
         Rare: 'add',
@@ -28,7 +30,7 @@ export const DEFAULT_PREFS: AutoCompletePrefs = {
         Celestial: 'add',
         '???': 'add',
     },
-    gradeThreshold: 0,   // 0 = off
+    gradeThreshold: 0, // 0 = off
     gradeAction: 'off',
     gradeOverridesPremium: true,
 }
@@ -63,8 +65,12 @@ function getOverallGrade(card: {
     attr_edges?: number | null
     attr_surface?: number | null
 }): number | null {
-    const vals = [card.attr_centering, card.attr_corners, card.attr_edges, card.attr_surface]
-        .filter((v): v is number => v != null)
+    const vals = [
+        card.attr_centering,
+        card.attr_corners,
+        card.attr_edges,
+        card.attr_surface,
+    ].filter((v): v is number => v != null)
     if (vals.length === 0) return null
     return vals.reduce((s, v) => s + v, 0) / vals.length
 }
@@ -84,7 +90,9 @@ export function getActionForCard(
     const isPremium = PREMIUM_RARITIES.has(card.rarity)
 
     // Grade filter: skip it for premium cards when gradeOverridesPremium is false
-    const gradeApplies = prefs.gradeThreshold > 0 && (isBulk || prefs.gradeOverridesPremium !== false || !isPremium)
+    const gradeApplies =
+        prefs.gradeThreshold > 0 &&
+        (isBulk || prefs.gradeOverridesPremium !== false || !isPremium)
     if (gradeApplies) {
         const overall = getOverallGrade(card)
         if (overall !== null) {

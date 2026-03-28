@@ -157,6 +157,7 @@ export default function CrateOpening({
             setWonCard(null)
             setActionDone(false)
         }, 900)
+        onBack()
     }
 
     async function handleFeed() {
@@ -177,7 +178,7 @@ export default function CrateOpening({
     // ── idle / loading ────────────────────────────────────────────────────────
     if (phase === 'idle' || phase === 'loading') {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[80vh] gap-7">
+            <div className="flex flex-col items-center justify-center min-h-[100vh] gap-7">
                 {coinError && (
                     <div
                         className="flex items-center gap-2 px-4 py-3 rounded-xl"
@@ -222,31 +223,12 @@ export default function CrateOpening({
                     />
                 </div>
 
-                {phase === 'idle' ? (
-                    <button
-                        onClick={handleOpen}
-                        className="px-8 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 hover:scale-105"
-                        style={{
-                            background:
-                                'linear-gradient(135deg, rgba(234,179,8,0.12), rgba(255,255,255,0.06))',
-                            border: '1px solid rgba(234,179,8,0.35)',
-                            color: '#eab308',
-                            letterSpacing: '0.08em',
-                        }}
-                    >
-                        Open Box
-                    </button>
-                ) : (
-                    <p className="text-gray-600 text-xs tracking-widest uppercase animate-pulse">
-                        opening…
-                    </p>
-                )}
-
                 <button
                     onClick={onBack}
-                    className="text-gray-600 text-xs hover:text-gray-400 transition-colors"
+                    className="px-5 py-2 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-200"
+                    style={{ letterSpacing: '-0.01em' }}
                 >
-                    ← back
+                    Back
                 </button>
             </div>
         )

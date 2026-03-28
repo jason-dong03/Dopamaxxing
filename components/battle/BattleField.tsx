@@ -46,6 +46,7 @@ type BattleFieldProps = {
     enemyLunge: boolean
     enemyHit: number | null
     playerHit: number | null
+    isCriticalHit?: boolean
     switchPhase: 'idle' | 'recall' | 'send'
     sessionExp: Record<string, number>
     faintedSide?: 'player' | 'enemy' | null
@@ -66,6 +67,7 @@ export function BattleField({
     enemyLunge,
     enemyHit,
     playerHit,
+    isCriticalHit,
     switchPhase,
     sessionExp,
     faintedSide,
@@ -270,11 +272,12 @@ export function BattleField({
                             left: '50%',
                             transform: 'translateX(-50%)',
                             animation: 'n-damage-float 1.8s ease-out forwards',
-                            fontSize: 'clamp(0.85rem,2.5vw,1.1rem)',
+                            fontSize: isCriticalHit ? 'clamp(1.2rem,3.5vw,1.6rem)' : 'clamp(0.85rem,2.5vw,1.1rem)',
                             fontWeight: 900,
-                            color: '#f87171',
-                            textShadow:
-                                '0 0 8px rgba(248,113,113,0.9), 0 1px 3px rgba(0,0,0,0.8)',
+                            color: isCriticalHit ? '#facc15' : '#f87171',
+                            textShadow: isCriticalHit
+                                ? '0 0 12px rgba(250,204,21,1), 0 0 24px rgba(250,204,21,0.6), 0 1px 3px rgba(0,0,0,0.9)'
+                                : '0 0 8px rgba(248,113,113,0.9), 0 1px 3px rgba(0,0,0,0.8)',
                             pointerEvents: 'none',
                             whiteSpace: 'nowrap',
                             fontFamily: FONT,
@@ -359,11 +362,12 @@ export function BattleField({
                             left: '50%',
                             transform: 'translateX(-50%)',
                             animation: 'n-damage-float 1.8s ease-out forwards',
-                            fontSize: 'clamp(0.85rem,2.5vw,1.1rem)',
+                            fontSize: isCriticalHit ? 'clamp(1.2rem,3.5vw,1.6rem)' : 'clamp(0.85rem,2.5vw,1.1rem)',
                             fontWeight: 900,
-                            color: '#f87171',
-                            textShadow:
-                                '0 0 8px rgba(248,113,113,0.9), 0 1px 3px rgba(0,0,0,0.8)',
+                            color: isCriticalHit ? '#facc15' : '#f87171',
+                            textShadow: isCriticalHit
+                                ? '0 0 12px rgba(250,204,21,1), 0 0 24px rgba(250,204,21,0.6), 0 1px 3px rgba(0,0,0,0.9)'
+                                : '0 0 8px rgba(248,113,113,0.9), 0 1px 3px rgba(0,0,0,0.8)',
                             pointerEvents: 'none',
                             whiteSpace: 'nowrap',
                             fontFamily: FONT,

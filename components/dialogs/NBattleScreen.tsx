@@ -33,6 +33,19 @@ export default function NBattleScreen({
         setMounted(true)
     }, [])
 
+    // ── Crown cutscene state ──────────────────────────────────────────────────
+    const CROWN_LINES = [
+        '...',
+        'N stands still.',
+        'Slowly, he reaches\nfor his crown.',
+        'He places it on the\nground before you.',
+        "\"These Pokémon were\nnever mine to keep.\nThey chose to stay.\nI never deserved that.\"",
+        "\"The Crown of Truth...\nhas fallen.\"",
+        '👑\n\nAdded to your bag.',
+    ]
+    const [crownCutsceneLine, setCrownCutsceneLine] = useState(0)
+    const [crownCutsceneDone, setCrownCutsceneDone] = useState(false)
+
     // ── Pre-dialogue state ────────────────────────────────────────────────────
     const [dialogueIdx, setDialogueIdx] = useState(0)
     const [displayed, setDisplayed] = useState('')
@@ -369,6 +382,7 @@ export default function NBattleScreen({
                     enemyLunge={battle.enemyLunge}
                     enemyHit={battle.enemyHit}
                     playerHit={battle.playerHit}
+                    isCriticalHit={battle.isCriticalHit}
                     switchPhase={battle.switchPhase}
                     sessionExp={battle.sessionExp}
                     faintedSide={battle.faintedSide}
@@ -529,6 +543,53 @@ export default function NBattleScreen({
             )
         }
 
+        if (battle.crownDropped && !crownCutsceneDone) {
+            return createPortal(
+                <div
+                    onClick={() => {
+                        if (crownCutsceneLine < CROWN_LINES.length - 1) {
+                            setCrownCutsceneLine(l => l + 1)
+                        } else {
+                            setCrownCutsceneDone(true)
+                        }
+                    }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 99999,
+                        background: '#000',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        padding: 32, cursor: 'pointer',
+                    }}
+                >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/trainers/N-masters.gif" alt="N"
+                        style={{ height: 100, imageRendering: 'pixelated', marginBottom: 32,
+                            filter: 'drop-shadow(0 0 20px rgba(74,222,128,0.3))',
+                            opacity: crownCutsceneLine < CROWN_LINES.length - 1 ? 1 : 0.4,
+                            transition: 'opacity 0.8s ease' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
+                    {crownCutsceneLine === CROWN_LINES.length - 1 ? (
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: 16, filter: 'drop-shadow(0 0 12px rgba(250,204,21,0.8))' }}>👑</div>
+                            <p style={{ fontFamily: "'PokemonClassic',monospace", fontSize: 'clamp(0.7rem,2vw,0.85rem)', color: '#facc15', lineHeight: 1.9, whiteSpace: 'pre-line', maxWidth: 320, margin: '0 auto 12px' }}>
+                                {CROWN_LINES[crownCutsceneLine]}
+                            </p>
+                            <p style={{ fontSize: '0.6rem', color: '#4b5563', marginTop: 16 }}>tap to continue</p>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: 'center', maxWidth: 320 }}>
+                            <p style={{ fontFamily: "'PokemonClassic',monospace", fontSize: 'clamp(0.7rem,2vw,0.85rem)', color: '#e2e8f0', lineHeight: 1.9, whiteSpace: 'pre-line' }}>
+                                {CROWN_LINES[crownCutsceneLine]}
+                            </p>
+                            <p style={{ fontSize: '0.6rem', color: '#374151', marginTop: 20 }}>tap to continue</p>
+                        </div>
+                    )}
+                </div>,
+                document.body,
+            )
+        }
+
         return createPortal(
             <div
                 style={{
@@ -582,11 +643,48 @@ export default function NBattleScreen({
                             fontSize: 'clamp(0.82rem,2.5vw,0.9rem)',
                             color: '#9ca3af',
                             lineHeight: 1.7,
-                            margin: '0 0 32px',
+                            margin: '0 0 20px',
                         }}
                     >
                         {VICTORY_QUOTE}
                     </p>
+
+                    {/* Per-card EXP summary */}
+                    {battle.awardedExp.length > 0 && (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            borderRadius: 12,
+                            padding: '12px 14px',
+                            marginBottom: 20,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                            textAlign: 'left',
+                        }}>
+                            {battle.awardedExp.map(c => (
+                                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ flex: 1, fontSize: '0.72rem', color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {c.name}
+                                    </span>
+                                    <span style={{ fontSize: '0.68rem', color: '#4ade80', fontWeight: 600 }}>
+                                        +{c.gained} EXP
+                                    </span>
+                                    {c.newLevel && (
+                                        <span style={{
+                                            fontSize: '0.6rem', fontWeight: 700,
+                                            color: '#facc15', background: 'rgba(250,204,21,0.12)',
+                                            border: '1px solid rgba(250,204,21,0.3)',
+                                            borderRadius: 4, padding: '1px 6px',
+                                        }}>
+                                            Lv.{c.newLevel} ↑
+                                        </span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <button
                         onClick={() => {
                             onBattleWon()

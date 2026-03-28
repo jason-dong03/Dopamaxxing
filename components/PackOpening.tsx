@@ -3,11 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import FlipCard from './card/FlipCard'
 import FirstEditionBadge from './card/FirstEditionBadge'
-import {
-    isRainbow,
-    rarityGlowRgb,
-    rarityToOdds,
-} from '@/lib/rarityConfig'
+import { isRainbow, rarityGlowRgb, rarityToOdds } from '@/lib/rarityConfig'
 import { useRouter } from 'next/navigation'
 import AutoCompleteSettings from './AutoCompleteSettings'
 import { createClient } from '@/lib/supabase/client'
@@ -43,7 +39,6 @@ type Props = {
     count?: number
 }
 
-
 export default function PackOpening({
     pack,
     onBack,
@@ -62,19 +57,6 @@ export default function PackOpening({
     const [phase, setPhase] = useState<'idle' | 'revealing' | 'done'>('idle')
     const [cards, setCards] = useState<Card[]>([])
 
-    const [nFarewellFound, setNFarewellFound] = useState(false)
-
-    async function handleNFarewellClick() {
-        if (nFarewellFound) return
-        try {
-            const res = await fetch('/api/n-farewell', { method: 'POST' })
-            if (res.ok) {
-                setNFarewellFound(true)
-                window.dispatchEvent(new Event('quest-claimed'))
-            }
-        } catch {}
-    }
-
     const [specialActive, setSpecialActive] = useState(false)
     const [specialGlow, setSpecialGlow] = useState('156, 163, 175')
     const [revealedCount, setRevealedCount] = useState(0)
@@ -83,7 +65,9 @@ export default function PackOpening({
     const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set())
     const [animatingIndex, setAnimatingIndex] = useState<number | null>(null)
     const [doneIndex, setDoneIndex] = useState(0)
-    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats'>('condition')
+    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats'>(
+        'condition',
+    )
     const [openCount, setOpenCount] = useState(count)
 
     const [addedCardIds, setAddedCardIds] = useState<Set<string>>(new Set())
@@ -222,7 +206,9 @@ export default function PackOpening({
     useEffect(() => {
         const prev = document.body.style.overflow
         document.body.style.overflow = 'hidden'
-        return () => { document.body.style.overflow = prev }
+        return () => {
+            document.body.style.overflow = prev
+        }
     }, [])
 
     // nav-home event: return to pack selection from the Home navbar button
@@ -289,24 +275,38 @@ export default function PackOpening({
 
         if (pack.test) {
             openedCards = isMulti
-                ? Array.from({ length: openCount }, () => TEST_MOCK_CARDS).flat()
+                ? Array.from(
+                      { length: openCount },
+                      () => TEST_MOCK_CARDS,
+                  ).flat()
                 : TEST_MOCK_CARDS
         } else if (isMulti) {
             // Batch route — single round-trip for all packs
             const res = await fetch('/api/open-pack-batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ setId: pack.id, count: openCount, free }),
+                body: JSON.stringify({
+                    setId: pack.id,
+                    count: openCount,
+                    free,
+                }),
             })
             if (res.status === 409) {
-                setShaking(false); setCoinError({ cost: 0, coins: -1 }); return
+                setShaking(false)
+                setCoinError({ cost: 0, coins: -1 })
+                return
             }
             if (res.status === 402) {
                 const data = await res.json()
-                setShaking(false); setCoinError({ cost: data.cost, coins: data.coins }); return
+                setShaking(false)
+                setCoinError({ cost: data.cost, coins: data.coins })
+                return
             }
             const data = await res.json()
-            if (!Array.isArray(data.cards) || data.cards.length === 0) { setShaking(false); return }
+            if (!Array.isArray(data.cards) || data.cards.length === 0) {
+                setShaking(false)
+                return
+            }
             openedCards = data.cards
             if (!free && pack.cost > 0) {
                 setUserCoins((prev) => (prev ?? 0) - pack.cost * openCount)
@@ -326,14 +326,21 @@ export default function PackOpening({
                 },
             )
             if (res.status === 409) {
-                setShaking(false); setCoinError({ cost: 0, coins: -1 }); return
+                setShaking(false)
+                setCoinError({ cost: 0, coins: -1 })
+                return
             }
             if (res.status === 402) {
                 const data = await res.json()
-                setShaking(false); setCoinError({ cost: data.cost, coins: data.coins }); return
+                setShaking(false)
+                setCoinError({ cost: data.cost, coins: data.coins })
+                return
             }
             const data = await res.json()
-            if (!Array.isArray(data.cards) || data.cards.length === 0) { setShaking(false); return }
+            if (!Array.isArray(data.cards) || data.cards.length === 0) {
+                setShaking(false)
+                return
+            }
             openedCards = data.cards
             if (data.godPack) setGodPack(true)
             if (!free && pack.cost > 0) {
@@ -341,13 +348,25 @@ export default function PackOpening({
                 triggerCoinFlash(pack.cost, false)
             }
 
-            if (openedCards.length === 0) { setShaking(false); return }
-            saveSession({ cards: openedCards, addedIndices: [], doneIndex: 0, addedCardIds: [] })
+            if (openedCards.length === 0) {
+                setShaking(false)
+                return
+            }
+            saveSession({
+                cards: openedCards,
+                addedIndices: [],
+                doneIndex: 0,
+                addedCardIds: [],
+            })
         }
 
         // For multi-open: sort lowest rarity first, best cards at the back
         if (isMulti) {
-            openedCards.sort((a, b) => RARITY_TIERS.indexOf(a.rarity) - RARITY_TIERS.indexOf(b.rarity))
+            openedCards.sort(
+                (a, b) =>
+                    RARITY_TIERS.indexOf(a.rarity) -
+                    RARITY_TIERS.indexOf(b.rarity),
+            )
         }
 
         setCards(openedCards)
@@ -417,7 +436,10 @@ export default function PackOpening({
                 setTimeout(() => {
                     setTearing(false)
                     setOpening(true)
-                    setTimeout(() => setPhase(isMulti ? 'done' : 'revealing'), 600)
+                    setTimeout(
+                        () => setPhase(isMulti ? 'done' : 'revealing'),
+                        600,
+                    )
                 }, 400)
             }, 1400)
         } else {
@@ -643,10 +665,12 @@ export default function PackOpening({
 
     function handleStopAutocomplete() {
         isAutocompleting.current = false
+        autocompleteQueue.current = []
+        autocompleteActionMap.current = {}
         setAutoRunning(false)
     }
 
-    function handleAutocomplete(fromBack = false, overrideSell = false) {
+    function handleAutocomplete(fromBack = false) {
         if (isAutocompleting.current) return
         isAutocompleting.current = true
         setAutoRunning(true)
@@ -661,7 +685,6 @@ export default function PackOpening({
 
         const queue = source
             .map((card) => {
-                if (overrideSell) return { card, action: 'sell' as const }
                 const currentIsNew = card.isNew && !addedCardIds.has(card.id)
                 let action = getActionForCard(card, prefs, currentIsNew)
                 if (action === 'add') {
@@ -695,7 +718,7 @@ export default function PackOpening({
             return next
         })
 
-         if (!pack.test) {
+        if (!pack.test) {
             fetch('/api/batch-action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -722,6 +745,12 @@ export default function PackOpening({
     }
 
     async function processNextAutocomplete() {
+        if (!isAutocompleting.current) {
+            autocompleteQueue.current = []
+            setAutoRunning(false)
+            return
+        }
+
         if (autocompleteQueue.current.length === 0) {
             isAutocompleting.current = false
             setAutoRunning(false)
@@ -748,10 +777,12 @@ export default function PackOpening({
             setShattering(false)
             autocompleteQueue.current.shift()
             removeCard(i)
+            if (!isAutocompleting.current) return
             setTimeout(() => processNextAutocomplete(), 50)
         } else {
             // add / feed — trigger fly-down; handleAnimationEnd resumes queue
             autocompleteQueue.current.shift()
+            if (!isAutocompleting.current) return
             setAnimatingIndex(i)
         }
     }
@@ -759,7 +790,8 @@ export default function PackOpening({
     function handleAnimationEnd() {
         if (animatingIndex === null) return
 
-        const card = remainingCards[animatingIndex]
+        const removedIndex = animatingIndex
+        const card = remainingCards[removedIndex]
         const realIndex = cards.findIndex((c) => c === card)
 
         setAddedIndices((prev) => {
@@ -769,13 +801,13 @@ export default function PackOpening({
         })
         setAnimatingIndex(null)
 
-        const newRemaining = remainingCards.filter(
-            (_, i) => i !== animatingIndex,
-        )
+        const newRemaining = remainingCards.filter((_, i) => i !== removedIndex)
 
         if (newRemaining.length === 0) {
             clearSession()
             isAutocompleting.current = false
+            autocompleteQueue.current = []
+            autocompleteActionMap.current = {}
             setAutoRunning(false)
             if (autoBack) {
                 router.refresh()
@@ -789,7 +821,7 @@ export default function PackOpening({
             setDoneIndex(0)
             setOpening(false)
         } else {
-            const newDoneIndex = Math.min(doneIndex, newRemaining.length - 1)
+            const newDoneIndex = Math.min(removedIndex, newRemaining.length - 1)
             setDoneIndex(newDoneIndex)
             saveSession({
                 cards,
@@ -798,12 +830,13 @@ export default function PackOpening({
                 addedCardIds: [...addedCardIds],
             })
             if (isAutocompleting.current) {
-                setTimeout(() => processNextAutocomplete(), 50)
+                setTimeout(() => {
+                    if (isAutocompleting.current) processNextAutocomplete()
+                }, 50)
             }
         }
         router.refresh()
     }
-
     function handleFlipAll() {
         const remaining = cards.length - revealedCount
         if (remaining <= 0) return
@@ -868,13 +901,16 @@ export default function PackOpening({
                     zIndex: 10001,
                 }}
             >
-                <RarityBackgroundEffects packBgTier={packBgTier} sparks={sparks} />
+                <RarityBackgroundEffects
+                    packBgTier={packBgTier}
+                    sparks={sparks}
+                />
 
                 {/* pack */}
                 {phase === 'idle' && (
                     <div
                         style={{
-                            transform: 'translateY(24px)',
+                            transform: isMobile ? 'translateY(120px)' : 'translateY(24px)',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -907,60 +943,70 @@ export default function PackOpening({
                             </div>
                         )}
 
-                        {resumeSession && createPortal(
-                            <div
-                                style={{
-                                    position: 'fixed',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    zIndex: 999,
-                                    background: 'rgba(10,10,14,0.97)',
-                                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                    backdropFilter: 'blur(8px)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 12,
-                                    padding: '10px 20px',
-                                }}
-                            >
-                                <p style={{ color: '#9ca3af', fontSize: '0.78rem', flex: 1, margin: 0 }}>
-                                    you have unresolved cards from your last pack
-                                </p>
-                                <button
-                                    onClick={handleResume}
+                        {resumeSession &&
+                            createPortal(
+                                <div
                                     style={{
-                                        background: 'rgba(255,255,255,0.1)',
-                                        border: '1px solid rgba(255,255,255,0.15)',
-                                        borderRadius: 8,
-                                        padding: '5px 14px',
-                                        fontSize: '0.75rem',
-                                        color: '#fff',
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
+                                        position: 'fixed',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        zIndex: 999,
+                                        background: 'rgba(10,10,14,0.97)',
+                                        borderBottom:
+                                            '1px solid rgba(255,255,255,0.1)',
+                                        backdropFilter: 'blur(8px)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        padding: '10px 20px',
                                     }}
                                 >
-                                    resume
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        clearSession()
-                                        setResumeSession(null)
-                                    }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        fontSize: '0.72rem',
-                                        color: '#4b5563',
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    dismiss
-                                </button>
-                            </div>,
-                            document.body
-                        )}
+                                    <p
+                                        style={{
+                                            color: '#9ca3af',
+                                            fontSize: '0.78rem',
+                                            flex: 1,
+                                            margin: 0,
+                                        }}
+                                    >
+                                        you have unresolved cards from your last
+                                        pack
+                                    </p>
+                                    <button
+                                        onClick={handleResume}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.1)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            borderRadius: 8,
+                                            padding: '5px 14px',
+                                            fontSize: '0.75rem',
+                                            color: '#fff',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        resume
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            clearSession()
+                                            setResumeSession(null)
+                                        }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            fontSize: '0.72rem',
+                                            color: '#4b5563',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        dismiss
+                                    </button>
+                                </div>,
+                                document.body,
+                            )}
                         <div
                             ref={packImgRef}
                             className={`cursor-pointer animate-subtle-pulse hover:scale-105 ${shaking ? 'animate-shake' : ''} ${opening ? 'animate-fade-out' : ''}${!shaking && !tearing && !opening && pack.idle_aura ? ` ${pack.idle_aura}` : ''}`}
@@ -1005,14 +1051,21 @@ export default function PackOpening({
                         </div>
                         <div className="flex flex-col items-center gap-3 mt-8">
                             {!free && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                    }}
+                                >
                                     <span
                                         style={{
                                             fontSize: '0.82rem',
                                             fontWeight: 600,
                                             color:
                                                 userCoins !== null
-                                                    ? userCoins >= pack.cost * openCount
+                                                    ? userCoins >=
+                                                      pack.cost * openCount
                                                         ? '#4ade80'
                                                         : '#f87171'
                                                     : '#6b7280',
@@ -1023,14 +1076,30 @@ export default function PackOpening({
                                     </span>
                                     {pack.cost > 0 && (
                                         <button
-                                            onClick={() => setOpenCount(c => c === 1 ? 10 : 1)}
+                                            onClick={() =>
+                                                setOpenCount((c) =>
+                                                    c === 1 ? 10 : 1,
+                                                )
+                                            }
                                             style={{
-                                                fontSize: '0.6rem', fontWeight: 700,
-                                                padding: '3px 10px', borderRadius: 6,
-                                                background: openCount === 10 ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.04)',
-                                                border: openCount === 10 ? '1px solid rgba(251,191,36,0.45)' : '1px solid rgba(255,255,255,0.1)',
-                                                color: openCount === 10 ? '#fbbf24' : '#6b7280',
-                                                cursor: 'pointer', letterSpacing: '0.05em',
+                                                fontSize: '0.6rem',
+                                                fontWeight: 700,
+                                                padding: '3px 10px',
+                                                borderRadius: 6,
+                                                background:
+                                                    openCount === 10
+                                                        ? 'rgba(251,191,36,0.12)'
+                                                        : 'rgba(255,255,255,0.04)',
+                                                border:
+                                                    openCount === 10
+                                                        ? '1px solid rgba(251,191,36,0.45)'
+                                                        : '1px solid rgba(255,255,255,0.1)',
+                                                color:
+                                                    openCount === 10
+                                                        ? '#fbbf24'
+                                                        : '#6b7280',
+                                                cursor: 'pointer',
+                                                letterSpacing: '0.05em',
                                                 transition: 'all 150ms',
                                             }}
                                         >
@@ -1044,88 +1113,53 @@ export default function PackOpening({
                                 className="px-5 py-2 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-200"
                                 style={{ letterSpacing: '-0.01em' }}
                             >
-                                ← go back
+                                Back
                             </button>
                         </div>
 
-                        {/* N's hidden farewell — barely visible, discoverable by players on the chain */}
-                        <p
-                            onClick={handleNFarewellClick}
-                            style={{
-                                marginTop: 32,
-                                fontSize: '0.55rem',
-                                fontStyle: 'italic',
-                                color: 'var(--app-text)',
-                                opacity: nFarewellFound ? 0.35 : 0.06,
-                                textAlign: 'center',
-                                maxWidth: 280,
-                                lineHeight: 1.7,
-                                cursor: nFarewellFound ? 'default' : 'pointer',
-                                userSelect: 'none',
-                                transition: 'opacity 0.4s ease',
-                                letterSpacing: '0.01em',
-                            }}
-                        >
-                            &ldquo;Everything&rsquo;s ruined. The ideals and truths I&rsquo;ve held&hellip; The dreams Pokémon shared&hellip;&rdquo;
-                        </p>
-
-                        {/* Act 9 fragments — one half per legendary pack, barely visible */}
-                        {pack.id === 'sv10.5w' && (
-                            <p style={{
-                                marginTop: 16,
-                                fontSize: '0.5rem',
-                                fontStyle: 'italic',
-                                color: 'rgba(255,200,100,1)',
-                                opacity: 0.07,
-                                textAlign: 'center',
-                                maxWidth: 260,
-                                lineHeight: 1.8,
-                                userSelect: 'none',
-                                letterSpacing: '0.01em',
-                            }}>
-                                &ldquo;The bonds between you and your Pokémon — they&rsquo;re real. I can&rsquo;t deny it anymore.&rdquo;
-                            </p>
-                        )}
-                        {pack.id === 'sv10.5b' && (
-                            <p style={{
-                                marginTop: 16,
-                                fontSize: '0.5rem',
-                                fontStyle: 'italic',
-                                color: 'rgba(100,160,255,1)',
-                                opacity: 0.07,
-                                textAlign: 'center',
-                                maxWidth: 260,
-                                lineHeight: 1.8,
-                                userSelect: 'none',
-                                letterSpacing: '0.01em',
-                            }}>
-                                &ldquo;I&rsquo;m going to release my dragon back to the sky. They deserve to be free. As do I.&rdquo;
-                            </p>
-                        )}
                     </div>
                 )}
 
                 {/* god pack banner */}
                 {phase === 'revealing' && godPack && (
-                    <div style={{
-                        position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-                        zIndex: 20, pointerEvents: 'none',
-                        background: 'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6b6b)',
-                        padding: 1.5, borderRadius: 20,
-                        animation: 'hue-rotate-border 2s linear infinite',
-                    }}>
-                        <div style={{
-                            background: '#0a0a12', borderRadius: 19,
-                            padding: '5px 16px',
-                            display: 'flex', alignItems: 'center', gap: 6,
-                        }}>
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: 12,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 20,
+                            pointerEvents: 'none',
+                            background:
+                                'conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6b6b)',
+                            padding: 1.5,
+                            borderRadius: 20,
+                            animation: 'hue-rotate-border 2s linear infinite',
+                        }}
+                    >
+                        <div
+                            style={{
+                                background: '#0a0a12',
+                                borderRadius: 19,
+                                padding: '5px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                            }}
+                        >
                             <span style={{ fontSize: '0.9rem' }}>✨</span>
-                            <span style={{
-                                fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em',
-                                background: 'linear-gradient(90deg, #ffd93d, #ff6b6b, #c77dff, #4d96ff)',
-                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                textTransform: 'uppercase',
-                            }}>
+                            <span
+                                style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.1em',
+                                    background:
+                                        'linear-gradient(90deg, #ffd93d, #ff6b6b, #c77dff, #4d96ff)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    textTransform: 'uppercase',
+                                }}
+                            >
                                 God Pack
                             </span>
                             <span style={{ fontSize: '0.9rem' }}>✨</span>
@@ -1133,8 +1167,9 @@ export default function PackOpening({
                     </div>
                 )}
 
-                {/* card stack */}
+                {/* card stack + flip button — offset downward to sit more centred */}
                 {phase === 'revealing' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 'min(60px, 10vw)' }}>
                     <div
                         className="relative flex items-center justify-center"
                         style={{
@@ -1224,15 +1259,11 @@ export default function PackOpening({
                             )
                         })}
                     </div>
-                )}
 
-                {/* flip-all button + rarity odds */}
-                {phase === 'revealing' && (
+                    {/* flip-all button + rarity odds */}
                     <div
                         className="flex flex-col items-center gap-2"
-                        style={{
-                            marginTop: 'min(24px, 5vw)',
-                        }}
+                        style={{ marginTop: 'min(24px, 5vw)' }}
                     >
                         <button
                             onClick={handleFlipAll}
@@ -1243,22 +1274,21 @@ export default function PackOpening({
                         {showRarity && rarityCard && (
                             <p
                                 className="text-xs tracking-widest uppercase"
-                                style={{
-                                    color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
-                                }}
+                                style={{ color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)` }}
                             >
                                 {rarityCard.rarity} ·{' '}
                                 {rarityToOdds(rarityCard.rarity)}
                             </p>
                         )}
                     </div>
+                    </div>
                 )}
 
                 {/* done phase */}
                 {phase === 'done' &&
                     remainingCards.length > 0 &&
-                    currentCard && (() => {
-                        const hasAttrs = [currentCard.attr_centering, currentCard.attr_corners, currentCard.attr_edges, currentCard.attr_surface].some(v => v != null)
+                    currentCard &&
+                    (() => {
                         return (
                             <>
                                 <div
@@ -1274,9 +1304,7 @@ export default function PackOpening({
                                     <div
                                         style={{
                                             display: 'flex',
-                                            flexDirection: isMobile
-                                                ? 'column'
-                                                : 'row',
+                                            flexDirection: 'row',
                                             alignItems: isMobile
                                                 ? 'center'
                                                 : 'flex-start',
@@ -1395,8 +1423,13 @@ export default function PackOpening({
                                                     }
                                                 />
                                                 {/* 1st edition badge — bottom-right */}
-                                                {currentCard.set_id?.endsWith('-1ed') && (
-                                                    <FirstEditionBadge variant="detail" side="right" />
+                                                {currentCard.set_id?.endsWith(
+                                                    '-1ed',
+                                                ) && (
+                                                    <FirstEditionBadge
+                                                        variant="detail"
+                                                        side="right"
+                                                    />
                                                 )}
                                             </div>
                                         </div>
@@ -1405,7 +1438,9 @@ export default function PackOpening({
                                         {/* right panel */}
                                         <div
                                             style={{
-                                                width: isMobile ? 'min(340px, 92vw)' : 200,
+                                                width: isMobile
+                                                    ? 'min(340px, 92vw)'
+                                                    : 200,
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 gap: 10,
@@ -1416,17 +1451,27 @@ export default function PackOpening({
                                                 currentCard={currentCard}
                                                 isMobile={isMobile}
                                                 condPanelTab={condPanelTab}
-                                                setCondPanelTab={setCondPanelTab}
+                                                setCondPanelTab={
+                                                    setCondPanelTab
+                                                }
                                                 bbTooltipPos={bbTooltipPos}
-                                                setBbTooltipPos={setBbTooltipPos}
+                                                setBbTooltipPos={
+                                                    setBbTooltipPos
+                                                }
                                                 bagCount={bagCount}
                                                 bagCapacity={bagCapacity}
-                                                currentCardIsNew={currentCardIsNew}
+                                                currentCardIsNew={
+                                                    currentCardIsNew
+                                                }
                                                 animatingIndex={animatingIndex}
                                                 shattering={shattering}
-                                                isFetchingCopies={isFetchingCopies}
+                                                isFetchingCopies={
+                                                    isFetchingCopies
+                                                }
                                                 handleAddToBag={handleAddToBag}
-                                                handleAddToBagDuplicate={handleAddToBagDuplicate}
+                                                handleAddToBagDuplicate={
+                                                    handleAddToBagDuplicate
+                                                }
                                                 handleFeedCard={handleFeedCard}
                                                 handleBuyback={handleBuyback}
                                             />
@@ -1442,10 +1487,13 @@ export default function PackOpening({
                                         doSellAll={doSellAll}
                                         setSellAllConfirm={setSellAllConfirm}
                                         handleAutocomplete={handleAutocomplete}
-                                        handleStopAutocomplete={handleStopAutocomplete}
+                                        handleStopAutocomplete={
+                                            handleStopAutocomplete
+                                        }
                                         autoRunning={autoRunning}
                                         setShowSettings={setShowSettings}
                                         setDoneIndex={setDoneIndex}
+                                        autoReverse={prefs.autoReverse}
                                     />
                                 </div>
                             </>

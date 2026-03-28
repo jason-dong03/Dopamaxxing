@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
 
     let levelUps = 0
     const leveledUpCards: { userCardId: string; cardName: string; newLevel: number }[] = []
+    const perCard: { id: string; name: string; gained: number; newLevel: number | null }[] = []
 
     const updates = rows.map((row: any) => {
         const level      = row.card_level ?? 1
@@ -50,8 +51,10 @@ export async function POST(request: NextRequest) {
             levelUps++
             const newLevel = level + 1
             leveledUpCards.push({ userCardId: row.id, cardName: row.cards.name, newLevel })
+            perCard.push({ id: row.id, name: row.cards.name, gained: expGained, newLevel })
             return { id: row.id, user_id: user.id, exp: newExp - threshold, card_level: newLevel }
         }
+        perCard.push({ id: row.id, name: row.cards.name, gained: expGained, newLevel: null })
         return { id: row.id, user_id: user.id, exp: newExp }
     })
 
@@ -85,5 +88,5 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    return NextResponse.json({ ok: true, cardCount: updates.length, levelUps, evolveEligible })
+    return NextResponse.json({ ok: true, cardCount: updates.length, levelUps, evolveEligible, perCard })
 }
