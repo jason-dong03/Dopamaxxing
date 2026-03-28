@@ -91,6 +91,7 @@ export default function PsaSlab({ uc, compact, children, wearOverlay, imgFilter,
                     padding: '3px 5px',
                     display: 'flex',
                     gap: 5,
+                    ...(compact ? { height: 54, overflow: 'hidden' } : {}),
                 }}>
                     {/* PSA logo overlaid on center of bottom red border */}
                     <img
@@ -168,14 +169,15 @@ export default function PsaSlab({ uc, compact, children, wearOverlay, imgFilter,
             }} />
 
             {/* ── card image ── */}
-            <div style={{ position: 'relative', zIndex: 2, overflow: 'hidden', borderRadius: 4 }}>
+            <div style={{ position: 'relative', zIndex: 2, overflow: 'hidden', borderRadius: 4, aspectRatio: '5/7' }}>
                 {children ?? (
                     <img
                         src={(uc.grade != null && uc.grade >= 6 && uc.cards.image_url_hi) ? uc.cards.image_url_hi : uc.cards.image_url}
                         alt={uc.cards.name}
                         className=""
                         style={{
-                            width: '100%', height: 'auto', display: 'block',
+                            width: '100%', height: '100%', display: 'block',
+                            objectFit: 'cover',
                             filter: imgFilter,
                             transform: imgTransform,
                         }}

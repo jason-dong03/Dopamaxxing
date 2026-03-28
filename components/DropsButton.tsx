@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { usePathname } from 'next/navigation'
 import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
 import { createClient } from '@/lib/supabase/client'
@@ -21,7 +22,22 @@ export default function DropsButton() {
     const [openQueue, setOpenQueue] = useState<PendingPack[]>([])
     const [claiming, setClaiming] = useState(false)
     const [claimingId, setClaimingId] = useState<string | null>(null)
+    const [bagSelectMode, setBagSelectMode] = useState(false)
+    const [packOpeningActive, setPackOpeningActive] = useState(false)
+    const pathname = usePathname()
     const supabase = createClient()
+
+    useEffect(() => {
+        const handler = (e: Event) => setBagSelectMode((e as CustomEvent).detail?.active ?? false)
+        window.addEventListener('bag-select-mode', handler)
+        return () => window.removeEventListener('bag-select-mode', handler)
+    }, [])
+
+    useEffect(() => {
+        const handler = (e: Event) => setPackOpeningActive((e as CustomEvent).detail?.active ?? false)
+        window.addEventListener('pack-opening-active', handler)
+        return () => window.removeEventListener('pack-opening-active', handler)
+    }, [])
 
     async function fetchDrops() {
         try {
@@ -190,21 +206,21 @@ export default function DropsButton() {
                 document.body
             )}
 
-            {/* floating button just below header */}
+            {/* floating stash + shop buttons — hidden during pack opening, bag select mode, bag page, or card list view */}
+            {!opening && !bagSelectMode && !packOpeningActive && !pathname.startsWith('/dashboard/bag') && (<>
             <button
                 onClick={() => setOpen(true)}
                 style={{
                     position: 'fixed', top: 73, right: 26, zIndex: 9998,
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(180,83,9,0.15)',
-                    border: '1px solid rgba(180,83,9,0.4)',
+                    background: '#1a0d04',
+                    border: '1px solid rgba(180,83,9,0.5)',
                     borderRadius: 20, padding: '5px 12px',
-                    cursor: 'pointer', transition: 'all 150ms ease',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                    cursor: 'pointer', transition: 'background 150ms ease',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(180,83,9,0.24)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(180,83,9,0.12)'}
+                onMouseEnter={e => e.currentTarget.style.background = '#2a1508'}
+                onMouseLeave={e => e.currentTarget.style.background = '#1a0d04'}
             >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -222,21 +238,19 @@ export default function DropsButton() {
                 )}
             </button>
 
-            {/* shop button — below the stash button */}
             <button
                 onClick={() => setShopOpen(true)}
                 style={{
                     position: 'fixed', top: 108, right: 26, zIndex: 9998,
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(99,102,241,0.12)',
-                    border: '1px solid rgba(99,102,241,0.35)',
+                    background: '#0d0d1f',
+                    border: '1px solid rgba(99,102,241,0.45)',
                     borderRadius: 20, padding: '5px 12px',
-                    cursor: 'pointer', transition: 'all 150ms ease',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                    cursor: 'pointer', transition: 'background 150ms ease',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.22)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.12)'}
+                onMouseEnter={e => e.currentTarget.style.background = '#151530'}
+                onMouseLeave={e => e.currentTarget.style.background = '#0d0d1f'}
             >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
@@ -244,6 +258,7 @@ export default function DropsButton() {
                 </svg>
                 <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#818cf8' }}>Shop</span>
             </button>
+            </>)}
 
             {/* shop overlay — placeholder until shop is built */}
             {shopOpen && createPortal(

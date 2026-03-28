@@ -57,10 +57,10 @@ export default async function Dashboard() {
                         gap: 10,
                     }}
                 >
-                    {/* brand */}
+                    {/* brand — hidden on mobile */}
                     <div
+                        className="hidden sm:flex"
                         style={{
-                            display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'flex-start',
                             flexShrink: 0,
@@ -97,6 +97,7 @@ export default async function Dashboard() {
                     </div>
 
                     <div
+                        className="hidden sm:block"
                         style={{
                             width: 1,
                             height: 20,
@@ -130,13 +131,14 @@ export default async function Dashboard() {
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    maxWidth: '20vw',
+                                    maxWidth: 'clamp(80px, 35vw, 200px)',
                                 }}
                             >
                                 {profile?.username ?? 'Trainer'}
                             </p>
                             {profile?.active_title && (
                                 <span
+                                    className="hidden sm:inline"
                                     style={{
                                         fontSize: '0.6rem',
                                         fontWeight: 600,
@@ -214,6 +216,24 @@ export default async function Dashboard() {
 
                     {/* coins */}
                     <CoinDisplay initialCoins={Number(profile?.coins ?? 0)} />
+
+                    {/* level badge — mobile only */}
+                    <div
+                        className="sm:hidden"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: 2,
+                            background: 'var(--app-surface-2)',
+                            border: '1px solid var(--app-border)',
+                            borderRadius: 20,
+                            padding: '3px 10px',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <span style={{ fontSize: '0.6rem', fontWeight: 500, color: 'var(--app-text-muted)' }}>Lv</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--lv-green)' }}>{level}</span>
+                    </div>
 
                     {/* level + xp bar — hidden on mobile */}
                     <div

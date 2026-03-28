@@ -31,11 +31,25 @@ export async function POST(request: NextRequest) {
     const currentMoves: StoredMove[] = (card.moves as StoredMove[] | null) ?? []
     const updatedMoves = [...currentMoves]
 
-    if (slotIndex >= 0 && slotIndex < updatedMoves.length) {
-        // Replace existing slot
+    const isReplacing = slotIndex >= 0 && slotIndex < updatedMoves.length
+
+    if (isReplacing) {
+        // Charge 100 coins to replace an existing move
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('coins')
+            .eq('id', user.id)
+            .single()
+        if (!profile || (profile.coins ?? 0) < 100) {
+            return NextResponse.json({ error: 'Not enough coins' }, { status: 400 })
+        }
+        await supabase
+            .from('profiles')
+            .update({ coins: (profile.coins as number) - 100 })
+            .eq('id', user.id)
         updatedMoves[slotIndex] = newMove
     } else if (updatedMoves.length < 4) {
-        // Append if there's room
+        // Append if there's room — free
         updatedMoves.push(newMove)
     } else {
         return NextResponse.json({ error: 'Invalid slot' }, { status: 400 })

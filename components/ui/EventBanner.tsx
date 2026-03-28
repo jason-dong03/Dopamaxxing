@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { usePathname } from 'next/navigation'
 import { EVENT_RARITY_COLOR, EVENT_RARITY_LABEL, type DailyEvent } from '@/lib/dailyEvents'
 
 type EventWithExpiry = DailyEvent & { expiresAt: string }
@@ -36,6 +37,8 @@ export default function EventBanner({ events }: { events: EventWithExpiry[] }) {
     const [now, setNow] = useState(0)
     const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = useState(false)
+    const [packOpen, setPackOpen] = useState(false)
+    const pathname = usePathname()
 
     useEffect(() => {
         setMounted(true)
@@ -44,8 +47,15 @@ export default function EventBanner({ events }: { events: EventWithExpiry[] }) {
         return () => clearInterval(id)
     }, [])
 
+    useEffect(() => {
+        const handler = (e: Event) => setPackOpen((e as CustomEvent).detail?.active ?? false)
+        window.addEventListener('pack-opening-active', handler)
+        return () => window.removeEventListener('pack-opening-active', handler)
+    }, [])
+
     const ev = events[0]
     if (!ev || new Date(ev.expiresAt).getTime() <= now) return null
+    if (packOpen || pathname.startsWith('/dashboard/bag')) return null
 
     const msLeft = new Date(ev.expiresAt).getTime() - now
     const rarityColor = EVENT_RARITY_COLOR[ev.eventRarity]
@@ -60,8 +70,8 @@ export default function EventBanner({ events }: { events: EventWithExpiry[] }) {
             <div
                 style={{
                     position: 'fixed',
-                    top: 143,
-                    right: 26,
+                    top: 73,
+                    left: 16,
                     zIndex: 200,
                     cursor: 'default',
                 }}

@@ -211,6 +211,22 @@ export default function PackOpening({
         }
     }, [])
 
+    // signal to DropsButton/EventBanner that a pack is open
+    useEffect(() => {
+        window.dispatchEvent(
+            new CustomEvent('pack-opening-active', {
+                detail: { active: true },
+            }),
+        )
+        return () => {
+            window.dispatchEvent(
+                new CustomEvent('pack-opening-active', {
+                    detail: { active: false },
+                }),
+            )
+        }
+    }, [])
+
     // nav-home event: return to pack selection from the Home navbar button
     useEffect(() => {
         const handler = () => onBack()
@@ -912,7 +928,9 @@ export default function PackOpening({
                 {phase === 'idle' && (
                     <div
                         style={{
-                            transform: isMobile ? 'translateY(120px)' : 'translateY(60px)',
+                            transform: isMobile
+                                ? 'translateY(32px)'
+                                : 'translateY(60px)',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -1110,15 +1128,8 @@ export default function PackOpening({
                                     )}
                                 </div>
                             )}
-                            <button
-                                onClick={onBack}
-                                className="px-5 py-2 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all duration-200"
-                                style={{ letterSpacing: '-0.01em' }}
-                            >
-                                Back
-                            </button>
+                            {/* Back button rendered in fixed top-left position below */}
                         </div>
-
                     </div>
                 )}
 
@@ -1171,118 +1182,132 @@ export default function PackOpening({
 
                 {/* card stack + flip button — offset downward to sit more centred */}
                 {phase === 'revealing' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 'min(60px, 10vw)', transform: isMobile ? 'translateY(80px)' : 'translateY(24px)' }}>
                     <div
-                        className="relative flex items-center justify-center"
                         style={{
-                            height: 'min(350px, 80vw)',
-                            width: 'min(280px, 72vw)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            paddingTop: 'min(20px, 5vw)',
+                            transform: isMobile
+                                ? 'translateY(16px)'
+                                : 'translateY(24px)',
                         }}
                     >
-                        {/* rarity glow behind the top card */}
                         <div
-                            className={
-                                specialActive &&
-                                isRainbow(rarityCard?.rarity ?? '')
-                                    ? 'bg-rainbow-radial'
-                                    : ''
-                            }
+                            className="relative flex items-center justify-center"
                             style={{
-                                position: 'absolute',
-                                width: '130%',
-                                height: '130%',
-                                borderRadius: '50%',
-                                ...(!isRainbow(rarityCard?.rarity ?? '') && {
-                                    background: `radial-gradient(ellipse at center, rgba(${specialGlow}, 0.6) 0%, transparent 65%)`,
-                                }),
-                                filter: 'blur(32px)',
-                                zIndex: 0,
-                                pointerEvents: 'none',
-                                opacity: specialActive ? 1 : 0,
-                                transition: 'opacity 600ms ease-in-out',
+                                height: 'min(350px, 80vw)',
+                                width: 'min(280px, 72vw)',
                             }}
-                        />
-                        {cards.map((card, index) => {
-                            const isTop = index === revealedCount
-                            const isRevealed = index < revealedCount
-                            if (isRevealed) return null
-                            const fanVisible = fanningOut
-                            const n = cards.length - revealedCount
-                            const i = index - revealedCount
-                            const offset = i - (n - 1) / 2
-                            return (
-                                <div
-                                    key={`${card.id}-${index}`}
-                                    className={`absolute${fanVisible ? ' card-fan-fly' : ''}`}
-                                    style={
-                                        fanVisible
-                                            ? {
-                                                  transform: `translateX(${offset * 58}px) translateY(-65px) rotate(${offset * 13}deg)`,
-                                                  zIndex: 50,
-                                                  pointerEvents: 'none',
-                                                  transition:
-                                                      'transform 450ms cubic-bezier(0.2, 0, 0.8, 1)',
-                                              }
-                                            : {
-                                                  transform: `translateY(${(index - revealedCount) * -6}px) rotate(${(index - revealedCount) * -1}deg)`,
-                                                  zIndex: isTop
-                                                      ? 50
-                                                      : 50 - index,
-                                                  pointerEvents: isTop
-                                                      ? 'auto'
-                                                      : 'none',
-                                              }
-                                    }
-                                >
-                                    <FlipCard
-                                        card={card}
-                                        onReveal={
-                                            isTop ? handleReveal : () => {}
-                                        }
-                                        onFlipped={
-                                            isTop
-                                                ? () => {
-                                                      setShowRarity(true)
-                                                      setRarityCard(card)
-                                                  }
-                                                : () => {}
-                                        }
-                                        onConfirmed={
-                                            isTop
-                                                ? () => setShowRarity(false)
-                                                : () => {}
-                                        }
-                                        onSpecialChange={(active, glow) => {
-                                            setSpecialActive(active)
-                                            setSpecialGlow(glow)
-                                        }}
-                                    />
-                                </div>
-                            )
-                        })}
-                    </div>
-
-                    {/* flip-all button + rarity odds */}
-                    <div
-                        className="flex flex-col items-center gap-2"
-                        style={{ marginTop: 'min(24px, 5vw)' }}
-                    >
-                        <button
-                            onClick={handleFlipAll}
-                            className="px-4 py-1.5 rounded-xl text-xs font-medium border border-gray-700 text-gray-300 hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
                         >
-                            flip all
-                        </button>
-                        {showRarity && rarityCard && (
-                            <p
-                                className="text-xs tracking-widest uppercase"
-                                style={{ color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)` }}
+                            {/* rarity glow behind the top card */}
+                            <div
+                                className={
+                                    specialActive &&
+                                    isRainbow(rarityCard?.rarity ?? '')
+                                        ? 'bg-rainbow-radial'
+                                        : ''
+                                }
+                                style={{
+                                    position: 'absolute',
+                                    width: '130%',
+                                    height: '130%',
+                                    borderRadius: '50%',
+                                    ...(!isRainbow(
+                                        rarityCard?.rarity ?? '',
+                                    ) && {
+                                        background: `radial-gradient(ellipse at center, rgba(${specialGlow}, 0.6) 0%, transparent 65%)`,
+                                    }),
+                                    filter: 'blur(32px)',
+                                    zIndex: 0,
+                                    pointerEvents: 'none',
+                                    opacity: specialActive ? 1 : 0,
+                                    transition: 'opacity 600ms ease-in-out',
+                                }}
+                            />
+                            {cards.map((card, index) => {
+                                const isTop = index === revealedCount
+                                const isRevealed = index < revealedCount
+                                if (isRevealed) return null
+                                const fanVisible = fanningOut
+                                const n = cards.length - revealedCount
+                                const i = index - revealedCount
+                                const offset = i - (n - 1) / 2
+                                return (
+                                    <div
+                                        key={`${card.id}-${index}`}
+                                        className={`absolute${fanVisible ? ' card-fan-fly' : ''}`}
+                                        style={
+                                            fanVisible
+                                                ? {
+                                                      transform: `translateX(${offset * 58}px) translateY(-65px) rotate(${offset * 13}deg)`,
+                                                      zIndex: 50,
+                                                      pointerEvents: 'none',
+                                                      transition:
+                                                          'transform 450ms cubic-bezier(0.2, 0, 0.8, 1)',
+                                                  }
+                                                : {
+                                                      transform: `translateY(${(index - revealedCount) * -6}px) rotate(${(index - revealedCount) * -1}deg)`,
+                                                      zIndex: isTop
+                                                          ? 50
+                                                          : 50 - index,
+                                                      pointerEvents: isTop
+                                                          ? 'auto'
+                                                          : 'none',
+                                                  }
+                                        }
+                                    >
+                                        <FlipCard
+                                            card={card}
+                                            onReveal={
+                                                isTop ? handleReveal : () => {}
+                                            }
+                                            onFlipped={
+                                                isTop
+                                                    ? () => {
+                                                          setShowRarity(true)
+                                                          setRarityCard(card)
+                                                      }
+                                                    : () => {}
+                                            }
+                                            onConfirmed={
+                                                isTop
+                                                    ? () => setShowRarity(false)
+                                                    : () => {}
+                                            }
+                                            onSpecialChange={(active, glow) => {
+                                                setSpecialActive(active)
+                                                setSpecialGlow(glow)
+                                            }}
+                                        />
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {/* flip-all button + rarity odds */}
+                        <div
+                            className="flex flex-col items-center gap-2"
+                            style={{ marginTop: 'min(24px, 5vw)' }}
+                        >
+                            <button
+                                onClick={handleFlipAll}
+                                className="px-4 py-1.5 rounded-xl text-xs font-medium border border-gray-700 text-gray-300 hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
                             >
-                                {rarityCard.rarity} ·{' '}
-                                {rarityToOdds(rarityCard.rarity)}
-                            </p>
-                        )}
-                    </div>
+                                flip all
+                            </button>
+                            {showRarity && rarityCard && (
+                                <p
+                                    className="text-xs tracking-widest uppercase"
+                                    style={{
+                                        color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
+                                    }}
+                                >
+                                    {rarityCard.rarity} ·{' '}
+                                    {rarityToOdds(rarityCard.rarity)}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -1296,7 +1321,9 @@ export default function PackOpening({
                                 <div
                                     className="flex flex-col items-center gap-4"
                                     style={{
-                                        transform: isMobile ? 'translateY(110px)' : 'translateY(24px)',
+                                        transform: isMobile
+                                            ? 'translateY(110px)'
+                                            : 'translateY(24px)',
                                         padding: isMobile ? '0 10px' : 0,
                                         width: '100%',
                                         boxSizing: 'border-box',
@@ -1519,6 +1546,45 @@ export default function PackOpening({
                     />
                 )}
             </div>
+
+            {/* fixed back button — top-left, only in idle phase */}
+            {phase === 'idle' && (
+                <button
+                    onClick={onBack}
+                    style={{
+                        position: 'fixed',
+                        top: 70,
+                        left: 16,
+                        zIndex: 10002,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 20,
+                        padding: '6px 14px',
+                        color: 'rgba(255,255,255,0.7)',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(8px)',
+                        letterSpacing: '-0.01em',
+                        transition: 'all 150ms ease',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.background =
+                            'rgba(255,255,255,0.1)'
+                        e.currentTarget.style.color = '#fff'
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background =
+                            'rgba(255,255,255,0.06)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+                    }}
+                >
+                    ← Back
+                </button>
+            )}
         </>
     )
 }

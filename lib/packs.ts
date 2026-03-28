@@ -6,6 +6,7 @@ export type Pack = {
     aspect: 'pack' | 'box'
     cost: number
     theme_pokedex_ids?: number[]
+    theme_include_first_ed?: boolean
     theme_label?: string
     theme_label_color?: string
     test_override_url?: string
@@ -74,7 +75,7 @@ export const PACKS: Pack[] = [
         image: '/packs/black-bolt.jpg',
         description: 'S & V — Black Bolt',
         aspect: 'pack',
-        cost: 9.5,
+        cost: 12.0,
     },
     {
         id: 'sv10.5w',
@@ -82,7 +83,7 @@ export const PACKS: Pack[] = [
         image: '/packs/white-flare.jpg',
         description: 'S & V — White Flare',
         aspect: 'pack',
-        cost: 9.5,
+        cost: 12.0,
     },
     {
         id: 'me02.5',
@@ -123,11 +124,12 @@ export const PACKS: Pack[] = [
         image: '/packs/charizard-pack.png',
         description: 'All Charizard cards — across every era',
         aspect: 'pack',
-        cost: 85,
+        cost: 10,
         theme_pokedex_ids: [6],
         theme_label: 'CHARIZARD',
         theme_label_color: '#f97316',
         idle_aura: 'pack-aura-epic',
+        theme_include_first_ed: true,
     },
     {
         id: 'theme-legendary',

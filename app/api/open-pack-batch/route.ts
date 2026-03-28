@@ -37,6 +37,7 @@ async function getCardsForPokedexIds(
     supabase: Awaited<ReturnType<typeof createClient>>,
     cacheKey: string,
     dexIds: number[],
+    includeFirstEd = false,
 ): Promise<CardRow[]> {
     const cached = setCardsCache.get(cacheKey)
     if (cached && Date.now() < cached.expires) return cached.cards
@@ -44,9 +45,12 @@ async function getCardsForPokedexIds(
     const seen = new Map<string, CardRow>()
     for (const card of (data ?? []) as CardRow[]) {
         const name = card.name as string
-        const existing = seen.get(name)
+        const isFirstEd = (card.set_id as string)?.endsWith('-1ed') ?? false
+        // First edition cards get their own pool slot when includeFirstEd is true
+        const key = (includeFirstEd && isFirstEd) ? `${name}__1ed` : name
+        const existing = seen.get(key)
         if (!existing || (RARITY_RANK[card.rarity as string] ?? 0) > (RARITY_RANK[existing.rarity as string] ?? 0)) {
-            seen.set(name, card)
+            seen.set(key, card)
         }
     }
     const cards = Array.from(seen.values())
@@ -76,7 +80,7 @@ export async function POST(request: NextRequest) {
                 .eq('id', user.id)
                 .single(),
             packDef?.theme_pokedex_ids
-                ? getCardsForPokedexIds(supabase, setId, packDef.theme_pokedex_ids)
+                ? getCardsForPokedexIds(supabase, setId, packDef.theme_pokedex_ids, packDef.theme_include_first_ed)
                 : getCardsForSet(supabase, setId),
             supabase.from('user_cards').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
             getEventMagnitude('luck_boost'),

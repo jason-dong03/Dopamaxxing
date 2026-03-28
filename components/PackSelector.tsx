@@ -403,6 +403,13 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
 
     useEffect(() => { fetchCards() }, [fetchCards])
 
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('pack-opening-active', { detail: { active: true } }))
+        return () => {
+            window.dispatchEvent(new CustomEvent('pack-opening-active', { detail: { active: false } }))
+        }
+    }, [])
+
     // group by rarity for list view
     const grouped = cards.reduce<Record<string, CardPreview[]>>((acc, c) => {
         ;(acc[c.rarity] ??= []).push(c)

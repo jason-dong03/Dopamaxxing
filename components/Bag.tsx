@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -37,9 +38,16 @@ export default function BagPage({
     const [bagCapacity, setBagCapacity] = useState(initialCapacity)
     const [expanding, setExpanding] = useState(false)
     const [expandMsg, setExpandMsg] = useState('')
+    const [expandConfirm, setExpandConfirm] = useState(false)
 
     const [selectMode, setSelectMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+    function dispatchSelectMode(active: boolean) {
+        window.dispatchEvent(
+            new CustomEvent('bag-select-mode', { detail: { active } }),
+        )
+    }
     const [confirmAction, setConfirmAction] = useState<'sell' | 'grade' | null>(
         null,
     )
@@ -52,11 +60,11 @@ export default function BagPage({
         'rarity' | 'level' | 'name' | 'price' | 'grade'
     >('rarity')
     const [selected, setSelected] = useState<UserCard | null>(null)
+    const [selectedCol, setSelectedCol] = useState(0)
     const [isWide, setIsWide] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
     const [activeTab, setActiveTab] = useState<'cards' | 'misc'>('cards')
     const headerRef = useRef<HTMLDivElement>(null)
-    const [headerHeight, setHeaderHeight] = useState(0)
 
     useEffect(() => {
         const check = () => {
@@ -84,9 +92,6 @@ export default function BagPage({
         })
     }, [])
 
-    useEffect(() => {
-        if (headerRef.current) setHeaderHeight(headerRef.current.offsetHeight)
-    }, [filters, favoritesOnly, typeFilter, search, sort])
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -97,7 +102,11 @@ export default function BagPage({
     }, [])
 
     const allTypes = Array.from(
-        new Set(userCards.map((uc) => uc.cards.pokemon_type).filter(Boolean) as string[])
+        new Set(
+            userCards
+                .map((uc) => uc.cards.pokemon_type)
+                .filter(Boolean) as string[],
+        ),
     ).sort()
 
     const filtered = userCards
@@ -173,6 +182,7 @@ export default function BagPage({
             setSelected(null)
             setSelectedIds(new Set())
             setSelectMode(false)
+            dispatchSelectMode(false)
             router.refresh()
         } finally {
             setBatchProcessing(false)
@@ -217,6 +227,7 @@ export default function BagPage({
             })
             setSelectedIds(new Set())
             setSelectMode(false)
+            dispatchSelectMode(false)
             router.refresh()
         } finally {
             setBatchProcessing(false)
@@ -302,42 +313,14 @@ export default function BagPage({
                             borderBottom: '1px solid var(--app-border)',
                         }}
                     >
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <h1
-                                    className="font-bold text-lg tracking-tight"
-                                    style={{ color: 'var(--app-text)', marginBottom: 6 }}
-                                >
-                                    Bag
-                                </h1>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    {(['cards', 'misc'] as const).map((tab) => (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setActiveTab(tab)}
-                                            style={{
-                                                fontSize: '0.65rem',
-                                                fontWeight: 600,
-                                                padding: '3px 12px',
-                                                borderRadius: 20,
-                                                border: activeTab === tab
-                                                    ? '1px solid rgba(74,222,128,0.4)'
-                                                    : '1px solid rgba(255,255,255,0.1)',
-                                                background: activeTab === tab
-                                                    ? 'rgba(74,222,128,0.1)'
-                                                    : 'rgba(255,255,255,0.04)',
-                                                color: activeTab === tab
-                                                    ? '#4ade80'
-                                                    : 'var(--app-text-muted)',
-                                                cursor: 'pointer',
-                                                transition: 'all 150ms ease',
-                                            }}
-                                        >
-                                            {tab === 'cards' ? 'Cards' : 'Misc'}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                        {/* title + coins row */}
+                        <div className="flex items-center justify-between mb-2">
+                            <h1
+                                className="font-bold text-lg tracking-tight"
+                                style={{ color: 'var(--app-text)' }}
+                            >
+                                Bag
+                            </h1>
                             <div
                                 style={{
                                     display: 'flex',
@@ -370,19 +353,12 @@ export default function BagPage({
                                         <span
                                             style={{
                                                 fontSize: '0.65rem',
-                                                color: '#eab308',
-                                            }}
-                                        >
-                                            🪙
-                                        </span>
-                                        <span
-                                            style={{
-                                                fontSize: '0.65rem',
                                                 fontWeight: 600,
                                                 color: '#eab308',
                                                 fontFamily: 'monospace',
                                             }}
                                         >
+                                            $
                                             {Number(coins).toLocaleString(
                                                 undefined,
                                                 {
@@ -469,265 +445,276 @@ export default function BagPage({
                             </div>
                         </div>
 
-                        {activeTab === 'cards' && (
-                        <input
-                            type="text"
-                            placeholder="search..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full rounded-lg px-3 py-2 outline-none transition-colors mb-3"
-                            style={{
-                                background: 'var(--input-bg)',
-                                border: '1px solid var(--input-border)',
-                                fontSize: '0.8rem',
-                                color: 'var(--app-text)',
-                            }}
-                            onFocus={(e) =>
-                                (e.currentTarget.style.borderColor =
-                                    'var(--input-border-focus)')
-                            }
-                            onBlur={(e) =>
-                                (e.currentTarget.style.borderColor =
-                                    'var(--input-border)')
-                            }
-                        />
-                        )}
-
-                        {/* sort buttons */}
-                        {activeTab === 'cards' && <div
-                            className="flex gap-1.5 mb-2.5"
-                            style={{
-                                overflowX: 'auto',
-                                flexWrap: 'nowrap',
-                                paddingBottom: 2,
-                            }}
-                        >
-                            {(
-                                [
-                                    'rarity',
-                                    'level',
-                                    'name',
-                                    'price',
-                                    'grade',
-                                ] as const
-                            ).map((s) => (
+                        {/* tabs + action buttons row */}
+                        <div className="flex items-center mb-3" style={{ gap: 6 }}>
+                            {(['cards', 'misc'] as const).map((tab) => (
                                 <button
-                                    key={s}
-                                    onClick={() => setSort(s)}
-                                    className="capitalize transition-all px-3 py-1 rounded-full"
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
                                     style={{
                                         fontSize: '0.65rem',
-                                        background:
-                                            sort === s
-                                                ? 'var(--pill-active-bg)'
-                                                : 'transparent',
-                                        border:
-                                            sort === s
-                                                ? '1px solid var(--pill-active-border)'
-                                                : '1px solid var(--pill-border)',
-                                        color:
-                                            sort === s
-                                                ? 'var(--app-text)'
-                                                : 'var(--app-text-muted)',
+                                        fontWeight: 600,
+                                        padding: '3px 12px',
+                                        borderRadius: 20,
+                                        border: activeTab === tab ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                        background: activeTab === tab ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.04)',
+                                        color: activeTab === tab ? '#4ade80' : 'var(--app-text-muted)',
+                                        cursor: 'pointer',
+                                        transition: 'all 150ms ease',
+                                        flexShrink: 0,
                                     }}
                                 >
-                                    {s}
+                                    {tab === 'cards' ? 'Cards' : 'Misc'}
                                 </button>
                             ))}
-                        </div>}
 
-                        {/* rarity filter pills + Select button */}
-                        {activeTab === 'cards' && <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                            }}
-                        >
-                            <div
-                                className="flex gap-1.5 flex-1"
-                                style={{
-                                    overflowX: 'auto',
-                                    flexWrap: 'nowrap',
-                                    paddingBottom: 2,
-                                }}
-                            >
-                                {/* Favorites chip */}
+                            <div style={{ flex: 1 }} />
+
+                            {activeTab === 'cards' && (<>
+                                {/* +Space with confirmation popover */}
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                    <button
+                                        onClick={() => !expanding && setExpandConfirm(v => !v)}
+                                        disabled={expanding}
+                                        style={{
+                                            fontSize: '0.62rem',
+                                            fontWeight: 600,
+                                            padding: '3px 9px',
+                                            borderRadius: 20,
+                                            border: '1px solid rgba(74,222,128,0.35)',
+                                            background: 'rgba(74,222,128,0.08)',
+                                            color: expanding ? 'var(--app-text-muted)' : '#4ade80',
+                                            cursor: expanding ? 'not-allowed' : 'pointer',
+                                            whiteSpace: 'nowrap',
+                                            transition: 'all 150ms ease',
+                                        }}
+                                    >
+                                        {expandMsg || (expanding ? '…' : '+Space')}
+                                    </button>
+                                    {expandConfirm && !expandMsg && (<>
+                                        <div onClick={() => setExpandConfirm(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+                                        <div style={{
+                                            position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50,
+                                            background: '#0e0e16', border: '1px solid rgba(74,222,128,0.25)',
+                                            borderRadius: 12, padding: '12px 14px', minWidth: 180,
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                        }}>
+                                            <p style={{ fontSize: '0.65rem', color: 'var(--app-text-muted)', margin: '0 0 6px' }}>Expand bag space</p>
+                                            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--app-text)', margin: '0 0 4px' }}>{bagCapacity} → {bagCapacity + 10} slots</p>
+                                            <p style={{ fontSize: '0.65rem', color: '#eab308', margin: '0 0 12px' }}>costs $20.00</p>
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                <button onClick={() => setExpandConfirm(false)} style={{ flex: 1, padding: '5px 0', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--app-text-muted)', fontSize: '0.62rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                                                <button onClick={() => { setExpandConfirm(false); handleExpandBag() }} style={{ flex: 1, padding: '5px 0', borderRadius: 8, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.12)', color: '#4ade80', fontSize: '0.62rem', fontWeight: 700, cursor: 'pointer' }}>Confirm</button>
+                                            </div>
+                                        </div>
+                                    </>)}
+                                </div>
                                 <button
-                                    onClick={() => setFavoritesOnly(f => !f)}
-                                    className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
+                                    onClick={() => { const next = !selectMode; setSelectMode(next); dispatchSelectMode(next); setSelectedIds(new Set()) }}
                                     style={{
+                                        flexShrink: 0,
                                         fontSize: '0.62rem',
+                                        fontWeight: 600,
+                                        padding: '3px 9px',
+                                        borderRadius: 20,
+                                        border: selectMode ? '1px solid rgba(168,85,247,0.5)' : '1px solid var(--pill-border)',
+                                        background: selectMode ? 'rgba(168,85,247,0.12)' : 'transparent',
+                                        color: selectMode ? '#c084fc' : 'var(--app-text-muted)',
+                                        cursor: 'pointer',
+                                        transition: 'all 150ms ease',
+                                    }}
+                                >
+                                    {selectMode ? 'Done' : 'Select'}
+                                </button>
+                            </>)}
+                        </div>
+
+                        {activeTab === 'cards' && (
+                            <input
+                                type="text"
+                                placeholder="search..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full rounded-lg px-3 py-2 outline-none transition-colors mb-3"
+                                style={{
+                                    background: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    fontSize: '0.8rem',
+                                    color: 'var(--app-text)',
+                                }}
+                                onFocus={(e) =>
+                                    (e.currentTarget.style.borderColor =
+                                        'var(--input-border-focus)')
+                                }
+                                onBlur={(e) =>
+                                    (e.currentTarget.style.borderColor =
+                                        'var(--input-border)')
+                                }
+                            />
+                        )}
+
+                        {/* filter + sort row */}
+                        {activeTab === 'cards' && (
+                            <div
+                                className="flex items-center gap-2 mb-3"
+                                style={{ flexWrap: 'wrap' }}
+                            >
+                                {/* favorites toggle */}
+                                <button
+                                    onClick={() => setFavoritesOnly((f) => !f)}
+                                    style={{
+                                        flexShrink: 0,
+                                        width: 30,
+                                        height: 30,
+                                        borderRadius: 8,
                                         border: favoritesOnly
                                             ? '1px solid rgba(234,179,8,0.6)'
-                                            : '1px solid rgba(255,255,255,0.1)',
+                                            : '1px solid var(--input-border)',
                                         background: favoritesOnly
                                             ? 'rgba(234,179,8,0.12)'
-                                            : 'transparent',
-                                        color: favoritesOnly ? '#eab308' : 'var(--app-text-muted)',
+                                            : 'var(--input-bg)',
+                                        color: favoritesOnly
+                                            ? '#eab308'
+                                            : 'var(--app-text-muted)',
+                                        fontSize: '0.72rem',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 150ms',
                                     }}
+                                    title="Favorites only"
                                 >
                                     ★
                                 </button>
-                                {FILTERS.map((f) => {
-                                    const isActive = filters.has(f)
-                                    const rainbow = isRainbow(f as Rarity)
-                                    const glowRgb = rarityGlowRgb(f)
-                                    function toggle() {
-                                        setFilters((prev) => {
-                                            const next = new Set(prev)
-                                            if (f === 'All')
-                                                return new Set(['All'])
-                                            next.delete('All')
-                                            if (next.has(f)) {
-                                                next.delete(f)
-                                                if (next.size === 0)
-                                                    next.add('All')
-                                            } else {
-                                                next.add(f)
-                                            }
-                                            return next
-                                        })
+
+                                {/* rarity dropdown */}
+                                <select
+                                    value={
+                                        filters.has('All')
+                                            ? 'All'
+                                            : (Array.from(filters)[0] ?? 'All')
                                     }
-                                    const isCelestial = f === 'Celestial'
-                                    return (
+                                    onChange={(e) => {
+                                        const v = e.target.value
+                                        setFilters(
+                                            v === 'All'
+                                                ? new Set(['All'])
+                                                : new Set([v]),
+                                        )
+                                    }}
+                                    style={{
+                                        background: 'var(--input-bg)',
+                                        border: filters.has('All')
+                                            ? '1px solid var(--input-border)'
+                                            : '1px solid rgba(255,255,255,0.3)',
+                                        borderRadius: 8,
+                                        padding: '5px 8px',
+                                        fontSize: '0.65rem',
+                                        color: 'var(--app-text)',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        flexShrink: 0,
+                                        colorScheme: 'dark',
+                                    }}
+                                >
+                                    {FILTERS.map((f) => (
+                                        <option key={f} value={f}>
+                                            {f}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* type dropdown */}
+                                {allTypes.length > 0 && (
+                                    <select
+                                        value={typeFilter ?? ''}
+                                        onChange={(e) =>
+                                            setTypeFilter(
+                                                e.target.value || null,
+                                            )
+                                        }
+                                        style={{
+                                            background: 'var(--input-bg)',
+                                            border: typeFilter
+                                                ? `1px solid ${TYPE_COLOR[typeFilter] ?? 'rgba(255,255,255,0.3)'}`
+                                                : '1px solid var(--input-border)',
+                                            borderRadius: 8,
+                                            padding: '5px 8px',
+                                            fontSize: '0.65rem',
+                                            color: typeFilter
+                                                ? (TYPE_COLOR[typeFilter] ??
+                                                  'var(--app-text)')
+                                                : 'var(--app-text)',
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                            flexShrink: 0,
+                                            colorScheme: 'dark',
+                                        }}
+                                    >
+                                        <option value="">All types</option>
+                                        {allTypes.map((t) => (
+                                            <option key={t} value={t}>
+                                                {t}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                <div style={{ flex: 1 }} />
+
+                                {/* sort pills */}
+                                <div
+                                    className="flex gap-1 scrollbar-none"
+                                    style={{
+                                        overflowX: 'auto',
+                                        flexWrap: 'nowrap',
+                                    }}
+                                >
+                                    {(
+                                        [
+                                            'rarity',
+                                            'level',
+                                            'name',
+                                            'price',
+                                            'grade',
+                                        ] as const
+                                    ).map((s) => (
                                         <button
-                                            key={f}
-                                            onClick={toggle}
-                                            className="flex-shrink-0 px-3 py-1 rounded-full transition-all"
+                                            key={s}
+                                            onClick={() => setSort(s)}
+                                            className="capitalize transition-all"
                                             style={{
-                                                fontSize: '0.62rem',
-                                                border: isCelestial
-                                                    ? `1px solid rgba(180, 30, 30, ${isActive ? 0.55 : 0.25})`
-                                                    : isActive &&
-                                                        f !== 'All' &&
-                                                        !rainbow
-                                                      ? `1px solid rgba(${glowRgb}, 0.6)`
-                                                      : isActive
+                                                flexShrink: 0,
+                                                fontSize: '0.6rem',
+                                                padding: '4px 9px',
+                                                borderRadius: 6,
+                                                border:
+                                                    sort === s
                                                         ? '1px solid var(--pill-active-border)'
                                                         : '1px solid var(--pill-border)',
-                                                background: isCelestial
-                                                    ? isActive
-                                                        ? 'linear-gradient(135deg, #0a0a0a 0%, #2c2c2c 45%, #c8c8c8 80%, #f0f0f0 100%)'
-                                                        : 'linear-gradient(135deg, #0a0a0a 0%, #1c1c1c 60%, #707070 100%)'
-                                                    : isActive &&
-                                                        f !== 'All' &&
-                                                        !rainbow
-                                                      ? `rgba(${glowRgb}, 0.1)`
-                                                      : isActive
+                                                background:
+                                                    sort === s
                                                         ? 'var(--pill-active-bg)'
                                                         : 'transparent',
-                                                color: isCelestial
-                                                    ? '#e8e8e8'
-                                                    : isActive &&
-                                                        f !== 'All' &&
-                                                        !rainbow
-                                                      ? `rgba(${glowRgb}, 1)`
-                                                      : isActive
+                                                color:
+                                                    sort === s
                                                         ? 'var(--app-text)'
                                                         : 'var(--app-text-muted)',
+                                                cursor: 'pointer',
                                             }}
                                         >
-                                            {f}
+                                            {s}
                                         </button>
-                                    )
-                                })}
-                            </div>
-                            <button
-                                onClick={handleExpandBag}
-                                disabled={expanding}
-                                style={{
-                                    flexShrink: 0,
-                                    fontSize: '0.62rem',
-                                    fontWeight: 600,
-                                    padding: '4px 10px',
-                                    borderRadius: 20,
-                                    border: '1px solid rgba(168,85,247,0.3)',
-                                    background: 'rgba(168,85,247,0.08)',
-                                    color: expanding
-                                        ? 'var(--app-text-muted)'
-                                        : '#c084fc',
-                                    cursor: expanding
-                                        ? 'not-allowed'
-                                        : 'pointer',
-                                    whiteSpace: 'nowrap',
-                                    transition: 'all 150ms ease',
-                                }}
-                            >
-                                {expandMsg ||
-                                    (expanding ? (
-                                        '…'
-                                    ) : (
-                                        <span>
-                                            +10 Space ({bagCapacity}→
-                                            <span style={{ color: '#4ade80' }}>
-                                                {bagCapacity + 10}
-                                            </span>
-                                            ) · $ 20
-                                        </span>
                                     ))}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setSelectMode((v) => !v)
-                                    setSelectedIds(new Set())
-                                }}
-                                style={{
-                                    flexShrink: 0,
-                                    fontSize: '0.62rem',
-                                    fontWeight: 600,
-                                    padding: '4px 10px',
-                                    borderRadius: 20,
-                                    border: selectMode
-                                        ? '1px solid rgba(168,85,247,0.5)'
-                                        : '1px solid var(--pill-border)',
-                                    background: selectMode
-                                        ? 'rgba(168,85,247,0.12)'
-                                        : 'transparent',
-                                    color: selectMode
-                                        ? '#c084fc'
-                                        : 'var(--app-text-muted)',
-                                    cursor: 'pointer',
-                                    transition: 'all 150ms ease',
-                                }}
-                            >
-                                {selectMode ? 'Done' : 'Select'}
-                            </button>
-                        </div>}
-
-                        {/* type filter chips */}
-                        {activeTab === 'cards' && allTypes.length > 0 && (
-                            <div
-                                className="flex gap-1.5 mt-2"
-                                style={{ overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 2 }}
-                            >
-                                {allTypes.map((t) => {
-                                    const active = typeFilter === t
-                                    const bg = TYPE_COLOR[t] ?? '#6b7280'
-                                    return (
-                                        <button
-                                            key={t}
-                                            onClick={() => setTypeFilter(active ? null : t)}
-                                            className="flex-shrink-0 px-3 py-1 rounded-full capitalize transition-all"
-                                            style={{
-                                                fontSize: '0.58rem',
-                                                fontWeight: 600,
-                                                border: active ? `1px solid ${bg}` : '1px solid rgba(255,255,255,0.08)',
-                                                background: active ? bg : 'transparent',
-                                                color: active ? '#fff' : 'var(--app-text-muted)',
-                                            }}
-                                        >
-                                            {t}
-                                        </button>
-                                    )
-                                })}
+                                </div>
                             </div>
                         )}
 
                         {/* quick-select rarity chips — only in select mode */}
                         {activeTab === 'cards' && selectMode && (
                             <div
-                                className="flex gap-1.5 mt-2"
+                                className="flex gap-1.5 mt-2 scrollbar-none"
                                 style={{
                                     overflowX: 'auto',
                                     flexWrap: 'nowrap',
@@ -855,43 +842,130 @@ export default function BagPage({
                             style={{ minWidth: 0 }}
                         >
                             {activeTab === 'misc' ? (
-                                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div
+                                    style={{
+                                        padding: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 12,
+                                    }}
+                                >
                                     {(userItems ?? []).length === 0 ? (
-                                        <p style={{ color: '#4b5563', fontSize: '0.82rem', textAlign: 'center', padding: '48px 0' }}>
+                                        <p
+                                            style={{
+                                                color: '#4b5563',
+                                                fontSize: '0.82rem',
+                                                textAlign: 'center',
+                                                padding: '48px 0',
+                                            }}
+                                        >
                                             No misc items yet.
                                         </p>
-                                    ) : (userItems ?? []).map(item => {
-                                        const def = ITEM_MAP[item.item_id as ItemId]
-                                        if (!def) return null
-                                        return (
-                                            <div key={item.id} style={{
-                                                display: 'flex', alignItems: 'center', gap: 14,
-                                                background: 'rgba(255,255,255,0.03)',
-                                                border: item.item_id === 'n-crown' ? '1px solid rgba(250,204,21,0.25)' : '1px solid rgba(255,255,255,0.07)',
-                                                borderRadius: 12, padding: '12px 16px',
-                                            }}>
-                                                {def.icon.startsWith('/') ? (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img src={def.icon} alt={def.name} style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }} />
-                                                ) : (
-                                                    <span style={{ fontSize: '1.8rem' }}>{def.icon}</span>
-                                                )}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{def.name}</p>
-                                                    <p style={{ margin: '3px 0 0', fontSize: '0.68rem', color: '#6b7280', lineHeight: 1.5 }}>{def.description}</p>
+                                    ) : (
+                                        (userItems ?? []).map((item) => {
+                                            const def =
+                                                ITEM_MAP[item.item_id as ItemId]
+                                            if (!def) return null
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 14,
+                                                        background:
+                                                            'rgba(255,255,255,0.03)',
+                                                        border:
+                                                            item.item_id ===
+                                                            'n-crown'
+                                                                ? '1px solid rgba(250,204,21,0.25)'
+                                                                : '1px solid rgba(255,255,255,0.07)',
+                                                        borderRadius: 12,
+                                                        padding: '12px 16px',
+                                                    }}
+                                                >
+                                                    {def.icon.startsWith(
+                                                        '/',
+                                                    ) ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                        <img
+                                                            src={def.icon}
+                                                            alt={def.name}
+                                                            style={{
+                                                                width: 40,
+                                                                height: 40,
+                                                                objectFit:
+                                                                    'contain',
+                                                                flexShrink: 0,
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <span
+                                                            style={{
+                                                                fontSize:
+                                                                    '1.8rem',
+                                                            }}
+                                                        >
+                                                            {def.icon}
+                                                        </span>
+                                                    )}
+                                                    <div
+                                                        style={{
+                                                            flex: 1,
+                                                            minWidth: 0,
+                                                        }}
+                                                    >
+                                                        <p
+                                                            style={{
+                                                                margin: 0,
+                                                                fontSize:
+                                                                    '0.82rem',
+                                                                fontWeight: 700,
+                                                                color: '#e2e8f0',
+                                                            }}
+                                                        >
+                                                            {def.name}
+                                                        </p>
+                                                        <p
+                                                            style={{
+                                                                margin: '3px 0 0',
+                                                                fontSize:
+                                                                    '0.68rem',
+                                                                color: '#6b7280',
+                                                                lineHeight: 1.5,
+                                                            }}
+                                                        >
+                                                            {def.description}
+                                                        </p>
+                                                    </div>
+                                                    {item.item_id ===
+                                                        'n-crown' && (
+                                                        <a
+                                                            href="/dashboard/n-crown"
+                                                            style={{
+                                                                padding:
+                                                                    '6px 14px',
+                                                                borderRadius: 8,
+                                                                fontSize:
+                                                                    '0.7rem',
+                                                                fontWeight: 700,
+                                                                background:
+                                                                    'rgba(250,204,21,0.1)',
+                                                                border: '1px solid rgba(250,204,21,0.35)',
+                                                                color: '#facc15',
+                                                                textDecoration:
+                                                                    'none',
+                                                                whiteSpace:
+                                                                    'nowrap',
+                                                            }}
+                                                        >
+                                                            Inspect
+                                                        </a>
+                                                    )}
                                                 </div>
-                                                {item.item_id === 'n-crown' && (
-                                                    <a href="/dashboard/n-crown" style={{
-                                                        padding: '6px 14px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 700,
-                                                        background: 'rgba(250,204,21,0.1)', border: '1px solid rgba(250,204,21,0.35)',
-                                                        color: '#facc15', textDecoration: 'none', whiteSpace: 'nowrap',
-                                                    }}>
-                                                        Inspect
-                                                    </a>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })
+                                    )}
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="flex items-center justify-center mt-24">
@@ -909,7 +983,7 @@ export default function BagPage({
                                         alignItems: 'center',
                                     }}
                                 >
-                                    {filtered.map((uc) => (
+                                    {filtered.map((uc, i) => (
                                         <CardTile
                                             key={uc.id}
                                             uc={uc}
@@ -924,20 +998,15 @@ export default function BagPage({
                                             onClick={() => {
                                                 if (selectMode) {
                                                     setSelectedIds((prev) => {
-                                                        const next = new Set(
-                                                            prev,
-                                                        )
-                                                        if (next.has(uc.id))
-                                                            next.delete(uc.id)
+                                                        const next = new Set(prev)
+                                                        if (next.has(uc.id)) next.delete(uc.id)
                                                         else next.add(uc.id)
                                                         return next
                                                     })
                                                 } else {
-                                                    setSelected((prev) =>
-                                                        prev?.id === uc.id
-                                                            ? null
-                                                            : uc,
-                                                    )
+                                                    const col = i % 5
+                                                    setSelectedCol(col)
+                                                    setSelected((prev) => prev?.id === uc.id ? null : uc)
                                                 }
                                             }}
                                         />
@@ -946,22 +1015,23 @@ export default function BagPage({
                             )}
                         </div>
 
-                        {/* sidebar — desktop/tablet only */}
-                        {!isWide && !isMobile && selected && (
+                        {/* sidebar — desktop/tablet only, portalled to body so it overlays everything */}
+                        {!isWide && !isMobile && selected && createPortal(
                             <div
                                 className="sidebar-anim scrollbar-none"
                                 style={{
                                     width: 300,
-                                    flexShrink: 0,
                                     position: 'fixed',
-                                    top: headerHeight,
+                                    top: 0,
                                     bottom: 0,
-                                    right: `max(0px, calc((100vw - 1200px) / 2))`,
+                                    ...(selectedCol <= 2
+                                        ? { right: `max(0px, calc((100vw - 1200px) / 2))`, borderLeft: '1px solid var(--sidebar-border)' }
+                                        : { left: `max(0px, calc((100vw - 1200px) / 2))`, borderRight: '1px solid var(--sidebar-border)' }
+                                    ),
                                     overflowY: 'auto',
                                     background: 'var(--sidebar-bg)',
-                                    borderLeft:
-                                        '1px solid var(--sidebar-border)',
-                                    zIndex: 20,
+                                    zIndex: 100,
+                                    paddingBottom: 24,
                                 }}
                             >
                                 <CardStats
@@ -972,7 +1042,8 @@ export default function BagPage({
                                     onGraded={handleGraded}
                                     mode="sidebar"
                                 />
-                            </div>
+                            </div>,
+                            document.body
                         )}
 
                         {/* bottom sheet — mobile only */}
@@ -997,7 +1068,8 @@ export default function BagPage({
                                         background: 'var(--sidebar-bg)',
                                         borderTop:
                                             '1px solid var(--sidebar-border)',
-                                        paddingBottom: 'max(80px, calc(80px + env(safe-area-inset-bottom, 0px)))',
+                                        paddingBottom:
+                                            'max(80px, calc(80px + env(safe-area-inset-bottom, 0px)))',
                                     }}
                                 >
                                     <CardStats
@@ -1123,6 +1195,7 @@ export default function BagPage({
                         onClick={() => {
                             setSelectedIds(new Set())
                             setSelectMode(false)
+                            dispatchSelectMode(false)
                         }}
                         style={{
                             fontSize: '0.7rem',
