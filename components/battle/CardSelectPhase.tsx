@@ -30,6 +30,7 @@ type Props = {
     onToggleCard: (id: string) => void
     onStartBattle: () => void
     onClose: () => void
+    startError?: string | null
 }
 
 export function CardSelectPhase({

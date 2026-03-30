@@ -51,6 +51,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [isCriticalHit, setIsCriticalHit]         = useState(false)
     const [crownDropped, setCrownDropped]           = useState(false)
     const [wonCoins, setWonCoins]                   = useState<number | null>(null)
+    const [startError, setStartError]               = useState<string | null>(null)
 
     const advanceResolveRef = useRef<(() => void) | null>(null)
     // Ref-based acting guard — prevents concurrent doAttack/doSwitch calls
@@ -105,6 +106,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     async function startBattleWith(cardIds: string[]) {
         if (cardIds.length !== 5 || acting) return
         setActing(true)
+        setStartError(null)
         setSelected(cardIds)
         try {
             const res = await fetch('/api/n-battle/start', {
@@ -115,6 +117,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             const json = await res.json()
             if (!res.ok || !json.battle) {
                 console.error('[startBattle] failed:', json.error ?? json)
+                setStartError(json.error ?? 'Failed to start battle')
                 setActing(false)
                 return
             }
@@ -142,6 +145,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     async function startBattle() {
         if (selected.length !== 5 || acting) return
         setActing(true)
+        setStartError(null)
         try {
             const res = await fetch('/api/n-battle/start', {
                 method: 'POST',
@@ -151,6 +155,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             const json = await res.json()
             if (!res.ok || !json.battle) {
                 console.error('[startBattle] failed:', json.error ?? json)
+                setStartError(json.error ?? 'Failed to start battle')
                 setActing(false)
                 return
             }
@@ -569,5 +574,6 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         nSendingOut,
         nRecalling,
         trainerSprite,
+        startError,
     }
 }

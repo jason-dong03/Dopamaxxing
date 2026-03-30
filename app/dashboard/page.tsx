@@ -11,6 +11,7 @@ import DropsButton from '@/components/DropsButton'
 import CoinDisplay from '@/components/ui/CoinDisplay'
 import LiberatorEasterEgg from '@/components/LiberatorEasterEgg'
 import { getTitleColor } from '@/lib/titleConfig'
+import MobileExpand from '@/components/ui/MobileExpand'
 
 export default async function Dashboard() {
     const supabase = await createClient()
@@ -152,8 +153,8 @@ export default async function Dashboard() {
                             )}
                             {(profile?.login_streak ?? 0) > 1 && (
                                 <span
+                                    className="hidden sm:inline-flex"
                                     style={{
-                                        display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: 2,
                                         fontSize: '0.62rem',
@@ -187,6 +188,12 @@ export default async function Dashboard() {
                     </div>
 
                     <div style={{ flex: 1 }} />
+
+                    <MobileExpand
+                        loginStreak={profile?.login_streak ?? 0}
+                        activeTitle={profile?.active_title}
+                        discordLinked={!!profile?.discord_id}
+                    />
 
                     {profile?.is_admin && (
                         <a

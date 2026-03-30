@@ -4,7 +4,7 @@ import type { StoredMove } from '@/lib/pokemon-moves'
 export function baseName(name: string): string {
     return name
         .replace(/\s+(VMAX|VSTAR|GX|EX|V|TAG\s+TEAM|ex|gx|vmax|vstar)\b/gi, '')
-        .replace(/[''']s\s+/i, '')   // strip possessives like "Team Rocket's"
+        .replace(/[''']s\s+/i, '') // strip possessives like "Team Rocket's"
         .trim()
 }
 
@@ -77,6 +77,7 @@ export type ShowcaseCard = {
         id: string
         name: string
         image_url: string
+        image_url_hi?: string
         rarity: string
         national_pokedex_number: number
         set_id: string | null

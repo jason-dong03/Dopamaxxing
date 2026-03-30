@@ -281,9 +281,9 @@ export default function BattlesPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                                     {lu.cards.map((uc: LineupCard) => (
                                         <div key={uc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                                            <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                                             </div>
                                             <span style={{ fontSize: '0.52rem', color: '#9ca3af', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uc.cards.name}</span>
                                             <span style={{ fontSize: '0.48rem', color: '#6b7280' }}>Lv.{uc.card_level ?? 1}</span>
@@ -653,6 +653,7 @@ export default function BattlesPage() {
                                                 <div
                                                     style={{
                                                         aspectRatio: '2/3',
+                                                        position: 'relative',
                                                         background:
                                                             'rgba(255,255,255,0.04)',
                                                     }}
@@ -665,6 +666,8 @@ export default function BattlesPage() {
                                                         }
                                                         alt={card.cards.name}
                                                         style={{
+                                                            position: 'absolute',
+                                                            inset: 0,
                                                             width: '100%',
                                                             height: '100%',
                                                             objectFit: 'cover',
@@ -813,9 +816,9 @@ export default function BattlesPage() {
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
                                         {lu.cards.map((uc: LineupCard) => (
                                             <div key={uc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                                <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 6, overflow: 'hidden', background: 'rgba(255,255,255,0.04)' }}>
+                                                <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 6, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', position: 'relative' }}>
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 </div>
                                                 <span style={{ fontSize: '0.44rem', color: '#9ca3af', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uc.cards.name}</span>
                                                 <span style={{ fontSize: '0.42rem', color: '#6b7280' }}>Lv.{uc.card_level ?? 1}</span>
@@ -826,9 +829,8 @@ export default function BattlesPage() {
                             ))}
                             <button
                                 onClick={() => {
-                                    setPickedLineupIds([])
                                     setLineupPickerOpen(false)
-                                    setBattleOpen(true)
+                                    openSetup()
                                 }}
                                 style={{ padding: '12px', borderRadius: 12, border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#6b7280', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
                             >

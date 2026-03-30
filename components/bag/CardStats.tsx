@@ -246,6 +246,8 @@ export function CardStats({
     const natureObj = uc.nature ? NATURE_BY_NAME[uc.nature] ?? null : null
     const natureTierColor = natureObj ? NATURE_TIER_COLOR[natureObj.tier] : '#94a3b8'
     const hasPending = (uc.pending_moves?.length ?? 0) > 0
+    const moveSlotsUsed = uc.moves?.length ?? 0
+    const isMoveSlotFree = moveSlotsUsed < 4
 
     const combatStats = [
         { key: 'stat_atk',      label: 'ATK',   color: '#f87171', val: uc.stat_atk },
@@ -658,9 +660,7 @@ export function CardStats({
                     </div>
 
                     {/* Pending moves panel */}
-                    {hasPending && pendingOpen && (() => {
-                        const isFree = (uc.moves?.length ?? 0) < 4
-                        return (
+                    {hasPending && pendingOpen && (
                         <div style={{ marginTop: 8 }}>
                             {(uc.pending_moves ?? []).map((mv, moveIdx) => {
                                 const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
@@ -670,8 +670,8 @@ export function CardStats({
                                             <span style={{ fontSize: '0.5rem', background: typeColor + '33', color: typeColor, border: `1px solid ${typeColor}44`, borderRadius: 4, padding: '1px 5px', textTransform: 'uppercase' }}>{mv.type}</span>
                                             <span style={{ flex: 1, fontSize: '0.68rem', fontWeight: 700, color: '#fca5a5' }}>{mv.displayName}</span>
                                             {mv.power && <span style={{ fontSize: '0.6rem', fontFamily: 'monospace', color: '#f87171' }}>{mv.power}</span>}
-                                            <span style={{ fontSize: '0.52rem', fontWeight: 700, color: isFree ? '#4ade80' : '#f59e0b', background: isFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${isFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 4, padding: '1px 5px' }}>
-                                                {isFree ? 'Free' : '100 coins'}
+                                            <span style={{ fontSize: '0.52rem', fontWeight: 700, color: isMoveSlotFree ? '#4ade80' : '#f59e0b', background: isMoveSlotFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 4, padding: '1px 5px' }}>
+                                                {isMoveSlotFree ? 'Free' : '100 coins'}
                                             </span>
                                         </div>
                                         {mv.effect && <p style={{ fontSize: '0.52rem', color: '#9ca3af', margin: '0 0 8px', lineHeight: 1.4 }}>{mv.effect}</p>}
@@ -685,12 +685,6 @@ export function CardStats({
                                                             {existing.displayName}
                                                         </button>
                                                     ))}
-                                                    {(uc.moves?.length ?? 0) < 4 && (
-                                                        <button disabled={learnLoading} onClick={() => handleLearnMove(moveIdx, uc.moves?.length ?? 0)}
-                                                            style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(74,222,128,0.4)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', cursor: 'pointer' }}>
-                                                            Add (open slot)
-                                                        </button>
-                                                    )}
                                                     <button onClick={() => setLearnSlot(null)}
                                                         style={{ fontSize: '0.52rem', padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#6b7280', cursor: 'pointer' }}>
                                                         Cancel
@@ -699,10 +693,7 @@ export function CardStats({
                                             </div>
                                         ) : (
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button onClick={() => {
-                                                    if (isFree) { handleLearnMove(moveIdx, uc.moves?.length ?? 0) }
-                                                    else { setLearnSlot({ moveIdx }) }
-                                                }}
+                                                <button onClick={() => isMoveSlotFree ? handleLearnMove(moveIdx, moveSlotsUsed) : setLearnSlot({ moveIdx })}
                                                     style={{ fontSize: '0.55rem', padding: '4px 12px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5', cursor: 'pointer', fontWeight: 600 }}>
                                                     Learn Move
                                                 </button>
@@ -716,8 +707,7 @@ export function CardStats({
                                 )
                             })}
                         </div>
-                        )
-                    })()}
+                    )}
                 </div>
 
                 {/* sell button at bottom */}
@@ -920,7 +910,7 @@ export function CardStats({
                 </div>
             </div>
 
-            {/* tab switcher */}
+            {!cleanView && <>{/* tab switcher */}
             <div style={{ display: 'flex', gap: 3, margin: '6px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 7, padding: 3 }}>
                 {(['overview', 'pokemon'] as const).map(tab => (
                     <button key={tab} onClick={() => setDetailTab(tab)} style={{
@@ -1060,9 +1050,7 @@ export function CardStats({
                                     )
                                 })}
                             </div>
-                            {hasPending && pendingOpen && (() => {
-                                const isFree = (uc.moves?.length ?? 0) < 4
-                                return (
+                            {hasPending && pendingOpen && (
                                 <div style={{ marginTop: 8 }}>
                                     {(uc.pending_moves ?? []).map((mv, moveIdx) => {
                                         const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
@@ -1072,8 +1060,8 @@ export function CardStats({
                                                     <span style={{ fontSize: '0.45rem', background: typeColor + '33', color: typeColor, border: `1px solid ${typeColor}44`, borderRadius: 4, padding: '1px 4px', textTransform: 'uppercase' }}>{mv.type}</span>
                                                     <span style={{ flex: 1, fontSize: '0.62rem', fontWeight: 700, color: '#fca5a5' }}>{mv.displayName}</span>
                                                     {mv.power && <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', color: '#f87171' }}>{mv.power}</span>}
-                                                    <span style={{ fontSize: '0.48rem', fontWeight: 700, color: isFree ? '#4ade80' : '#f59e0b', background: isFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${isFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 4, padding: '1px 4px' }}>
-                                                        {isFree ? 'Free' : '100c'}
+                                                    <span style={{ fontSize: '0.48rem', fontWeight: 700, color: isMoveSlotFree ? '#4ade80' : '#f59e0b', background: isMoveSlotFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`, borderRadius: 4, padding: '1px 4px' }}>
+                                                        {isMoveSlotFree ? 'Free' : '100c'}
                                                     </span>
                                                 </div>
                                                 {learnSlot?.moveIdx === moveIdx ? (
@@ -1089,7 +1077,7 @@ export function CardStats({
                                                 ) : (
                                                     <div style={{ display: 'flex', gap: 5 }}>
                                                         <button onClick={() => {
-                                                            if (isFree) { handleLearnMove(moveIdx, uc.moves?.length ?? 0) }
+                                                            if (isMoveSlotFree) { handleLearnMove(moveIdx, moveSlotsUsed) }
                                                             else { setLearnSlot({ moveIdx }) }
                                                         }} style={{ fontSize: '0.5rem', padding: '3px 9px', borderRadius: 5, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5', cursor: 'pointer', fontWeight: 600 }}>Learn Move</button>
                                                         <button onClick={() => setPendingOpen(false)} style={{ fontSize: '0.48rem', padding: '3px 7px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#4b5563', cursor: 'pointer' }}>Skip</button>
@@ -1099,12 +1087,12 @@ export function CardStats({
                                         )
                                     })}
                                 </div>
-                                )
-                            })()}
+                            )}
                         </div>
                     </div>
                 )}
             </div>
+            </> }
         </div>
     )
 }
