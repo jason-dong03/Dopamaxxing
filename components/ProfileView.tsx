@@ -1464,7 +1464,9 @@ export default function ProfileView({
                                                     <img
                                                         src={
                                                             showcaseCard.cards
-                                                                .image_url_hi
+                                                                .image_url_hi ??
+                                                            showcaseCard.cards
+                                                                .image_url
                                                         }
                                                         alt={
                                                             showcaseCard.cards

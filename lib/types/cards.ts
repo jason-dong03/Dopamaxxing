@@ -77,7 +77,7 @@ export type ShowcaseCard = {
         id: string
         name: string
         image_url: string
-        image_url_hi?: string
+        image_url_hi: string | null
         rarity: string
         national_pokedex_number: number
         set_id: string | null
