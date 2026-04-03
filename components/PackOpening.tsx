@@ -1,9 +1,15 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import FlipCard from './card/FlipCard'
 import FirstEditionBadge from './card/FirstEditionBadge'
-import { isRainbow, rarityGlowRgb, rarityToOdds } from '@/lib/rarityConfig'
+import {
+    getBuyback,
+    getCardWorth,
+    isRainbow,
+    rarityGlowRgb,
+    rarityToOdds,
+} from '@/lib/rarityConfig'
 import { useRouter } from 'next/navigation'
 import AutoCompleteSettings from './AutoCompleteSettings'
 import { createClient } from '@/lib/supabase/client'
@@ -498,7 +504,7 @@ export default function PackOpening({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cardId: card.id,
-                    worth: card.coins,
+                    worth: getCardWorth(card),
                     isHot: card.isHot,
                     rarity: card.rarity,
                     attrs: cardAttrs(card),
@@ -521,7 +527,7 @@ export default function PackOpening({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cardId: card.id,
-                    worth: card.coins,
+                    worth: getCardWorth(card),
                     isHot: card.isHot,
                     rarity: card.rarity,
                     attrs: cardAttrs(card),
@@ -583,7 +589,9 @@ export default function PackOpening({
             fetch('/api/buyback-card', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card_buyback_amount: card.coins }),
+                body: JSON.stringify({
+                    card_buyback_amount: getBuyback(card, null),
+                }),
             }).catch(console.error)
         }
         setTimeout(() => {
@@ -1190,7 +1198,7 @@ export default function PackOpening({
                             paddingTop: 'min(20px, 5vw)',
                             transform: isMobile
                                 ? 'translateY(16px)'
-                                : 'translateY(24px)',
+                                : 'translateY(21px)',
                         }}
                     >
                         <div
@@ -1322,8 +1330,8 @@ export default function PackOpening({
                                     className="flex flex-col items-center gap-4"
                                     style={{
                                         transform: isMobile
-                                            ? 'translateY(85px)'
-                                            : 'translateY(24px)',
+                                            ? 'translateY(55px)'
+                                            : 'translateY(32px)',
                                         padding: isMobile ? '0 10px' : 0,
                                         width: '100%',
                                         boxSizing: 'border-box',

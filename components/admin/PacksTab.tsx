@@ -7,7 +7,7 @@ type TcgSet = { id: string; name: string }
 type SeedStatus = 'idle' | 'loading' | 'done' | 'error'
 
 // IDs already seeded as packs — excluded from browse list
-const ALREADY_SEEDED = new Set(PACKS.map(p => p.id))
+const ALREADY_SEEDED = new Set(PACKS.map((p) => p.id))
 
 const ALL_TCG_SETS: TcgSet[] = [
     { id: 'sv03.5', name: '151' },
@@ -210,25 +210,28 @@ const ALL_TCG_SETS: TcgSet[] = [
     { id: 'tk-xy-w', name: 'XY trainer Kit (Wigglytuff)' },
     { id: 'xya', name: 'Yello A Alternate' },
     { id: 'sma', name: 'Yellow A Alternate' },
-].filter(s => !ALREADY_SEEDED.has(s.id))
+].filter((s) => !ALREADY_SEEDED.has(s.id))
 
 export default function PacksTab() {
     const [seedStatus, setSeedStatus] = useState<Record<string, SeedStatus>>({})
     const [search, setSearch] = useState('')
 
     async function seedPack(setId: string) {
-        setSeedStatus(s => ({ ...s, [setId]: 'loading' }))
+        setSeedStatus((s) => ({ ...s, [setId]: 'loading' }))
         try {
-            const res = await fetch(`/api/admin/seed?setId=${encodeURIComponent(setId)}`)
-            setSeedStatus(s => ({ ...s, [setId]: res.ok ? 'done' : 'error' }))
+            const res = await fetch(
+                `/api/admin/seed?setId=${encodeURIComponent(setId)}`,
+            )
+            setSeedStatus((s) => ({ ...s, [setId]: res.ok ? 'done' : 'error' }))
         } catch {
-            setSeedStatus(s => ({ ...s, [setId]: 'error' }))
+            setSeedStatus((s) => ({ ...s, [setId]: 'error' }))
         }
     }
 
-    const filteredSets = ALL_TCG_SETS.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.id.toLowerCase().includes(search.toLowerCase())
+    const filteredSets = ALL_TCG_SETS.filter(
+        (s) =>
+            s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.id.toLowerCase().includes(search.toLowerCase()),
     )
 
     const statusLabel: Record<SeedStatus, string> = {
@@ -255,13 +258,41 @@ export default function PacksTab() {
     return (
         <div>
             {/* Section 1: Current Packs */}
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', margin: '0 0 16px 0' }}>Current Packs</h2>
+            <h2
+                style={{
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    color: '#e2e8f0',
+                    margin: '0 0 16px 0',
+                }}
+            >
+                Current Packs
+            </h2>
             <div style={{ overflowX: 'auto', marginBottom: 40 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <table
+                    style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontSize: '0.8rem',
+                    }}
+                >
                     <thead>
                         <tr style={{ borderBottom: '1px solid #1e1e30' }}>
-                            {['ID', 'Name', 'Cost', 'Aspect', 'Special', 'Action'].map(h => (
-                                <th key={h} className="cell-pad text-left font-semibold whitespace-nowrap" style={{ color: '#64748b' }}>{h}</th>
+                            {[
+                                'ID',
+                                'Name',
+                                'Cost',
+                                'Aspect',
+                                'Special',
+                                'Action',
+                            ].map((h) => (
+                                <th
+                                    key={h}
+                                    className="cell-pad text-left font-semibold whitespace-nowrap"
+                                    style={{ color: '#64748b' }}
+                                >
+                                    {h}
+                                </th>
                             ))}
                         </tr>
                     </thead>
@@ -271,13 +302,48 @@ export default function PacksTab() {
                             return (
                                 <tr
                                     key={pack.id}
-                                    style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)', borderBottom: '1px solid #1e1e3044' }}
+                                    style={{
+                                        background:
+                                            i % 2 === 0
+                                                ? 'transparent'
+                                                : 'rgba(255,255,255,0.02)',
+                                        borderBottom: '1px solid #1e1e3044',
+                                    }}
                                 >
-                                    <td className="cell-pad font-mono text-copy" style={{ color: '#94a3b8' }}>{pack.id}</td>
-                                    <td className="cell-pad font-medium" style={{ color: '#e2e8f0' }}>{pack.name}</td>
-                                    <td className="cell-pad" style={{ color: '#e2e8f0' }}>{pack.cost}</td>
-                                    <td className="cell-pad" style={{ color: '#94a3b8' }}>{pack.aspect}</td>
-                                    <td style={{ padding: '8px 10px', color: pack.special ? '#fbbf24' : '#64748b' }}>{pack.special ? 'Yes' : 'No'}</td>
+                                    <td
+                                        className="cell-pad font-mono text-copy"
+                                        style={{ color: '#94a3b8' }}
+                                    >
+                                        {pack.id}
+                                    </td>
+                                    <td
+                                        className="cell-pad font-medium"
+                                        style={{ color: '#e2e8f0' }}
+                                    >
+                                        {pack.name}
+                                    </td>
+                                    <td
+                                        className="cell-pad"
+                                        style={{ color: '#e2e8f0' }}
+                                    >
+                                        {pack.cost}
+                                    </td>
+                                    <td
+                                        className="cell-pad"
+                                        style={{ color: '#94a3b8' }}
+                                    >
+                                        {pack.aspect}
+                                    </td>
+                                    <td
+                                        style={{
+                                            padding: '8px 10px',
+                                            color: pack.special
+                                                ? '#fbbf24'
+                                                : '#64748b',
+                                        }}
+                                    >
+                                        {pack.special ? 'Yes' : 'No'}
+                                    </td>
                                     <td className="cell-pad">
                                         <button
                                             onClick={() => seedPack(pack.id)}
@@ -289,9 +355,15 @@ export default function PacksTab() {
                                                 borderRadius: 5,
                                                 padding: '4px 12px',
                                                 fontSize: '0.73rem',
-                                                cursor: status === 'loading' ? 'not-allowed' : 'pointer',
+                                                cursor:
+                                                    status === 'loading'
+                                                        ? 'not-allowed'
+                                                        : 'pointer',
                                                 fontWeight: 600,
-                                                opacity: status === 'loading' ? 0.7 : 1,
+                                                opacity:
+                                                    status === 'loading'
+                                                        ? 0.7
+                                                        : 1,
                                             }}
                                         >
                                             {statusLabel[status]}
@@ -305,15 +377,30 @@ export default function PacksTab() {
             </div>
 
             {/* Section 2: Browse TCGdex Sets */}
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', margin: '0 0 12px 0' }}>
+            <h2
+                style={{
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    color: '#e2e8f0',
+                    margin: '0 0 12px 0',
+                }}
+            >
                 Browse TCGdex Sets
-                <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
-                    ({ALL_TCG_SETS.length} available — already-seeded sets excluded)
+                <span
+                    style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 400,
+                        color: '#64748b',
+                        marginLeft: 8,
+                    }}
+                >
+                    ({ALL_TCG_SETS.length} available — already-seeded sets
+                    excluded)
                 </span>
             </h2>
             <input
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name or ID…"
                 style={{
                     background: '#0a0a12',
@@ -328,11 +415,23 @@ export default function PacksTab() {
                 }}
             />
             <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <table
+                    style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontSize: '0.8rem',
+                    }}
+                >
                     <thead>
                         <tr style={{ borderBottom: '1px solid #1e1e30' }}>
-                            {['Set ID', 'Name', 'Action'].map(h => (
-                                <th key={h} className="cell-pad text-left font-semibold" style={{ color: '#64748b' }}>{h}</th>
+                            {['Set ID', 'Name', 'Action'].map((h) => (
+                                <th
+                                    key={h}
+                                    className="cell-pad text-left font-semibold"
+                                    style={{ color: '#64748b' }}
+                                >
+                                    {h}
+                                </th>
                             ))}
                         </tr>
                     </thead>
@@ -342,10 +441,26 @@ export default function PacksTab() {
                             return (
                                 <tr
                                     key={set.id}
-                                    style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)', borderBottom: '1px solid #1e1e3044' }}
+                                    style={{
+                                        background:
+                                            i % 2 === 0
+                                                ? 'transparent'
+                                                : 'rgba(255,255,255,0.02)',
+                                        borderBottom: '1px solid #1e1e3044',
+                                    }}
                                 >
-                                    <td className="cell-pad font-mono text-copy" style={{ color: '#94a3b8' }}>{set.id}</td>
-                                    <td className="cell-pad" style={{ color: '#e2e8f0' }}>{set.name}</td>
+                                    <td
+                                        className="cell-pad font-mono text-copy"
+                                        style={{ color: '#94a3b8' }}
+                                    >
+                                        {set.id}
+                                    </td>
+                                    <td
+                                        className="cell-pad"
+                                        style={{ color: '#e2e8f0' }}
+                                    >
+                                        {set.name}
+                                    </td>
                                     <td className="cell-pad">
                                         <button
                                             onClick={() => seedPack(set.id)}
@@ -357,9 +472,15 @@ export default function PacksTab() {
                                                 borderRadius: 5,
                                                 padding: '4px 12px',
                                                 fontSize: '0.73rem',
-                                                cursor: status === 'loading' ? 'not-allowed' : 'pointer',
+                                                cursor:
+                                                    status === 'loading'
+                                                        ? 'not-allowed'
+                                                        : 'pointer',
                                                 fontWeight: 600,
-                                                opacity: status === 'loading' ? 0.7 : 1,
+                                                opacity:
+                                                    status === 'loading'
+                                                        ? 0.7
+                                                        : 1,
                                             }}
                                         >
                                             {statusLabel[status]}
@@ -371,7 +492,13 @@ export default function PacksTab() {
                     </tbody>
                 </table>
                 {filteredSets.length === 0 && (
-                    <p style={{ color: '#64748b', fontSize: '0.82rem', padding: '12px 0' }}>
+                    <p
+                        style={{
+                            color: '#64748b',
+                            fontSize: '0.82rem',
+                            padding: '12px 0',
+                        }}
+                    >
                         No sets match your search.
                     </p>
                 )}

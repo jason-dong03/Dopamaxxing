@@ -156,6 +156,25 @@ export function CardTile({
                 Lv {uc.card_level}
             </div>
 
+            {/* pending moves dot */}
+            {(uc.pending_moves?.length ?? 0) > 0 && (
+                <span
+                    style={{
+                        position: 'absolute',
+                        top: 3,
+                        right: 3,
+                        width: 9,
+                        height: 9,
+                        borderRadius: '50%',
+                        background: '#f97316',
+                        boxShadow: '0 0 6px rgba(249,115,22,0.9)',
+                        animation: 'pendingPulse 1.5s ease-in-out infinite',
+                        pointerEvents: 'none',
+                        zIndex: 20,
+                    }}
+                />
+            )}
+
             {/* multi-select circle */}
             {selectMode && (
                 <div

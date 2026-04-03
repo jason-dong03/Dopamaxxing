@@ -22,22 +22,15 @@ const PREMIUM_ACTIONS: {
     border: string
 }[] = [
     {
-        value: 'add',
-        label: 'Add',
-        color: '#4ade80',
-        bg: 'rgba(74,222,128,0.08)',
-        border: 'rgba(74,222,128,0.3)',
-    },
-    {
         value: 'feed',
-        label: 'Feed into best',
+        label: 'add / feed',
         color: '#a855f7',
         bg: 'rgba(168,85,247,0.08)',
         border: 'rgba(168,85,247,0.3)',
     },
     {
         value: 'sell',
-        label: 'Sell',
+        label: 'sell',
         color: '#eab308',
         bg: 'rgba(234,179,8,0.08)',
         border: 'rgba(234,179,8,0.3)',
@@ -206,7 +199,7 @@ export default function AutoCompleteSettings({
                     style={{ scrollbarWidth: 'none' }}
                 >
                     <div
-                        className="grid grid-cols-2 gap-4"
+                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                         style={{ alignItems: 'start' }}
                     >
                         {/* ── LEFT COLUMN ── */}
@@ -578,27 +571,28 @@ export default function AutoCompleteSettings({
                                 return (
                                     <div
                                         key={rarity}
-                                        className="flex items-center justify-between px-4 py-3"
+                                        className="flex items-center justify-between px-4 py-2.5"
                                         style={{
                                             borderBottom:
                                                 '1px solid rgba(255,255,255,0.04)',
                                             background:
                                                 'rgba(255,255,255,0.01)',
+                                            gap: 8,
                                         }}
                                     >
                                         <span
                                             className="font-bold uppercase tracking-widest flex-shrink-0"
                                             style={{
-                                                fontSize: '0.73rem',
+                                                fontSize: '0.68rem',
                                                 color: rarityColor,
-                                                width: 80,
+                                                minWidth: 64,
                                             }}
                                         >
                                             {rarity}
                                         </span>
                                         <div
-                                            className="flex gap-2"
-                                            style={{ marginLeft: 12 }}
+                                            className="flex gap-1.5"
+                                            style={{ flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}
                                         >
                                             {PREMIUM_ACTIONS.map((a) => {
                                                 const isActive =
@@ -617,8 +611,8 @@ export default function AutoCompleteSettings({
                                                         }
                                                         className="rounded-md font-semibold transition-all"
                                                         style={{
-                                                            fontSize: '0.71rem',
-                                                            padding: '3px 14px',
+                                                            fontSize: '0.65rem',
+                                                            padding: '3px 10px',
                                                             background: isActive
                                                                 ? a.bg
                                                                 : 'transparent',
@@ -628,6 +622,7 @@ export default function AutoCompleteSettings({
                                                             color: isActive
                                                                 ? a.color
                                                                 : '#4b5563',
+                                                            whiteSpace: 'nowrap',
                                                         }}
                                                     >
                                                         {a.label}

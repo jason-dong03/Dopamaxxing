@@ -338,13 +338,15 @@ export async function POST(request: NextRequest) {
             // Use real base stats if available, else fall back to rarity-only ranges
             const previewStats = rollStats(rarity, pokeData?.baseStats ?? undefined)
             const previewNature = rollNature(rarity)
+            const buybackResult = calculateBuyback(rarity, Number(card.market_price_usd) || 0, (card.set_id as string)?.endsWith('-1ed') ?? false)
             return {
                 ...card,
                 isNew: !ownedIds.has(card.id as string),
                 worth: card.market_price_usd,
+                coins: buybackResult.amount,
                 pokedex_num: card.national_pokedex_number,
                 ...previewAttrs,
-                ...calculateBuyback(rarity, Number(card.market_price_usd) || 0, previewAttrs, (card.set_id as string)?.endsWith('-1ed') ?? false),
+                ...buybackResult,
                 preview_stats: previewStats,
                 preview_nature: previewNature,
             }

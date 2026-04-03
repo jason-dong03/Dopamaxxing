@@ -2,9 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { isRainbow, rarityGlowRgb, rarityTextStyle } from '@/lib/rarityConfig'
+import {
+    getBuyback,
+    getCardWorth,
+    isRainbow,
+    rarityGlowRgb,
+    rarityTextStyle,
+} from '@/lib/rarityConfig'
 import { ShatterEffect } from './card/ShatterEffect'
 import type { Pack } from '@/lib/packs'
+import { CardStatsPanel } from '../components/pack/CardStatsPanel'
+import { createClient } from '@/lib/supabase/client'
+import { useIsMobile } from '@/lib/useIsMobile'
 
 // ─── reel constants ────────────────────────────────────────────────────────────
 const CARD_W = 120
@@ -40,6 +49,8 @@ export default function CrateOpening({
     onBack: () => void
 }) {
     const router = useRouter()
+    const supabase = createClient()
+    const isMobile = useIsMobile()
     const [phase, setPhase] = useState<Phase>('idle')
     const [strip, setStrip] = useState<PoolCard[]>([])
     const [wonCard, setWonCard] = useState<WonCard | null>(null)
@@ -50,6 +61,16 @@ export default function CrateOpening({
     const [shattering, setShattering] = useState(false)
     const [flyingDown, setFlyingDown] = useState(false)
     const [actionDone, setActionDone] = useState(false)
+    const [bagCount, setBagCount] = useState<number | null>(null)
+    const [bagCapacity, setBagCapacity] = useState<number>(50)
+
+    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats'>(
+        'condition',
+    )
+    const [bbTooltipPos, setBbTooltipPos] = useState<{
+        x: number
+        y: number
+    } | null>(null)
     const [coinError, setCoinError] = useState<{
         cost: number
         coins: number
@@ -111,6 +132,26 @@ export default function CrateOpening({
             }),
         )
     }, [phase])
+    useEffect(() => {
+        if (phase !== 'done') return
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (!user) return
+            Promise.all([
+                supabase
+                    .from('user_cards')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id),
+                supabase
+                    .from('profiles')
+                    .select('bag_capacity')
+                    .eq('id', user.id)
+                    .single(),
+            ]).then(([countRes, profileRes]) => {
+                setBagCount(countRes.count ?? 0)
+                setBagCapacity(profileRes.data?.bag_capacity ?? 50)
+            })
+        })
+    }, [phase])
 
     function handleTransitionEnd() {
         if (!spinning) return
@@ -127,7 +168,7 @@ export default function CrateOpening({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 cardId: wonCard.id,
-                worth: wonCard.coins,
+                worth: getCardWorth(wonCard),
                 isHot: wonCard.isHot,
                 rarity: wonCard.rarity,
                 attrs: {
@@ -145,7 +186,7 @@ export default function CrateOpening({
         if (!wonCard || actionDone) return
         setActionDone(true)
         setShattering(true)
-        const coins = wonCard.coins
+        const coins = getBuyback(wonCard, null)
         await fetch('/api/buyback-card', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -381,28 +422,11 @@ export default function CrateOpening({
 
     // ── done ──────────────────────────────────────────────────────────────────
     if (phase === 'done' && wonCard) {
-        const attrs = [
-            { label: 'Centering', value: wonCard.attr_centering },
-            { label: 'Corners', value: wonCard.attr_corners },
-            { label: 'Edges', value: wonCard.attr_edges },
-            { label: 'Surface', value: wonCard.attr_surface },
-        ].filter((a): a is { label: string; value: number } => a.value != null)
-        const overall = attrs.length
-            ? Math.round(
-                  (attrs.reduce((s, a) => s + a.value, 0) / attrs.length) * 10,
-              ) / 10
-            : null
-        function attrColor(v: number) {
-            return v >= 8.5 ? '#4ade80' : v >= 6.5 ? '#fbbf24' : '#f87171'
-        }
-        const hasAttrs = attrs.length > 0
-
         return (
             <div
                 className="flex flex-col items-center justify-center min-h-[80vh] gap-4"
                 style={{ zoom: 1.2 }}
             >
-                {/* top row: card + right panel */}
                 <div
                     style={{
                         display: 'flex',
@@ -455,308 +479,26 @@ export default function CrateOpening({
                         )}
                     </div>
 
-                    {/* right panel */}
-                    <div
-                        style={{
-                            height: 364,
-                            width: 200,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 10,
-                        }}
-                    >
-                        {/* name + dex */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'baseline',
-                                gap: 5,
-                            }}
-                        >
-                            <p
-                                style={{
-                                    fontSize: '1rem',
-                                    fontWeight: 600,
-                                    color: 'var(--app-text)',
-                                    margin: 0,
-                                    lineHeight: 1.2,
-                                    letterSpacing: '0.02em',
-                                }}
-                            >
-                                {wonCard.name}
-                            </p>
-                            <span
-                                style={{
-                                    fontSize: '0.68rem',
-                                    color: '#4b5563',
-                                    lineHeight: 1.2,
-                                }}
-                            >
-                                #{wonCard.national_pokedex_number}
-                            </span>
-                        </div>
-
-                        {/* est condition bars */}
-                        {hasAttrs && (
-                            <div
-                                style={{
-                                    flex: 1,
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.07)',
-                                    borderRadius: 10,
-                                    padding: '12px 14px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 0,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: 10,
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: '0.58rem',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.1em',
-                                            textTransform: 'uppercase',
-                                            color: '#6b7280',
-                                        }}
-                                    >
-                                        est condition
-                                    </span>
-                                    {overall != null && (
-                                        <span
-                                            style={{
-                                                fontSize: '1.1rem',
-                                                fontWeight: 800,
-                                                fontFamily: 'monospace',
-                                                color: attrColor(overall),
-                                                textShadow: `0 0 8px ${attrColor(overall)}80`,
-                                            }}
-                                        >
-                                            {overall.toFixed(1)}
-                                        </span>
-                                    )}
-                                </div>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 8,
-                                        flex: 1,
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    {attrs.map(({ label, value }) => (
-                                        <div
-                                            key={label}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: '0.65rem',
-                                                    color: '#6b7280',
-                                                    width: 60,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {label}
-                                            </span>
-                                            <div
-                                                className="flex-1 rounded-full overflow-hidden"
-                                                style={{
-                                                    height: 5,
-                                                    background:
-                                                        'rgba(255,255,255,0.05)',
-                                                }}
-                                            >
-                                                <div
-                                                    className="h-full rounded-full"
-                                                    style={{
-                                                        width: `${(value / 10) * 100}%`,
-                                                        background:
-                                                            attrColor(value),
-                                                        transition:
-                                                            'width 600ms ease',
-                                                    }}
-                                                />
-                                            </div>
-                                            <span
-                                                style={{
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 700,
-                                                    fontFamily: 'monospace',
-                                                    color: attrColor(value),
-                                                    width: 28,
-                                                    textAlign: 'right' as const,
-                                                }}
-                                            >
-                                                {value.toFixed(1)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* value + buyback */}
-                        <div
-                            style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.07)',
-                                borderRadius: 10,
-                                padding: '10px 14px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 6,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '0.58rem',
-                                        color: '#4b5563',
-                                    }}
-                                >
-                                    market value
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: '0.72rem',
-                                        fontWeight: 600,
-                                        color: '#4ade80',
-                                        fontFamily: 'monospace',
-                                    }}
-                                >
-                                    $
-                                    {wonCard.worth != null
-                                        ? Number(wonCard.worth).toFixed(2)
-                                        : '—'}
-                                </span>
-                            </div>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '0.58rem',
-                                        color: '#4b5563',
-                                    }}
-                                >
-                                    buyback
-                                </span>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                    }}
-                                >
-                                    {wonCard.isHot && (
-                                        <span
-                                            style={{
-                                                fontSize: '0.5rem',
-                                                fontWeight: 700,
-                                                color: '#fb923c',
-                                                background:
-                                                    'rgba(251,146,60,0.12)',
-                                                border: '1px solid rgba(251,146,60,0.3)',
-                                                borderRadius: 4,
-                                                padding: '0 4px',
-                                                letterSpacing: '0.05em',
-                                            }}
-                                        >
-                                            HOT 🔥
-                                        </span>
-                                    )}
-                                    <span
-                                        style={{
-                                            fontSize: '0.72rem',
-                                            fontWeight: 600,
-                                            fontFamily: 'monospace',
-                                            color: wonCard.isHot
-                                                ? '#fb923c'
-                                                : '#eab308',
-                                        }}
-                                    >
-                                        ${Number(wonCard.coins).toFixed(2)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* action buttons — compact horizontal row */}
-                        {!actionDone && (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'row',
-                                    gap: 5,
-                                    marginTop: hasAttrs ? 0 : 'auto',
-                                }}
-                            >
-                                {wonCard.isNew ? (
-                                    <button
-                                        onClick={handleAddToBag}
-                                        className="flex-1 border border-gray-600 text-gray-300 rounded-lg hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
-                                        style={{
-                                            fontSize: '0.68rem',
-                                            padding: '5px 8px',
-                                        }}
-                                    >
-                                        Add to Bag
-                                    </button>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={handleAddToBag}
-                                            className="flex-1 border border-blue-700 text-blue-400 rounded-lg hover:border-blue-500 hover:text-blue-200 hover:bg-blue-500/5 active:scale-95 transition-all"
-                                            style={{
-                                                fontSize: '0.68rem',
-                                                padding: '5px 8px',
-                                            }}
-                                        >
-                                            Add
-                                        </button>
-                                        <button
-                                            onClick={handleFeed}
-                                            className="flex-1 border border-purple-800 text-purple-400 rounded-lg hover:border-purple-600 hover:text-purple-200 hover:bg-purple-500/5 active:scale-95 transition-all"
-                                            style={{
-                                                fontSize: '0.68rem',
-                                                padding: '5px 8px',
-                                            }}
-                                        >
-                                            Feed
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={handleSell}
-                                    className="flex-1 border border-gray-600 text-gray-300 rounded-lg hover:border-gray-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
-                                    style={{
-                                        fontSize: '0.68rem',
-                                        padding: '5px 8px',
-                                    }}
-                                >
-                                    Sell
-                                </button>
-                            </div>
-                        )}
+                    {/* use reusable stats panel */}
+                    <div style={{ width: 220, height: 364 }}>
+                        <CardStatsPanel
+                            currentCard={wonCard}
+                            isMobile={isMobile}
+                            condPanelTab={condPanelTab}
+                            setCondPanelTab={setCondPanelTab}
+                            bbTooltipPos={bbTooltipPos}
+                            setBbTooltipPos={setBbTooltipPos}
+                            bagCount={bagCount}
+                            bagCapacity={bagCapacity}
+                            currentCardIsNew={wonCard.isNew}
+                            animatingIndex={actionDone ? 0 : null}
+                            shattering={shattering}
+                            isFetchingCopies={false}
+                            handleAddToBag={handleAddToBag}
+                            handleAddToBagDuplicate={handleAddToBag}
+                            handleFeedCard={handleFeed}
+                            handleBuyback={handleSell}
+                        />
                     </div>
                 </div>
             </div>

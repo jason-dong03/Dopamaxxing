@@ -1,4 +1,6 @@
+import { Card } from '@/components/pack/utils'
 import type React from 'react'
+import { UserCard } from './types'
 
 // ─── rarity order (highest → lowest) ─────────────────────────────────────────
 export const RARITY_ORDER = [
@@ -142,15 +144,15 @@ export const MAX_CARD_LEVEL = 100
 // All cards share the same Erratic level-up threshold — rarity only affects
 // how much XP a fed card contributes (higher rarity = dramatic boost).
 export const RARITY_XP: Record<string, number> = {
-    Common:    10,
-    Uncommon:  30,
-    Rare:      100,
-    Epic:      300,
-    Mythical:  800,
+    Common: 10,
+    Uncommon: 30,
+    Rare: 100,
+    Epic: 300,
+    Mythical: 800,
     Legendary: 2_000,
-    Divine:    5_000,
+    Divine: 5_000,
     Celestial: 12_000,
-    '???':     30_000,
+    '???': 30_000,
 }
 
 // ─── Erratic XP growth curve ──────────────────────────────────────────────────
@@ -172,13 +174,15 @@ export const RARITY_XP: Record<string, number> = {
  */
 export function erraticXP(L: number): number {
     if (!Number.isInteger(L) || L < 1 || L > 100) {
-        throw new RangeError(`erraticXP: L must be an integer in [1, 100], got ${L}`)
+        throw new RangeError(
+            `erraticXP: L must be an integer in [1, 100], got ${L}`,
+        )
     }
     const L3 = L * L * L
-    if (L <= 50) return Math.floor(L3 * (100 - L) / 50)
-    if (L <= 68) return Math.floor(L3 * (150 - L) / 100)
-    if (L <= 98) return Math.floor(L3 * Math.floor((1911 - 10 * L) / 3) / 500)
-    return Math.floor(L3 * (160 - L) / 100)   // L = 99 or 100
+    if (L <= 50) return Math.floor((L3 * (100 - L)) / 50)
+    if (L <= 68) return Math.floor((L3 * (150 - L)) / 100)
+    if (L <= 98) return Math.floor((L3 * Math.floor((1911 - 10 * L) / 3)) / 500)
+    return Math.floor((L3 * (160 - L)) / 100) // L = 99 or 100
 }
 
 /**
@@ -188,7 +192,9 @@ export function erraticXP(L: number): number {
  */
 export function erraticXpToNext(L: number): number {
     if (!Number.isInteger(L) || L < 1 || L >= 100) {
-        throw new RangeError(`erraticXpToNext: L must be an integer in [1, 99], got ${L}`)
+        throw new RangeError(
+            `erraticXpToNext: L must be an integer in [1, 99], got ${L}`,
+        )
     }
     return erraticXP(L + 1) - erraticXP(L)
 }
@@ -226,108 +232,99 @@ export function applyXP(
 
 // ─── buyback / coin economy ───────────────────────────────────────────────────
 
-// Rarities that get a higher guaranteed floor
-const HIGH_TIER_RARITIES = new Set(['Legendary', 'Divine', 'Celestial', '???'])
-
 export const HOT_MARKET_CHANCE = 0.05 // 5% chance of hot market
 export const HOT_MARKET_MULTIPLIER = 1.25 // +25% coins on hot market
 export const FIRST_EDITION_MULTIPLIER = 2.5 // 1st edition cards are worth 2.5× base buyback
-
-// Base flat ranges by rarity (before condition + tier rate are applied).
-export const BUYBACK_RANGE: Record<string, [number, number]> = {
-    Common:    [0.10, 0.40],
-    Uncommon:  [0.50, 1.50],
-    Rare:      [2.00, 7.00],
-    Epic:      [8.00, 29.00],
-    Mythical:  [30,   60],
-    Legendary: [100,  200],
-    Divine:    [300,  550],
-    Celestial: [700,  1200],
-    '???':     [2000, 4000],
-}
 
 function randBetween(min: number, max: number) {
     return Math.random() * (max - min) + min
 }
 
-export type Attrs = { attr_centering: number; attr_corners: number; attr_edges: number; attr_surface: number }
-const ATTR_W = { centering: 0.25, corners: 0.30, edges: 0.25, surface: 0.20 }
-
-// Whether this rarity counts as "high" for better condition multipliers at the top end.
-const HIGH_RARITY_SET = new Set(['Mythical', 'Legendary', 'Divine', 'Celestial', '???'])
+export type Attrs = {
+    attr_centering: number
+    attr_corners: number
+    attr_edges: number
+    attr_surface: number
+}
+const ATTR_W = { centering: 0.25, corners: 0.3, edges: 0.25, surface: 0.2 }
 
 /** Weighted average condition value (1–10) from attrs. */
-export function weightedCondition(attrs: Attrs): number {
+export function weightedCondition(attrs: Attrs | null): number {
+    if (attrs == null) return -1
     return (
         attrs.attr_centering * ATTR_W.centering +
-        attrs.attr_corners   * ATTR_W.corners +
-        attrs.attr_edges     * ATTR_W.edges +
-        attrs.attr_surface   * ATTR_W.surface
+        attrs.attr_corners * ATTR_W.corners +
+        attrs.attr_edges * ATTR_W.edges +
+        attrs.attr_surface * ATTR_W.surface
     )
 }
 
-/**
- * Condition multiplier brackets (applied to base before buyback rate).
- * High rarities (Mythical+) get a stronger top-end at condition 9–10.
- * Each bracket has a [min, max] for slight randomization.
- *   cond 1      → [0.90, 1.10]   (baseline)
- *   cond 2–3    → [1.10, 1.30]   (+0.2 increase)
- *   cond 3–5    → [1.25, 1.55]   (+0.4 increase)
- *   cond 5–7    → [1.60, 1.90]   (+0.75 increase)
- *   cond 7–9    → [2.00, 2.50]   (+1.25 increase)
- *   cond 9–9.9  → [2.80, 3.20] / [3.00, 3.50] high  (2x increase)
- *   cond 10     → [3.00, 3.50] / [3.50, 4.00] high  (2–3x increase)
+/*
+Condition multipliers based on condition of card
  */
-export function conditionMultiplierRange(rarity: string, cond: number): [number, number] {
-    const hi = HIGH_RARITY_SET.has(rarity)
-    if (cond >= 10)      return hi ? [3.50, 4.00] : [3.00, 3.50]
-    if (cond >= 9)       return hi ? [3.00, 3.50] : [2.80, 3.20]
-    if (cond >= 7)       return hi ? [2.10, 2.60] : [2.00, 2.50]
-    if (cond >= 5)       return hi ? [1.65, 2.00] : [1.60, 1.90]
-    if (cond >= 3)       return hi ? [1.30, 1.60] : [1.25, 1.55]
-    if (cond >= 2)       return hi ? [1.15, 1.35] : [1.10, 1.30]
-    return [0.90, 1.10]
+export function conditionMultFunction(cond: number): number {
+    if (cond >= 10) return 2.5
+    if (cond >= 9) return 1.85
+    if (cond >= 8) return 1.73
+    if (cond >= 7) return 1.25
+    if (cond >= 6) return 1
+    if (cond >= 5) return 0.75
+    if (cond >= 4) return 0.5
+    if (cond >= 3) return 0.3
+    if (cond >= 2) return 0.15
+    return 1
+}
+export function getCardWorth(card: Card): number {
+    const rate = tierBuyBack(card.rarity as string)
+    return parseFloat(((card.worth ?? 0) * rate).toFixed(2))
 }
 
-function conditionMultiplier(rarity: string, attrs?: Attrs | null): number {
-    if (!attrs) return 1.4  // unknown → reasonable middle
-    const cond = weightedCondition(attrs)
-    const [lo, hi] = conditionMultiplierRange(rarity, cond)
-    return randBetween(lo, hi)
+export function getBuyback(
+    card: Card | null,
+    userCard: UserCard | null,
+): number {
+    if (card) {
+        const isFirstEdition = (card.set_id as string | undefined)?.endsWith('-1ed') ?? false
+        return calculateBuyback(card.rarity, card.worth ?? 0, isFirstEdition).amount
+    } else if (userCard) {
+        // worth is already the correct sell price (tierRate applied at pack open, condMult applied on grade)
+        return userCard.worth ?? 0
+    }
+    return 0
 }
-
-/**
- * Tier buyback rate — random roll within rarity tier's range.
- *   sub-Legendary: 60–80%
- *   Legendary / Divine: 80–95%
- *   Celestial / ???: 95–100%
- */
-export function tierBuybackRateRange(rarity: string): [number, number] {
-    if (rarity === 'Celestial' || rarity === '???') return [0.95, 1.00]
-    if (rarity === 'Legendary' || rarity === 'Divine') return [0.80, 0.95]
-    return [0.60, 0.80]
+export function tierBuyBack(rarity: string): number {
+    if (rarity === '???') return 2.75
+    if (rarity === 'Celestial') return 2
+    if (rarity === 'Divine') return 1.5
+    if (rarity === 'Legendary') return 0.95
+    if (rarity === 'Mythical') return 0.8
+    if (rarity === 'Epic') return 0.65
+    if (rarity === 'Rare') return 0.45
+    return 0.2
 }
-
 /**
  * Calculates buyback value.
- *   1. base    = random within BUYBACK_RANGE[rarity]
- *   2. × conditionMultiplier  (1x–4x based on condition bracket + rarity)
- *   3. × tierBuybackRate      (60–80% sub-legendary, 80–95% legendary+, 95–100% celestial+)
+ *   1. base = card market price
+ *   2. × tierBuybackRate (5x = ???, 2.5x = celestial, 1.5 = divine, 0.95 = legendary, 0.8 = mythical)
+ *      (0.65 = epic, 0.45 = rare, 0.2 = uncommon & common)
  */
-export function calculateBuyback(rarity: string, _marketPrice = 0, attrs?: Attrs | null, isFirstEdition = false): {
-    coins: number
+export function calculateBuyback(
+    rarity: string,
+    _marketPrice = 0,
+    isFirstEdition = false,
+): {
+    amount: number
+    rate: number
     isHot: boolean
 } {
-    const range = BUYBACK_RANGE[rarity] ?? [0.10, 0.40]
-    const base = randBetween(range[0], range[1])
-    const condMult = conditionMultiplier(rarity, attrs)
-    const [rateMin, rateMax] = tierBuybackRateRange(rarity)
-    const rate = randBetween(rateMin, rateMax)
+    const rate = tierBuyBack(rarity)
     const editionMult = isFirstEdition ? FIRST_EDITION_MULTIPLIER : 1
-
     const isHot = Math.random() < HOT_MARKET_CHANCE
-    const coins = parseFloat((base * condMult * rate * editionMult * (isHot ? HOT_MARKET_MULTIPLIER : 1)).toFixed(2))
-    return { coins, isHot }
+    let amount = parseFloat(
+        (_marketPrice * rate * editionMult * (isHot ? HOT_MARKET_MULTIPLIER : 1)).toFixed(2),
+    )
+    if (amount < 0.01) amount = 0.01
+    return { amount, rate, isHot }
 }
 
 // ─── gacha ────────────────────────────────────────────────────────────────────

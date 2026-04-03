@@ -8,6 +8,9 @@ import {
     rarityGlowShadow,
     rarityTextStyle,
     xpToNextLevel,
+    conditionMultFunction,
+    weightedCondition,
+    tierBuyBack,
     type Rarity,
 } from '@/lib/rarityConfig'
 import { conditionFilter, centeringSkew } from '@/lib/cardAttributes'
@@ -22,6 +25,8 @@ import { SellButton } from './SellButton'
 import { GradeSection } from './GradeSection'
 import type { UserCard } from '@/lib/types'
 import { fmt } from '@/lib/utils'
+import React from 'react'
+import { createPortal } from 'react-dom'
 
 function ShowcaseButton({ uc }: { uc: UserCard }) {
     const [loading, setLoading] = useState(false)
@@ -93,9 +98,9 @@ export function CardStats({
     const [wearFading, setWearFading] = useState(false)
     const [cleanView, setCleanView] = useState(false)
     const [showCleanTooltip, setShowCleanTooltip] = useState(false)
-    const [detailTab, setDetailTab] = useState<'overview' | 'pokemon'>(
-        'overview',
-    )
+    const [detailTab, setDetailTab] = useState<
+        'overview' | 'condition' | 'pokemon'
+    >('overview')
     const [learnSlot, setLearnSlot] = useState<{ moveIdx: number } | null>(null)
     const [learnLoading, setLearnLoading] = useState(false)
     const [refreshLoading, setRefreshLoading] = useState(false)
@@ -115,6 +120,7 @@ export function CardStats({
     const [showEvolutionTooltip, setShowEvolutionTooltip] = useState(false)
     const [showEvolutionCutscene, setShowEvolutionCutscene] = useState(false)
     const [pendingOpen, setPendingOpen] = useState(false)
+    const [worthTooltipPos, setWorthTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
     useEffect(() => {
         const name = baseName(uc.cards.name)
@@ -155,12 +161,19 @@ export function CardStats({
     const gradeColor = (g: number) =>
         g >= 8.5 ? '#4ade80' : g >= 6.5 ? '#fbbf24' : '#f87171'
 
-    const worthDelta = uc.worth - uc.cards.market_price_usd
-
-    const worthDisplay =
-        uc.grade != null && Math.abs(worthDelta) >= 0.01
-            ? `$${fmt(uc.worth)}(${worthDelta > 0 ? '+' : '-'}$${fmt(Math.abs(worthDelta))})`
-            : `$${fmt(Number(uc.cards.market_price_usd))}`
+    const tierRate = tierBuyBack(uc.cards.rarity as string)
+    const condAttrs = {
+        attr_centering: uc.attr_centering ?? 0,
+        attr_corners: uc.attr_corners ?? 0,
+        attr_edges: uc.attr_edges ?? 0,
+        attr_surface: uc.attr_surface ?? 0,
+    }
+    const condMult = conditionMultFunction(weightedCondition(condAttrs))
+    const isGraded = uc.grade != null
+    const condAdjustedWorth =
+        (uc.cards.market_price_usd ?? 0) * condMult
+    const worthDelta = condAdjustedWorth - (uc.cards.market_price_usd ?? 0)
+    const worthDisplay = `$${fmt(condAdjustedWorth)} (${worthDelta > 0 ? '+' : '-'}$${fmt(worthDelta)})`
 
     // colored stat rows
     const stats = [
@@ -177,16 +190,6 @@ export function CardStats({
             color: '#60a5fa',
             isLevel: true,
         },
-        ...(overallCond != null
-            ? [
-                  {
-                      label: 'overall condition',
-                      value: overallCond.toFixed(1),
-                      color: gradeColor(overallCond),
-                      isLevel: false,
-                  },
-              ]
-            : []),
     ]
 
     const isFirstEdition = uc.cards.set_id?.endsWith('-1ed') ?? false
@@ -253,11 +256,30 @@ export function CardStats({
             </div>
         )
 
+    const hasPending = (uc.pending_moves?.length ?? 0) > 0
+
     const imageBlock = (
         <div style={{ position: 'relative' }}>
             {cardOnly}
             {!cleanView && isFirstEdition && (
                 <FirstEditionBadge variant="detail" />
+            )}
+            {hasPending && (
+                <span
+                    style={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 6,
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: '#f97316',
+                        pointerEvents: 'none',
+                        boxShadow: '0 0 6px rgba(249,115,22,0.9)',
+                        animation: 'pendingPulse 1.5s ease-in-out infinite',
+                        zIndex: 10,
+                    }}
+                />
             )}
         </div>
     )
@@ -267,7 +289,6 @@ export function CardStats({
     const natureTierColor = natureObj
         ? NATURE_TIER_COLOR[natureObj.tier]
         : '#94a3b8'
-    const hasPending = (uc.pending_moves?.length ?? 0) > 0
     const moveSlotsUsed = uc.moves?.length ?? 0
     const isMoveSlotFree = moveSlotsUsed < 4
 
@@ -343,7 +364,10 @@ export function CardStats({
     }
 
     const infoBlock = (
-        <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+        <div
+            className="flex flex-col flex-1 min-w-0 overflow-y-auto"
+            style={{ minHeight: 320 }}
+        >
             {/* tab switcher */}
             <div
                 style={{
@@ -355,7 +379,7 @@ export function CardStats({
                     padding: 3,
                 }}
             >
-                {(['overview', 'pokemon'] as const).map((tab) => (
+                {(['overview', 'condition', 'pokemon'] as const).map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setDetailTab(tab)}
@@ -388,8 +412,9 @@ export function CardStats({
                                     width: 7,
                                     height: 7,
                                     borderRadius: '50%',
-                                    background: '#f59e0b',
-                                    boxShadow: '0 0 5px rgba(245,158,11,0.8)',
+                                    background: '#f97316',
+                                    boxShadow: '0 0 5px rgba(249,115,22,0.8)',
+                                    animation: 'pendingPulse 1.5s ease-in-out infinite',
                                 }}
                             />
                         )}
@@ -397,7 +422,7 @@ export function CardStats({
                 ))}
             </div>
 
-            {detailTab === 'overview' ? (
+            {detailTab === 'overview' && (
                 <>
                     {/* name + rarity */}
                     <div className="mb-4">
@@ -519,6 +544,29 @@ export function CardStats({
                                 }}
                             >
                                 worth:
+                            </span>
+                            <span
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 12,
+                                    height: 12,
+                                    borderRadius: '50%',
+                                    border: '1px solid #4b5563',
+                                    color: '#9ca3af',
+                                    fontSize: '0.45rem',
+                                    fontWeight: 700,
+                                    cursor: 'default',
+                                    flexShrink: 0,
+                                }}
+                                onMouseEnter={(e) => {
+                                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                    setWorthTooltipPos({ x: r.left, y: r.bottom + 6 })
+                                }}
+                                onMouseLeave={() => setWorthTooltipPos(null)}
+                            >
+                                ?
                             </span>
                             <span
                                 style={{
@@ -696,107 +744,151 @@ export function CardStats({
                             </div>
                         </div>
 
-                        {/* attributes — hidden in overlay (rendered below image instead) */}
-                        {mode !== 'overlay' && (
-                            <div
-                                className="py-3"
-                                style={{
-                                    borderBottom: `1px solid ${borderColor}`,
-                                }}
-                            >
-                                <span
-                                    className="font-semibold uppercase tracking-widest text-gray-600"
-                                    style={{ fontSize: '0.55rem' }}
-                                >
-                                    Condition
-                                </span>
-                                <div className="mt-2 flex flex-col gap-1.5">
-                                    {[
-                                        {
-                                            label: 'Centering',
-                                            value: uc.attr_centering,
-                                        },
-                                        {
-                                            label: 'Corners',
-                                            value: uc.attr_corners,
-                                        },
-                                        {
-                                            label: 'Edges',
-                                            value: uc.attr_edges,
-                                        },
-                                        {
-                                            label: 'Surface',
-                                            value: uc.attr_surface,
-                                        },
-                                    ].map(({ label, value }) => (
-                                        <div
-                                            key={label}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: '0.5rem',
-                                                    color: '#6b7280',
-                                                    width: 46,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {label}
-                                            </span>
-                                            <div
-                                                className="flex-1 rounded-full overflow-hidden"
-                                                style={{
-                                                    height: 3,
-                                                    background:
-                                                        'rgba(255,255,255,0.05)',
-                                                }}
-                                            >
-                                                <div
-                                                    className="h-full rounded-full"
-                                                    style={{
-                                                        width: `${((value ?? 7) / 10) * 100}%`,
-                                                        background:
-                                                            (value ?? 7) >= 8.5
-                                                                ? '#4ade80'
-                                                                : (value ??
-                                                                        7) >=
-                                                                    6.5
-                                                                  ? '#fbbf24'
-                                                                  : '#f87171',
-                                                        transition:
-                                                            'width 600ms ease',
-                                                    }}
-                                                />
-                                            </div>
-                                            <span
-                                                style={{
-                                                    fontSize: '0.58rem',
-                                                    fontWeight: 600,
-                                                    color: '#9ca3af',
-                                                    width: 24,
-                                                    textAlign: 'right',
-                                                }}
-                                            >
-                                                {(value ?? 7).toFixed(1)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/* grade */}
                         <GradeSection uc={uc} onGraded={onGraded} />
 
                         {/* sell button */}
                         <SellButton
                             uc={uc}
-                            sellDisplay={fmt(uc.worth)}
+                            sellAmount={uc.worth}
                             onSell={handleSellWithAnimation}
                         />
                     </div>
                 </>
-            ) : (
+            )}
+
+            {detailTab === 'condition' && (
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        padding: '4px 0',
+                    }}
+                >
+                    {overallCond != null && (
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '10px 12px',
+                                borderRadius: 8,
+                                background: `${gradeColor(overallCond)}12`,
+                                border: `1px solid ${gradeColor(overallCond)}33`,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: '0.52rem',
+                                    fontWeight: 700,
+                                    color: '#6b7280',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.08em',
+                                }}
+                            >
+                                Overall
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: '1.4rem',
+                                    fontWeight: 800,
+                                    fontFamily: 'monospace',
+                                    color: gradeColor(overallCond),
+                                    textShadow: `0 0 12px ${gradeColor(overallCond)}66`,
+                                }}
+                            >
+                                {overallCond.toFixed(1)}
+                                <span
+                                    style={{
+                                        fontSize: '0.55rem',
+                                        color: '#6b7280',
+                                        marginLeft: 3,
+                                    }}
+                                >
+                                    /10
+                                </span>
+                            </span>
+                        </div>
+                    )}
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                        }}
+                    >
+                        {[
+                            { label: 'Centering', value: uc.attr_centering },
+                            { label: 'Corners', value: uc.attr_corners },
+                            { label: 'Edges', value: uc.attr_edges },
+                            { label: 'Surface', value: uc.attr_surface },
+                        ].map(({ label, value }) => {
+                            const v = value ?? 7
+                            const color =
+                                v >= 8.5
+                                    ? '#4ade80'
+                                    : v >= 6.5
+                                      ? '#fbbf24'
+                                      : '#f87171'
+                            return (
+                                <div key={label}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: 5,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: '0.52rem',
+                                                color: '#6b7280',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.06em',
+                                            }}
+                                        >
+                                            {label}
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontSize: '0.62rem',
+                                                fontWeight: 700,
+                                                fontFamily: 'monospace',
+                                                color,
+                                            }}
+                                        >
+                                            {v.toFixed(1)}
+                                        </span>
+                                    </div>
+                                    <div
+                                        style={{
+                                            height: 6,
+                                            borderRadius: 4,
+                                            background:
+                                                'rgba(255,255,255,0.05)',
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                height: '100%',
+                                                width: `${(v / 10) * 100}%`,
+                                                background: color,
+                                                borderRadius: 4,
+                                                transition: 'width 600ms ease',
+                                                boxShadow: `0 0 6px ${color}66`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {detailTab === 'pokemon' && (
                 /* ─── Stats tab ────────────────────────────────────────────── */
                 <div
                     style={{
@@ -974,49 +1066,29 @@ export function CardStats({
                             >
                                 Moves
                             </div>
-                            <div style={{ position: 'relative' }}>
-                                <button
-                                    onClick={
-                                        hasPending
-                                            ? () => setPendingOpen((v) => !v)
-                                            : handleRefreshMoves
-                                    }
-                                    disabled={refreshLoading}
-                                    title={
-                                        hasPending
-                                            ? 'View available moves'
-                                            : "Update this card's moves from the move library"
-                                    }
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 3,
-                                        fontSize: '0.48rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.04em',
-                                        padding: '2px 7px',
-                                        borderRadius: 5,
-                                        background: hasPending
-                                            ? pendingOpen
-                                                ? 'rgba(239,68,68,0.15)'
-                                                : 'rgba(239,68,68,0.08)'
-                                            : refreshLoading
-                                              ? 'rgba(255,255,255,0.03)'
-                                              : 'rgba(96,165,250,0.1)',
-                                        border: `1px solid ${hasPending ? 'rgba(239,68,68,0.4)' : refreshLoading ? 'rgba(255,255,255,0.06)' : 'rgba(96,165,250,0.35)'}`,
-                                        color: hasPending
-                                            ? '#fca5a5'
-                                            : refreshLoading
-                                              ? '#4b5563'
-                                              : '#60a5fa',
-                                        cursor: refreshLoading
-                                            ? 'not-allowed'
-                                            : 'pointer',
-                                    }}
-                                >
-                                    {refreshLoading ? '...' : '↻ Update Moves'}
-                                </button>
-                                {hasPending && (
+                            {hasPending && (
+                                <div style={{ position: 'relative', marginRight: 6 }}>
+                                    <button
+                                        onClick={() => setPendingOpen((v) => !v)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 3,
+                                            fontSize: '0.48rem',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.04em',
+                                            padding: '2px 10px',
+                                            borderRadius: 5,
+                                            background: pendingOpen
+                                                ? 'rgba(249,115,22,0.15)'
+                                                : 'rgba(249,115,22,0.08)',
+                                            border: '1px solid rgba(249,115,22,0.4)',
+                                            color: '#fdba74',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        learn
+                                    </button>
                                     <span
                                         style={{
                                             position: 'absolute',
@@ -1025,16 +1097,14 @@ export function CardStats({
                                             width: 8,
                                             height: 8,
                                             borderRadius: '50%',
-                                            background: '#ef4444',
+                                            background: '#f97316',
                                             pointerEvents: 'none',
-                                            boxShadow:
-                                                '0 0 5px rgba(239,68,68,0.8)',
-                                            animation:
-                                                'pendingPulse 1.5s ease-in-out infinite',
+                                            boxShadow: '0 0 5px rgba(249,115,22,0.8)',
+                                            animation: 'pendingPulse 1.5s ease-in-out infinite',
                                         }}
                                     />
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Always show 4 slots */}
@@ -1142,251 +1212,12 @@ export function CardStats({
                             })}
                         </div>
 
-                        {/* Pending moves panel */}
-                        {hasPending && pendingOpen && (
-                            <div style={{ marginTop: 8 }}>
-                                {(uc.pending_moves ?? []).map((mv, moveIdx) => {
-                                    const typeColor =
-                                        TYPE_COLOR[mv.type] ?? '#94a3b8'
-                                    return (
-                                        <div
-                                            key={moveIdx}
-                                            style={{
-                                                marginBottom: 8,
-                                                padding: '8px 10px',
-                                                borderRadius: 8,
-                                                border: '1px solid rgba(239,68,68,0.25)',
-                                                background:
-                                                    'rgba(239,68,68,0.04)',
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 8,
-                                                    marginBottom: 4,
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        fontSize: '0.5rem',
-                                                        background:
-                                                            typeColor + '33',
-                                                        color: typeColor,
-                                                        border: `1px solid ${typeColor}44`,
-                                                        borderRadius: 4,
-                                                        padding: '1px 5px',
-                                                        textTransform:
-                                                            'uppercase',
-                                                    }}
-                                                >
-                                                    {mv.type}
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        flex: 1,
-                                                        fontSize: '0.68rem',
-                                                        fontWeight: 700,
-                                                        color: '#fca5a5',
-                                                    }}
-                                                >
-                                                    {mv.displayName}
-                                                </span>
-                                                {mv.power && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.6rem',
-                                                            fontFamily:
-                                                                'monospace',
-                                                            color: '#f87171',
-                                                        }}
-                                                    >
-                                                        {mv.power}
-                                                    </span>
-                                                )}
-                                                <span
-                                                    style={{
-                                                        fontSize: '0.52rem',
-                                                        fontWeight: 700,
-                                                        color: isMoveSlotFree
-                                                            ? '#4ade80'
-                                                            : '#f59e0b',
-                                                        background:
-                                                            isMoveSlotFree
-                                                                ? 'rgba(74,222,128,0.08)'
-                                                                : 'rgba(245,158,11,0.08)',
-                                                        border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                                                        borderRadius: 4,
-                                                        padding: '1px 5px',
-                                                    }}
-                                                >
-                                                    {isMoveSlotFree
-                                                        ? 'Free'
-                                                        : '100 coins'}
-                                                </span>
-                                            </div>
-                                            {mv.effect && (
-                                                <p
-                                                    style={{
-                                                        fontSize: '0.52rem',
-                                                        color: '#9ca3af',
-                                                        margin: '0 0 8px',
-                                                        lineHeight: 1.4,
-                                                    }}
-                                                >
-                                                    {mv.effect}
-                                                </p>
-                                            )}
-                                            {learnSlot?.moveIdx === moveIdx ? (
-                                                <div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: '0.5rem',
-                                                            color: '#9ca3af',
-                                                            marginBottom: 5,
-                                                        }}
-                                                    >
-                                                        Replace which move?{' '}
-                                                        <span
-                                                            style={{
-                                                                color: '#f59e0b',
-                                                            }}
-                                                        >
-                                                            (costs 100 coins)
-                                                        </span>
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            gap: 4,
-                                                            flexWrap: 'wrap',
-                                                        }}
-                                                    >
-                                                        {(uc.moves ?? []).map(
-                                                            (
-                                                                existing,
-                                                                slotIdx,
-                                                            ) => (
-                                                                <button
-                                                                    key={
-                                                                        slotIdx
-                                                                    }
-                                                                    disabled={
-                                                                        learnLoading
-                                                                    }
-                                                                    onClick={() =>
-                                                                        handleLearnMove(
-                                                                            moveIdx,
-                                                                            slotIdx,
-                                                                        )
-                                                                    }
-                                                                    style={{
-                                                                        fontSize:
-                                                                            '0.52rem',
-                                                                        padding:
-                                                                            '3px 8px',
-                                                                        borderRadius: 5,
-                                                                        border: '1px solid rgba(239,68,68,0.4)',
-                                                                        background:
-                                                                            'rgba(239,68,68,0.1)',
-                                                                        color: '#fca5a5',
-                                                                        cursor: 'pointer',
-                                                                    }}
-                                                                >
-                                                                    {
-                                                                        existing.displayName
-                                                                    }
-                                                                </button>
-                                                            ),
-                                                        )}
-                                                        <button
-                                                            onClick={() =>
-                                                                setLearnSlot(
-                                                                    null,
-                                                                )
-                                                            }
-                                                            style={{
-                                                                fontSize:
-                                                                    '0.52rem',
-                                                                padding:
-                                                                    '3px 8px',
-                                                                borderRadius: 5,
-                                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                                background:
-                                                                    'transparent',
-                                                                color: '#6b7280',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        gap: 6,
-                                                    }}
-                                                >
-                                                    <button
-                                                        onClick={() =>
-                                                            isMoveSlotFree
-                                                                ? handleLearnMove(
-                                                                      moveIdx,
-                                                                      moveSlotsUsed,
-                                                                  )
-                                                                : setLearnSlot({
-                                                                      moveIdx,
-                                                                  })
-                                                        }
-                                                        style={{
-                                                            fontSize: '0.55rem',
-                                                            padding: '4px 12px',
-                                                            borderRadius: 6,
-                                                            border: '1px solid rgba(239,68,68,0.4)',
-                                                            background:
-                                                                'rgba(239,68,68,0.1)',
-                                                            color: '#fca5a5',
-                                                            cursor: 'pointer',
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        Learn Move
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            setPendingOpen(
-                                                                false,
-                                                            )
-                                                        }
-                                                        style={{
-                                                            fontSize: '0.52rem',
-                                                            padding: '4px 8px',
-                                                            borderRadius: 6,
-                                                            border: '1px solid rgba(255,255,255,0.08)',
-                                                            background:
-                                                                'transparent',
-                                                            color: '#4b5563',
-                                                            cursor: 'pointer',
-                                                        }}
-                                                    >
-                                                        Skip
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
                     </div>
 
                     {/* sell button at bottom */}
                     <SellButton
                         uc={uc}
-                        sellDisplay={fmt(uc.worth)}
+                        sellAmount={uc.worth}
                         onSell={handleSellWithAnimation}
                     />
                 </div>
@@ -1408,75 +1239,254 @@ export function CardStats({
             />
         ) : null
 
-    if (mode === 'overlay') {
-        const conditionBlock = (
+    const worthTooltip = worthTooltipPos && typeof document !== 'undefined'
+        ? createPortal(
             <div
-                className="mt-4 pt-3"
-                style={{ borderTop: `1px solid ${borderColor}` }}
+                style={{
+                    position: 'fixed',
+                    top: worthTooltipPos.y,
+                    left: worthTooltipPos.x,
+                    width: 220,
+                    background: 'rgba(15,15,20,0.97)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                    zIndex: 99999,
+                    pointerEvents: 'none',
+                    fontSize: '0.62rem',
+                    lineHeight: 1.6,
+                    color: '#d1d5db',
+                }}
             >
-                <span
-                    className="font-semibold uppercase tracking-widest text-gray-500"
-                    style={{ fontSize: '0.65rem' }}
-                >
-                    Condition
-                </span>
-                <div className="mt-2 flex flex-col gap-2">
-                    {[
-                        { label: 'Centering', value: uc.attr_centering },
-                        { label: 'Corners', value: uc.attr_corners },
-                        { label: 'Edges', value: uc.attr_edges },
-                        { label: 'Surface', value: uc.attr_surface },
-                    ].map(({ label, value }) => (
-                        <div key={label} className="flex items-center gap-2">
-                            <span
-                                style={{
-                                    fontSize: '0.65rem',
-                                    color: '#6b7280',
-                                    width: 60,
-                                    flexShrink: 0,
-                                }}
-                            >
-                                {label}
-                            </span>
-                            <div
-                                className="flex-1 rounded-full overflow-hidden"
-                                style={{
-                                    height: 5,
-                                    background: 'rgba(255,255,255,0.05)',
-                                }}
-                            >
-                                <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                        width: `${((value ?? 7) / 10) * 100}%`,
-                                        background:
-                                            (value ?? 7) >= 8.5
-                                                ? '#4ade80'
-                                                : (value ?? 7) >= 6.5
-                                                  ? '#fbbf24'
-                                                  : '#f87171',
-                                        transition: 'width 600ms ease',
-                                    }}
-                                />
-                            </div>
-                            <span
-                                style={{
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    color: '#9ca3af',
-                                    width: 28,
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {(value ?? 7).toFixed(1)}
+                <div style={{ fontWeight: 700, color: '#f9fafb', marginBottom: 6, fontSize: '0.65rem' }}>
+                    How worth is calculated
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div>
+                        <span style={{ color: '#9ca3af' }}>① Market price:</span>
+                        <span style={{ color: '#fbbf24', marginLeft: 4 }}>
+                            ${fmt(Number(uc.cards.market_price_usd))}
+                        </span>
+                    </div>
+                    <div>
+                        <span style={{ color: '#9ca3af' }}>② Tier rate ({uc.cards.rarity}):</span>
+                        <span style={{ color: '#a78bfa', marginLeft: 4 }}>
+                            {(tierRate * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                    {isGraded && (
+                        <div>
+                            <span style={{ color: '#9ca3af' }}>③ Condition mult:</span>
+                            <span style={{ color: '#60a5fa', marginLeft: 4 }}>
+                                {condMult.toFixed(2)}×
                             </span>
                         </div>
-                    ))}
+                    )}
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 2, paddingTop: 4 }}>
+                        <span style={{ color: '#9ca3af' }}>Est. sell value:</span>
+                        <span style={{ color: '#4ade80', marginLeft: 4, fontWeight: 700 }}>
+                            ${fmt(uc.worth ?? 0)}
+                        </span>
+                    </div>
                 </div>
-            </div>
+            </div>,
+            document.body,
         )
+        : null
+
+    const learnOverlay = pendingOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 99998,
+                    background: 'rgba(0,0,0,0.75)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16,
+                }}
+                onClick={(e) => { if (e.target === e.currentTarget) setPendingOpen(false) }}
+            >
+                <div
+                    style={{
+                        background: 'rgba(12,12,18,0.98)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 12,
+                        padding: '18px 20px',
+                        width: '100%',
+                        maxWidth: 420,
+                        maxHeight: '80vh',
+                        overflowY: 'auto',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div>
+                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#f9fafb', marginBottom: 2 }}>
+                                New moves available
+                            </div>
+                            <div style={{ fontSize: '0.52rem', color: '#6b7280' }}>
+                                {uc.cards.name} can learn {(uc.pending_moves ?? []).length} new move{(uc.pending_moves ?? []).length !== 1 ? 's' : ''}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setPendingOpen(false)}
+                            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '1rem', cursor: 'pointer', padding: 4 }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {(uc.pending_moves ?? []).map((mv, moveIdx) => {
+                            const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
+                            return (
+                                <div
+                                    key={moveIdx}
+                                    style={{
+                                        padding: '10px 12px',
+                                        borderRadius: 9,
+                                        border: '1px solid rgba(239,68,68,0.25)',
+                                        background: 'rgba(239,68,68,0.04)',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <span
+                                            style={{
+                                                fontSize: '0.5rem',
+                                                background: typeColor + '33',
+                                                color: typeColor,
+                                                border: `1px solid ${typeColor}44`,
+                                                borderRadius: 4,
+                                                padding: '1px 5px',
+                                                textTransform: 'uppercase',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            {mv.type}
+                                        </span>
+                                        <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: 700, color: '#fca5a5' }}>
+                                            {mv.displayName}
+                                        </span>
+                                        {mv.power && (
+                                            <span style={{ fontSize: '0.6rem', fontFamily: 'monospace', color: '#f87171', flexShrink: 0 }}>
+                                                {mv.power}
+                                            </span>
+                                        )}
+                                        <span
+                                            style={{
+                                                fontSize: '0.52rem',
+                                                fontWeight: 700,
+                                                color: isMoveSlotFree ? '#4ade80' : '#f59e0b',
+                                                background: isMoveSlotFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)',
+                                                border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                                borderRadius: 4,
+                                                padding: '1px 5px',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            {isMoveSlotFree ? 'Free' : '100 coins'}
+                                        </span>
+                                    </div>
+                                    {mv.effect && (
+                                        <p style={{ fontSize: '0.52rem', color: '#9ca3af', margin: '0 0 8px', lineHeight: 1.4 }}>
+                                            {mv.effect}
+                                        </p>
+                                    )}
+                                    {learnSlot?.moveIdx === moveIdx ? (
+                                        <div>
+                                            <div style={{ fontSize: '0.5rem', color: '#9ca3af', marginBottom: 5 }}>
+                                                Replace which move?{' '}
+                                                <span style={{ color: '#f59e0b' }}>(costs 100 coins)</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                {(uc.moves ?? []).map((existing, slotIdx) => (
+                                                    <button
+                                                        key={slotIdx}
+                                                        disabled={learnLoading}
+                                                        onClick={() => handleLearnMove(moveIdx, slotIdx)}
+                                                        style={{
+                                                            fontSize: '0.52rem',
+                                                            padding: '3px 8px',
+                                                            borderRadius: 5,
+                                                            border: '1px solid rgba(239,68,68,0.4)',
+                                                            background: 'rgba(239,68,68,0.1)',
+                                                            color: '#fca5a5',
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        {existing.displayName}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setLearnSlot(null)}
+                                                    style={{
+                                                        fontSize: '0.52rem',
+                                                        padding: '3px 8px',
+                                                        borderRadius: 5,
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        background: 'transparent',
+                                                        color: '#6b7280',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <button
+                                                disabled={learnLoading}
+                                                onClick={() =>
+                                                    isMoveSlotFree
+                                                        ? handleLearnMove(moveIdx, moveSlotsUsed)
+                                                        : setLearnSlot({ moveIdx })
+                                                }
+                                                style={{
+                                                    fontSize: '0.55rem',
+                                                    padding: '4px 14px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid rgba(239,68,68,0.4)',
+                                                    background: 'rgba(239,68,68,0.1)',
+                                                    color: '#fca5a5',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                {learnLoading ? '...' : 'Learn Move'}
+                                            </button>
+                                            <button
+                                                onClick={() => setPendingOpen(false)}
+                                                style={{
+                                                    fontSize: '0.52rem',
+                                                    padding: '4px 8px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid rgba(255,255,255,0.08)',
+                                                    background: 'transparent',
+                                                    color: '#4b5563',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Skip
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>,
+            document.body,
+        )
+        : null
+
+    if (mode === 'overlay') {
         return (
             <div style={{ width: '100%' }}>
+                {worthTooltip}
+                {learnOverlay}
                 {evolutionCutscene}
                 {/* toolbar: ○/◎ toggle + ✕ close in one row */}
                 <div
@@ -1559,12 +1569,11 @@ export function CardStats({
                     >
                         <div
                             style={{
-                                width: 'clamp(120px, 35%, 200px)',
+                                width: 'clamp(200px, 42%, 280px)',
                                 flexShrink: 0,
                             }}
                         >
                             {imageBlock}
-                            {conditionBlock}
                         </div>
                         {infoBlock}
                     </div>
@@ -1576,6 +1585,8 @@ export function CardStats({
     // sidebar mode — compact layout
     return (
         <div className="flex flex-col">
+            {worthTooltip}
+            {learnOverlay}
             {evolutionCutscene}
 
             {/* close row */}
@@ -1584,7 +1595,7 @@ export function CardStats({
                 style={{ borderBottom: `1px solid ${borderColor}` }}
             >
                 <span
-                    className="text-gray-700 uppercase tracking-widest"
+                    className="text-white-700 uppercase tracking-widest"
                     style={{ fontSize: '0.5rem' }}
                 >
                     card info
@@ -1693,6 +1704,7 @@ export function CardStats({
                     <div
                         style={{
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'baseline',
                             justifyContent: 'space-between',
                         }}
@@ -1711,29 +1723,47 @@ export function CardStats({
                                     fontFamily: 'monospace',
                                 }}
                             >
-                                $
+                                raw: $
                                 {Number(uc.cards.market_price_usd ?? 0).toFixed(
                                     2,
                                 )}
                             </span>
                             <span
                                 style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3,
                                     fontSize: '0.55rem',
                                     color:
                                         worthDelta > 0 ? '#4ade80' : '#de4a4a',
                                     fontFamily: 'monospace',
                                 }}
                             >
-                                (${Number(uc.worth ?? 0).toFixed(2)})
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: '0.55rem',
-                                    color: '#4ade80',
-                                    fontFamily: 'monospace',
-                                }}
-                            >
-                                Lv {uc.card_level}
+                                worth: {worthDisplay}
+                                <span
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: '50%',
+                                        border: '1px solid #4b5563',
+                                        color: '#9ca3af',
+                                        fontSize: '0.45rem',
+                                        fontWeight: 700,
+                                        cursor: 'default',
+                                        flexShrink: 0,
+                                        fontFamily: 'sans-serif',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                        setWorthTooltipPos({ x: r.left, y: r.bottom + 6 })
+                                    }}
+                                    onMouseLeave={() => setWorthTooltipPos(null)}
+                                >
+                                    ?
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -1753,50 +1783,52 @@ export function CardStats({
                             padding: 3,
                         }}
                     >
-                        {(['overview', 'pokemon'] as const).map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setDetailTab(tab)}
-                                style={{
-                                    flex: 1,
-                                    padding: '3px 0',
-                                    borderRadius: 5,
-                                    fontSize: '0.55rem',
-                                    fontWeight: 700,
-                                    letterSpacing: '0.06em',
-                                    textTransform: 'uppercase',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    position: 'relative',
-                                    background:
-                                        detailTab === tab
-                                            ? 'rgba(255,255,255,0.1)'
-                                            : 'transparent',
-                                    color:
-                                        detailTab === tab
-                                            ? '#e2e8f0'
-                                            : '#6b7280',
-                                    transition: 'all 150ms',
-                                }}
-                            >
-                                {tab === 'pokemon' ? 'stats' : tab}
-                                {tab === 'pokemon' && hasPending && (
-                                    <span
-                                        style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            right: 6,
-                                            width: 6,
-                                            height: 6,
-                                            borderRadius: '50%',
-                                            background: '#f59e0b',
-                                            boxShadow:
-                                                '0 0 5px rgba(245,158,11,0.8)',
-                                        }}
-                                    />
-                                )}
-                            </button>
-                        ))}
+                        {(['overview', 'condition', 'pokemon'] as const).map(
+                            (tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setDetailTab(tab)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '3px 0',
+                                        borderRadius: 5,
+                                        fontSize: '0.55rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.06em',
+                                        textTransform: 'uppercase',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        background:
+                                            detailTab === tab
+                                                ? 'rgba(255,255,255,0.1)'
+                                                : 'transparent',
+                                        color:
+                                            detailTab === tab
+                                                ? '#e2e8f0'
+                                                : '#6b7280',
+                                        transition: 'all 150ms',
+                                    }}
+                                >
+                                    {tab === 'pokemon' ? 'stats' : tab}
+                                    {tab === 'pokemon' && hasPending && (
+                                        <span
+                                            style={{
+                                                position: 'absolute',
+                                                top: 2,
+                                                right: 6,
+                                                width: 6,
+                                                height: 6,
+                                                borderRadius: '50%',
+                                                background: '#f97316',
+                                                boxShadow: '0 0 5px rgba(249,115,22,0.8)',
+                                                animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                            }}
+                                        />
+                                    )}
+                                </button>
+                            ),
+                        )}
                     </div>
 
                     <div style={{ padding: '0 10px' }}>
@@ -2000,42 +2032,182 @@ export function CardStats({
 
                                 <SellButton
                                     uc={uc}
-                                    sellDisplay={fmt(uc.worth)}
+                                    sellAmount={uc.worth}
                                     onSell={handleSellWithAnimation}
                                 />
+
+                                <button
+                                    onClick={onToggleFavorite}
+                                    className="block w-1/2 mx-auto rounded-lg font-semibold transition-all active:scale-95 mt-3"
+                                    style={{
+                                        padding: '5px 0',
+                                        fontSize: '0.55rem',
+                                        cursor: 'pointer',
+                                        background: uc.is_favorited
+                                            ? 'rgba(250,204,21,0.08)'
+                                            : 'rgba(255,255,255,0.04)',
+                                        border: uc.is_favorited
+                                            ? '1px solid rgba(250,204,21,0.3)'
+                                            : '1px solid rgba(255,255,255,0.08)',
+                                        color: uc.is_favorited
+                                            ? '#facc15'
+                                            : '#6b7280',
+                                    }}
+                                >
+                                    {uc.is_favorited
+                                        ? '★ favorited'
+                                        : '☆ favorite'}
+                                </button>
+                                <ShowcaseButton uc={uc} />
+                            </>
+                        )}
+
+                        {detailTab === 'condition' && (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 14,
+                                    padding: '4px 0',
+                                }}
+                            >
+                                {overallCond != null && (
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '10px 14px',
+                                            borderRadius: 8,
+                                            background: `${gradeColor(overallCond)}12`,
+                                            border: `1px solid ${gradeColor(overallCond)}33`,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: '0.52rem',
+                                                fontWeight: 700,
+                                                color: '#6b7280',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.08em',
+                                            }}
+                                        >
+                                            Overall
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontSize: '1.6rem',
+                                                fontWeight: 800,
+                                                fontFamily: 'monospace',
+                                                color: gradeColor(overallCond),
+                                                textShadow: `0 0 14px ${gradeColor(overallCond)}66`,
+                                            }}
+                                        >
+                                            {overallCond.toFixed(1)}
+                                            <span
+                                                style={{
+                                                    fontSize: '0.6rem',
+                                                    color: '#6b7280',
+                                                    marginLeft: 3,
+                                                }}
+                                            >
+                                                /10
+                                            </span>
+                                        </span>
+                                    </div>
+                                )}
                                 <div
                                     style={{
                                         display: 'flex',
-                                        gap: 4,
-                                        marginTop: 4,
+                                        flexDirection: 'column',
+                                        gap: 12,
                                     }}
                                 >
-                                    <button
-                                        onClick={onToggleFavorite}
-                                        className="rounded-lg font-semibold transition-all active:scale-95"
-                                        style={{
-                                            flex: 1,
-                                            padding: '5px 0',
-                                            fontSize: '0.55rem',
-                                            cursor: 'pointer',
-                                            background: uc.is_favorited
-                                                ? 'rgba(250,204,21,0.08)'
-                                                : 'rgba(255,255,255,0.04)',
-                                            border: uc.is_favorited
-                                                ? '1px solid rgba(250,204,21,0.3)'
-                                                : '1px solid rgba(255,255,255,0.08)',
-                                            color: uc.is_favorited
-                                                ? '#facc15'
-                                                : '#6b7280',
-                                        }}
-                                    >
-                                        {uc.is_favorited
-                                            ? '★ favorited'
-                                            : '☆ favorite'}
-                                    </button>
-                                    <ShowcaseButton uc={uc} />
+                                    {[
+                                        {
+                                            label: 'Centering',
+                                            value: uc.attr_centering,
+                                        },
+                                        {
+                                            label: 'Corners',
+                                            value: uc.attr_corners,
+                                        },
+                                        {
+                                            label: 'Edges',
+                                            value: uc.attr_edges,
+                                        },
+                                        {
+                                            label: 'Surface',
+                                            value: uc.attr_surface,
+                                        },
+                                    ].map(({ label, value }) => {
+                                        const v = value ?? 7
+                                        const color =
+                                            v >= 8.5
+                                                ? '#4ade80'
+                                                : v >= 6.5
+                                                  ? '#fbbf24'
+                                                  : '#f87171'
+                                        return (
+                                            <div key={label}>
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent:
+                                                            'space-between',
+                                                        marginBottom: 6,
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.54rem',
+                                                            color: '#6b7280',
+                                                            textTransform:
+                                                                'uppercase',
+                                                            letterSpacing:
+                                                                '0.06em',
+                                                        }}
+                                                    >
+                                                        {label}
+                                                    </span>
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.65rem',
+                                                            fontWeight: 700,
+                                                            fontFamily:
+                                                                'monospace',
+                                                            color,
+                                                        }}
+                                                    >
+                                                        {v.toFixed(1)}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        height: 7,
+                                                        borderRadius: 4,
+                                                        background:
+                                                            'rgba(255,255,255,0.05)',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            height: '100%',
+                                                            width: `${(v / 10) * 100}%`,
+                                                            background: color,
+                                                            borderRadius: 4,
+                                                            transition:
+                                                                'width 600ms ease',
+                                                            boxShadow: `0 0 6px ${color}66`,
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            </>
+                            </div>
                         )}
 
                         {detailTab === 'pokemon' && (
@@ -2116,32 +2288,24 @@ export function CardStats({
                                     >
                                         Base Stats
                                     </div>
+
                                     {combatStats.some((s) => s.val != null) ? (
                                         <div
                                             style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: 4,
+                                                display: 'grid',
+                                                gridTemplateColumns:
+                                                    'auto auto auto auto',
+                                                gap: '4px 10px',
+                                                alignItems: 'center',
+                                                fontSize: '0.58rem',
                                             }}
                                         >
                                             {combatStats.map(
-                                                ({ label, color, val }) => (
-                                                    <div
-                                                        key={label}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                            gap: 6,
-                                                        }}
-                                                    >
+                                                ({ label, val }) => (
+                                                    <React.Fragment key={label}>
                                                         <span
                                                             style={{
-                                                                fontSize:
-                                                                    '0.48rem',
                                                                 color: '#6b7280',
-                                                                width: 38,
-                                                                flexShrink: 0,
                                                                 textAlign:
                                                                     'right',
                                                                 letterSpacing:
@@ -2150,45 +2314,17 @@ export function CardStats({
                                                         >
                                                             {label}
                                                         </span>
-                                                        <div
-                                                            style={{
-                                                                flex: 1,
-                                                                height: 5,
-                                                                borderRadius: 3,
-                                                                background:
-                                                                    'rgba(255,255,255,0.06)',
-                                                                overflow:
-                                                                    'hidden',
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    height: '100%',
-                                                                    width: `${((val ?? 0) / Math.max(maxStat, 160)) * 100}%`,
-                                                                    background:
-                                                                        color,
-                                                                    borderRadius: 3,
-                                                                    transition:
-                                                                        'width 500ms ease',
-                                                                }}
-                                                            />
-                                                        </div>
                                                         <span
                                                             style={{
-                                                                fontSize:
-                                                                    '0.55rem',
                                                                 fontFamily:
                                                                     'monospace',
-                                                                color,
-                                                                width: 26,
-                                                                textAlign:
-                                                                    'right',
-                                                                flexShrink: 0,
+                                                                color: '#e5e7eb',
+                                                                minWidth: 20,
                                                             }}
                                                         >
                                                             {val ?? '—'}
                                                         </span>
-                                                    </div>
+                                                    </React.Fragment>
                                                 ),
                                             )}
                                         </div>
@@ -2224,45 +2360,29 @@ export function CardStats({
                                         >
                                             Moves
                                         </div>
-                                        <div style={{ position: 'relative' }}>
-                                            <button
-                                                onClick={
-                                                    hasPending
-                                                        ? () =>
-                                                              setPendingOpen(
-                                                                  (v) => !v,
-                                                              )
-                                                        : handleRefreshMoves
-                                                }
-                                                disabled={refreshLoading}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 2,
-                                                    fontSize: '0.45rem',
-                                                    fontWeight: 700,
-                                                    letterSpacing: '0.04em',
-                                                    padding: '2px 6px',
-                                                    borderRadius: 4,
-                                                    background: hasPending
-                                                        ? pendingOpen
-                                                            ? 'rgba(239,68,68,0.15)'
-                                                            : 'rgba(239,68,68,0.08)'
-                                                        : 'rgba(96,165,250,0.08)',
-                                                    border: `1px solid ${hasPending ? 'rgba(239,68,68,0.4)' : 'rgba(96,165,250,0.3)'}`,
-                                                    color: hasPending
-                                                        ? '#fca5a5'
-                                                        : '#60a5fa',
-                                                    cursor: refreshLoading
-                                                        ? 'not-allowed'
-                                                        : 'pointer',
-                                                }}
-                                            >
-                                                {refreshLoading
-                                                    ? '...'
-                                                    : '↻ Update Moves'}
-                                            </button>
-                                            {hasPending && (
+                                        {hasPending && (
+                                            <div style={{ position: 'relative', marginRight: 6 }}>
+                                                <button
+                                                    onClick={() => setPendingOpen((v) => !v)}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 2,
+                                                        fontSize: '0.45rem',
+                                                        fontWeight: 700,
+                                                        letterSpacing: '0.04em',
+                                                        padding: '2px 8px',
+                                                        borderRadius: 4,
+                                                        background: pendingOpen
+                                                            ? 'rgba(249,115,22,0.15)'
+                                                            : 'rgba(249,115,22,0.08)',
+                                                        border: '1px solid rgba(249,115,22,0.4)',
+                                                        color: '#fdba74',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    learn
+                                                </button>
                                                 <span
                                                     style={{
                                                         position: 'absolute',
@@ -2271,21 +2391,19 @@ export function CardStats({
                                                         width: 7,
                                                         height: 7,
                                                         borderRadius: '50%',
-                                                        background: '#ef4444',
+                                                        background: '#f97316',
                                                         pointerEvents: 'none',
-                                                        boxShadow:
-                                                            '0 0 5px rgba(239,68,68,0.8)',
-                                                        animation:
-                                                            'pendingPulse 1.5s ease-in-out infinite',
+                                                        boxShadow: '0 0 5px rgba(249,115,22,0.8)',
+                                                        animation: 'pendingPulse 1.5s ease-in-out infinite',
                                                     }}
                                                 />
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div
                                         style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr 1fr',
                                             gap: 4,
                                         }}
                                     >
@@ -2335,7 +2453,7 @@ export function CardStats({
                                                                 style={{
                                                                     flex: 1,
                                                                     fontSize:
-                                                                        '0.6rem',
+                                                                        '0.4rem',
                                                                     fontWeight: 600,
                                                                     color: '#e2e8f0',
                                                                 }}
@@ -2389,271 +2507,6 @@ export function CardStats({
                                             },
                                         )}
                                     </div>
-                                    {hasPending && pendingOpen && (
-                                        <div style={{ marginTop: 8 }}>
-                                            {(uc.pending_moves ?? []).map(
-                                                (mv, moveIdx) => {
-                                                    const typeColor =
-                                                        TYPE_COLOR[mv.type] ??
-                                                        '#94a3b8'
-                                                    return (
-                                                        <div
-                                                            key={moveIdx}
-                                                            style={{
-                                                                marginBottom: 8,
-                                                                padding:
-                                                                    '7px 9px',
-                                                                borderRadius: 8,
-                                                                border: '1px solid rgba(239,68,68,0.25)',
-                                                                background:
-                                                                    'rgba(239,68,68,0.04)',
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display:
-                                                                        'flex',
-                                                                    alignItems:
-                                                                        'center',
-                                                                    gap: 6,
-                                                                    marginBottom: 4,
-                                                                }}
-                                                            >
-                                                                <span
-                                                                    style={{
-                                                                        fontSize:
-                                                                            '0.45rem',
-                                                                        background:
-                                                                            typeColor +
-                                                                            '33',
-                                                                        color: typeColor,
-                                                                        border: `1px solid ${typeColor}44`,
-                                                                        borderRadius: 4,
-                                                                        padding:
-                                                                            '1px 4px',
-                                                                        textTransform:
-                                                                            'uppercase',
-                                                                    }}
-                                                                >
-                                                                    {mv.type}
-                                                                </span>
-                                                                <span
-                                                                    style={{
-                                                                        flex: 1,
-                                                                        fontSize:
-                                                                            '0.62rem',
-                                                                        fontWeight: 700,
-                                                                        color: '#fca5a5',
-                                                                    }}
-                                                                >
-                                                                    {
-                                                                        mv.displayName
-                                                                    }
-                                                                </span>
-                                                                {mv.power && (
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize:
-                                                                                '0.52rem',
-                                                                            fontFamily:
-                                                                                'monospace',
-                                                                            color: '#f87171',
-                                                                        }}
-                                                                    >
-                                                                        {
-                                                                            mv.power
-                                                                        }
-                                                                    </span>
-                                                                )}
-                                                                <span
-                                                                    style={{
-                                                                        fontSize:
-                                                                            '0.48rem',
-                                                                        fontWeight: 700,
-                                                                        color: isMoveSlotFree
-                                                                            ? '#4ade80'
-                                                                            : '#f59e0b',
-                                                                        background:
-                                                                            isMoveSlotFree
-                                                                                ? 'rgba(74,222,128,0.08)'
-                                                                                : 'rgba(245,158,11,0.08)',
-                                                                        border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                                                                        borderRadius: 4,
-                                                                        padding:
-                                                                            '1px 4px',
-                                                                    }}
-                                                                >
-                                                                    {isMoveSlotFree
-                                                                        ? 'Free'
-                                                                        : '100c'}
-                                                                </span>
-                                                            </div>
-                                                            {learnSlot?.moveIdx ===
-                                                            moveIdx ? (
-                                                                <div>
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize:
-                                                                                '0.48rem',
-                                                                            color: '#9ca3af',
-                                                                            marginBottom: 4,
-                                                                        }}
-                                                                    >
-                                                                        Replace
-                                                                        which
-                                                                        move?{' '}
-                                                                        <span
-                                                                            style={{
-                                                                                color: '#f59e0b',
-                                                                            }}
-                                                                        >
-                                                                            (100
-                                                                            coins)
-                                                                        </span>
-                                                                    </div>
-                                                                    <div
-                                                                        style={{
-                                                                            display:
-                                                                                'flex',
-                                                                            gap: 3,
-                                                                            flexWrap:
-                                                                                'wrap',
-                                                                        }}
-                                                                    >
-                                                                        {(
-                                                                            uc.moves ??
-                                                                            []
-                                                                        ).map(
-                                                                            (
-                                                                                existing,
-                                                                                slotIdx,
-                                                                            ) => (
-                                                                                <button
-                                                                                    key={
-                                                                                        slotIdx
-                                                                                    }
-                                                                                    disabled={
-                                                                                        learnLoading
-                                                                                    }
-                                                                                    onClick={() =>
-                                                                                        handleLearnMove(
-                                                                                            moveIdx,
-                                                                                            slotIdx,
-                                                                                        )
-                                                                                    }
-                                                                                    style={{
-                                                                                        fontSize:
-                                                                                            '0.48rem',
-                                                                                        padding:
-                                                                                            '2px 6px',
-                                                                                        borderRadius: 4,
-                                                                                        border: '1px solid rgba(239,68,68,0.4)',
-                                                                                        background:
-                                                                                            'rgba(239,68,68,0.1)',
-                                                                                        color: '#fca5a5',
-                                                                                        cursor: 'pointer',
-                                                                                    }}
-                                                                                >
-                                                                                    {
-                                                                                        existing.displayName
-                                                                                    }
-                                                                                </button>
-                                                                            ),
-                                                                        )}
-                                                                        <button
-                                                                            onClick={() =>
-                                                                                setLearnSlot(
-                                                                                    null,
-                                                                                )
-                                                                            }
-                                                                            style={{
-                                                                                fontSize:
-                                                                                    '0.48rem',
-                                                                                padding:
-                                                                                    '2px 6px',
-                                                                                borderRadius: 4,
-                                                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                                                background:
-                                                                                    'transparent',
-                                                                                color: '#6b7280',
-                                                                                cursor: 'pointer',
-                                                                            }}
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div
-                                                                    style={{
-                                                                        display:
-                                                                            'flex',
-                                                                        gap: 5,
-                                                                    }}
-                                                                >
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            if (
-                                                                                isMoveSlotFree
-                                                                            ) {
-                                                                                handleLearnMove(
-                                                                                    moveIdx,
-                                                                                    moveSlotsUsed,
-                                                                                )
-                                                                            } else {
-                                                                                setLearnSlot(
-                                                                                    {
-                                                                                        moveIdx,
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        }}
-                                                                        style={{
-                                                                            fontSize:
-                                                                                '0.5rem',
-                                                                            padding:
-                                                                                '3px 9px',
-                                                                            borderRadius: 5,
-                                                                            border: '1px solid rgba(239,68,68,0.4)',
-                                                                            background:
-                                                                                'rgba(239,68,68,0.1)',
-                                                                            color: '#fca5a5',
-                                                                            cursor: 'pointer',
-                                                                            fontWeight: 600,
-                                                                        }}
-                                                                    >
-                                                                        Learn
-                                                                        Move
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() =>
-                                                                            setPendingOpen(
-                                                                                false,
-                                                                            )
-                                                                        }
-                                                                        style={{
-                                                                            fontSize:
-                                                                                '0.48rem',
-                                                                            padding:
-                                                                                '3px 7px',
-                                                                            borderRadius: 5,
-                                                                            border: '1px solid rgba(255,255,255,0.08)',
-                                                                            background:
-                                                                                'transparent',
-                                                                            color: '#4b5563',
-                                                                            cursor: 'pointer',
-                                                                        }}
-                                                                    >
-                                                                        Skip
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                },
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}

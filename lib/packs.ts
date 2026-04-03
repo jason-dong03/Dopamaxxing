@@ -157,8 +157,6 @@ export const PACKS: Pack[] = [
         aspect: 'pack',
         cost: 565.64,
         card_count: 11,
-        theme_label: 'Base',
-        theme_label_color: '#a78bfa',
     },
     {
         id: 'base5',

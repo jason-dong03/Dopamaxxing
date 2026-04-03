@@ -113,8 +113,14 @@ export default function BattlesPage() {
         fetchLineups()
         supabase.auth.getUser().then(({ data: { user } }) => {
             if (!user) return
-            supabase.from('profiles').select('level').eq('id', user.id).single()
-                .then(({ data }) => { if (data?.level) setUserLevel(data.level) })
+            supabase
+                .from('profiles')
+                .select('level')
+                .eq('id', user.id)
+                .single()
+                .then(({ data }) => {
+                    if (data?.level) setUserLevel(data.level)
+                })
         })
     }, [fetchLineups])
 
@@ -123,7 +129,9 @@ export default function BattlesPage() {
         setLineupName(existing?.name ?? 'My Lineup')
         setSelected(existing?.slots ?? [])
         setSetupOpen(true)
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+            data: { user },
+        } = await supabase.auth.getUser()
         if (!user) return
         const { data } = await supabase
             .from('user_cards')
@@ -168,14 +176,29 @@ export default function BattlesPage() {
                     .map((id) => allCards.find((c) => c.id === id))
                     .filter((c): c is UserCard => !!c)
                 if (editingLineupId) {
-                    setLineups((prev) => prev.map((l) =>
-                        l.id === editingLineupId
-                            ? { ...l, name: lineupName, slots: selected, cards }
-                            : l
-                    ))
+                    setLineups((prev) =>
+                        prev.map((l) =>
+                            l.id === editingLineupId
+                                ? {
+                                      ...l,
+                                      name: lineupName,
+                                      slots: selected,
+                                      cards,
+                                  }
+                                : l,
+                        ),
+                    )
                 } else {
                     const body = await res.json()
-                    setLineups((prev) => [...prev, body.lineup ?? { id: crypto.randomUUID(), name: lineupName, slots: selected, cards }])
+                    setLineups((prev) => [
+                        ...prev,
+                        body.lineup ?? {
+                            id: crypto.randomUUID(),
+                            name: lineupName,
+                            slots: selected,
+                            cards,
+                        },
+                    ])
                 }
                 setSetupOpen(false)
             } else {
@@ -206,95 +229,59 @@ export default function BattlesPage() {
                 margin: '0 auto',
             }}
         >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <h1 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    marginBottom: 20,
+                }}
+            >
+                <h1
+                    style={{
+                        fontSize: '1.1rem',
+                        fontWeight: 800,
+                        color: '#e2e8f0',
+                        margin: 0,
+                    }}
+                >
                     Battles
                 </h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 6 }}>
-                        <span style={{ fontSize: '0.56rem', color: '#4b5563', fontWeight: 600 }}>Won</span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4ade80' }}>{battlesWon ?? '—'}</span>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '3px 9px',
+                            background: 'rgba(74,222,128,0.08)',
+                            border: '1px solid rgba(74,222,128,0.2)',
+                            borderRadius: 6,
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#4b5563',
+                                fontWeight: 600,
+                            }}
+                        >
+                            Won
+                        </span>
+                        <span
+                            style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                color: '#4ade80',
+                            }}
+                        >
+                            {battlesWon ?? '—'}
+                        </span>
                     </div>
                 </div>
             </div>
 
             {/* My Team */}
-            <div
-                style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    borderRadius: 14,
-                    padding: '16px 18px 20px',
-                    marginBottom: 20,
-                    position: 'relative',
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>My Lineups</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button
-                            onClick={() => openSetup()}
-                            style={{ fontSize: '0.6rem', fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.1)', color: '#818cf8', cursor: 'pointer' }}
-                        >
-                            + New
-                        </button>
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
-                            <div onMouseEnter={() => setShowRules(true)} onMouseLeave={() => setShowRules(false)} style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#6b7280', cursor: 'default', fontStyle: 'italic', fontWeight: 700 }}>i</div>
-                            {showRules && (
-                                <div style={{ position: 'absolute', right: 0, bottom: '120%', background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 14px', width: 240, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>How Battles Work</div>
-                                    {BATTLE_RULES.map((rule, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 5 }}>
-                                            <span style={{ color: '#4ade80', fontSize: '0.58rem', marginTop: 2, flexShrink: 0 }}>▸</span>
-                                            <span style={{ fontSize: '0.62rem', color: '#9ca3af', lineHeight: 1.5 }}>{rule}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {lineups.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                        <p style={{ fontSize: '0.72rem', color: '#374151', margin: '0 0 12px' }}>No lineups saved yet.</p>
-                        <button onClick={() => openSetup()} style={{ padding: '9px 22px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 700, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.35)', color: '#818cf8', cursor: 'pointer' }}>
-                            + Create Lineup
-                        </button>
-                    </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        {lineups.map((lu) => (
-                            <div key={lu.id}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#e2e8f0' }}>
-                                        {lu.name}
-                                        <span style={{ fontSize: '0.58rem', fontWeight: 500, color: lu.cards.length < 5 ? '#f87171' : '#4b5563', marginLeft: 6 }}>
-                                            ({lu.cards.length}/5)
-                                        </span>
-                                    </span>
-                                    <div style={{ display: 'flex', gap: 6 }}>
-                                        <button onClick={() => openSetup(lu)} style={{ fontSize: '0.58rem', padding: '3px 9px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#9ca3af', cursor: 'pointer' }}>Edit</button>
-                                        <button onClick={() => deleteLineup(lu.id)} style={{ fontSize: '0.58rem', padding: '3px 9px', borderRadius: 5, border: '1px solid rgba(248,113,113,0.2)', background: 'rgba(248,113,113,0.06)', color: '#f87171', cursor: 'pointer' }}>✕</button>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-                                    {lu.cards.map((uc: LineupCard) => (
-                                        <div key={uc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                                            <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                            <span style={{ fontSize: '0.52rem', color: '#9ca3af', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uc.cards.name}</span>
-                                            <span style={{ fontSize: '0.48rem', color: '#6b7280' }}>Lv.{uc.card_level ?? 1}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
 
             {/* Daily trainer card */}
             <div
@@ -332,9 +319,35 @@ export default function BattlesPage() {
                     >
                         Daily Challenge
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.2)', borderRadius: 6 }}>
-                        <span style={{ fontSize: '0.56rem', color: '#4b5563', fontWeight: 600 }}>EXP/Win</span>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fb923c' }}>5–15%</span>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 9px',
+                            background: 'rgba(251,146,60,0.08)',
+                            border: '1px solid rgba(251,146,60,0.2)',
+                            borderRadius: 6,
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#4b5563',
+                                fontWeight: 600,
+                            }}
+                        >
+                            EXP/Win
+                        </span>
+                        <span
+                            style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#fb923c',
+                            }}
+                        >
+                            5–15%
+                        </span>
                     </div>
                 </div>
 
@@ -507,6 +520,316 @@ export default function BattlesPage() {
                     </div>
                 </div>
             </div>
+            <div
+                style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: 14,
+                    padding: '16px 18px 20px',
+                    marginBottom: 20,
+                    position: 'relative',
+                }}
+            >
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 14,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: '#e2e8f0',
+                        }}
+                    >
+                        My Lineups
+                    </div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                        }}
+                    >
+                        <button
+                            onClick={() => openSetup()}
+                            style={{
+                                fontSize: '0.6rem',
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 6,
+                                border: '1px solid rgba(99,102,241,0.35)',
+                                background: 'rgba(99,102,241,0.1)',
+                                color: '#818cf8',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            + New
+                        </button>
+                        <div
+                            style={{
+                                position: 'relative',
+                                display: 'inline-block',
+                            }}
+                        >
+                            <div
+                                onMouseEnter={() => setShowRules(true)}
+                                onMouseLeave={() => setShowRules(false)}
+                                style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: '50%',
+                                    border: '1px solid rgba(255,255,255,0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.6rem',
+                                    color: '#6b7280',
+                                    cursor: 'default',
+                                    fontStyle: 'italic',
+                                    fontWeight: 700,
+                                }}
+                            >
+                                i
+                            </div>
+                            {showRules && (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        right: 0,
+                                        bottom: '120%',
+                                        background: '#1e1e2e',
+                                        border: '1px solid rgba(255,255,255,0.12)',
+                                        borderRadius: 10,
+                                        padding: '10px 14px',
+                                        width: 240,
+                                        zIndex: 10,
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            fontSize: '0.62rem',
+                                            fontWeight: 700,
+                                            color: '#e2e8f0',
+                                            marginBottom: 8,
+                                        }}
+                                    >
+                                        How Battles Work
+                                    </div>
+                                    {BATTLE_RULES.map((rule, i) => (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                display: 'flex',
+                                                gap: 6,
+                                                alignItems: 'flex-start',
+                                                marginBottom: 5,
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    color: '#4ade80',
+                                                    fontSize: '0.58rem',
+                                                    marginTop: 2,
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                ▸
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: '0.62rem',
+                                                    color: '#9ca3af',
+                                                    lineHeight: 1.5,
+                                                }}
+                                            >
+                                                {rule}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {lineups.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                        <p
+                            style={{
+                                fontSize: '0.72rem',
+                                color: '#374151',
+                                margin: '0 0 12px',
+                            }}
+                        >
+                            No lineups saved yet.
+                        </p>
+                        <button
+                            onClick={() => openSetup()}
+                            style={{
+                                padding: '9px 22px',
+                                borderRadius: 10,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: 'rgba(99,102,241,0.12)',
+                                border: '1px solid rgba(99,102,241,0.35)',
+                                color: '#818cf8',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            + Create Lineup
+                        </button>
+                    </div>
+                ) : (
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 14,
+                        }}
+                    >
+                        {lineups.map((lu) => (
+                            <div key={lu.id}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: 10,
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 700,
+                                            color: '#e2e8f0',
+                                        }}
+                                    >
+                                        {lu.name}
+                                        <span
+                                            style={{
+                                                fontSize: '0.58rem',
+                                                fontWeight: 500,
+                                                color:
+                                                    lu.cards.length < 5
+                                                        ? '#f87171'
+                                                        : '#4b5563',
+                                                marginLeft: 6,
+                                            }}
+                                        >
+                                            ({lu.cards.length}/5)
+                                        </span>
+                                    </span>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button
+                                            onClick={() => openSetup(lu)}
+                                            style={{
+                                                fontSize: '0.58rem',
+                                                padding: '3px 9px',
+                                                borderRadius: 5,
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                background:
+                                                    'rgba(255,255,255,0.04)',
+                                                color: '#9ca3af',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => deleteLineup(lu.id)}
+                                            style={{
+                                                fontSize: '0.58rem',
+                                                padding: '3px 9px',
+                                                borderRadius: 5,
+                                                border: '1px solid rgba(248,113,113,0.2)',
+                                                background:
+                                                    'rgba(248,113,113,0.06)',
+                                                color: '#f87171',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(5, 1fr)',
+                                        gap: 10,
+                                    }}
+                                >
+                                    {lu.cards.map((uc: LineupCard) => (
+                                        <div
+                                            key={uc.id}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: '100%',
+                                                    aspectRatio: '2/3',
+                                                    borderRadius: 8,
+                                                    overflow: 'hidden',
+                                                    background:
+                                                        'rgba(255,255,255,0.04)',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    position: 'relative',
+                                                }}
+                                            >
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={
+                                                        uc.cards.image_url ?? ''
+                                                    }
+                                                    alt={uc.cards.name}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                />
+                                            </div>
+                                            <span
+                                                style={{
+                                                    fontSize: '0.52rem',
+                                                    color: '#9ca3af',
+                                                    textAlign: 'center',
+                                                    width: '100%',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {uc.cards.name}
+                                            </span>
+                                            <span
+                                                style={{
+                                                    fontSize: '0.48rem',
+                                                    color: '#6b7280',
+                                                }}
+                                            >
+                                                Lv.{uc.card_level ?? 1}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Lineup setup modal */}
             {setupOpen && (
@@ -561,7 +884,9 @@ export default function BattlesPage() {
                                         color: '#e2e8f0',
                                     }}
                                 >
-                                    {editingLineupId ? 'Edit Lineup' : 'New Lineup'}
+                                    {editingLineupId
+                                        ? 'Edit Lineup'
+                                        : 'New Lineup'}
                                 </span>
                                 <button
                                     onClick={() => setSetupOpen(false)}
@@ -593,8 +918,15 @@ export default function BattlesPage() {
                                     outline: 'none',
                                 }}
                             />
-                            <p style={{ fontSize: '0.65rem', color: '#4b5563', margin: '4px 0 0' }}>
-                                Select up to 5 cards · {selected.length}/5 chosen
+                            <p
+                                style={{
+                                    fontSize: '0.65rem',
+                                    color: '#4b5563',
+                                    margin: '4px 0 0',
+                                }}
+                            >
+                                Select up to 5 cards · {selected.length}/5
+                                chosen
                             </p>
                         </div>
 
@@ -666,7 +998,8 @@ export default function BattlesPage() {
                                                         }
                                                         alt={card.cards.name}
                                                         style={{
-                                                            position: 'absolute',
+                                                            position:
+                                                                'absolute',
                                                             inset: 0,
                                                             width: '100%',
                                                             height: '100%',
@@ -745,7 +1078,14 @@ export default function BattlesPage() {
                             }}
                         >
                             {saveError && (
-                                <div style={{ fontSize: '0.65rem', color: '#f87171', marginBottom: 8, textAlign: 'center' }}>
+                                <div
+                                    style={{
+                                        fontSize: '0.65rem',
+                                        color: '#f87171',
+                                        marginBottom: 8,
+                                        textAlign: 'center',
+                                    }}
+                                >
                                     {saveError}
                                 </div>
                             )}
@@ -777,8 +1117,8 @@ export default function BattlesPage() {
                                 {saving
                                     ? 'Saving…'
                                     : editingLineupId
-                                        ? `Update Lineup (${selected.length}/5)`
-                                        : `Save Lineup (${selected.length}/5)`}
+                                      ? `Update Lineup (${selected.length}/5)`
+                                      : `Save Lineup (${selected.length}/5)`}
                             </button>
                         </div>
                     </div>
@@ -789,18 +1129,74 @@ export default function BattlesPage() {
             {lineupPickerOpen && (
                 <div
                     onClick={() => setLineupPickerOpen(false)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 9999,
+                        background: 'rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(4px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 16px',
+                    }}
                 >
                     <div
-                        onClick={e => e.stopPropagation()}
-                        style={{ background: '#0e0e16', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: '#0e0e16',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 16,
+                            width: '100%',
+                            maxWidth: 480,
+                            maxHeight: '85vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                        }}
                     >
-                        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#e2e8f0' }}>Choose Your Lineup</span>
-                            <button onClick={() => setLineupPickerOpen(false)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '1.1rem' }}>×</button>
+                        <div
+                            style={{
+                                padding: '16px 18px 12px',
+                                borderBottom:
+                                    '1px solid rgba(255,255,255,0.06)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: '0.88rem',
+                                    fontWeight: 700,
+                                    color: '#e2e8f0',
+                                }}
+                            >
+                                Choose Your Lineup
+                            </span>
+                            <button
+                                onClick={() => setLineupPickerOpen(false)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#6b7280',
+                                    cursor: 'pointer',
+                                    fontSize: '1.1rem',
+                                }}
+                            >
+                                ×
+                            </button>
                         </div>
-                        <div style={{ overflowY: 'auto', padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {lineups.map(lu => (
+                        <div
+                            style={{
+                                overflowY: 'auto',
+                                padding: '12px 16px 16px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 10,
+                            }}
+                        >
+                            {lineups.map((lu) => (
                                 <button
                                     key={lu.id}
                                     onClick={() => {
@@ -808,20 +1204,102 @@ export default function BattlesPage() {
                                         setLineupPickerOpen(false)
                                         setBattleOpen(true)
                                     }}
-                                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 120ms' }}
-                                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(129,140,248,0.5)')}
-                                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        borderRadius: 12,
+                                        padding: '12px 14px',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        transition: 'border-color 120ms',
+                                    }}
+                                    onMouseEnter={(e) =>
+                                        (e.currentTarget.style.borderColor =
+                                            'rgba(129,140,248,0.5)')
+                                    }
+                                    onMouseLeave={(e) =>
+                                        (e.currentTarget.style.borderColor =
+                                            'rgba(255,255,255,0.08)')
+                                    }
                                 >
-                                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#e2e8f0', marginBottom: 10 }}>{lu.name}</div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                                    <div
+                                        style={{
+                                            fontSize: '0.7rem',
+                                            fontWeight: 700,
+                                            color: '#e2e8f0',
+                                            marginBottom: 10,
+                                        }}
+                                    >
+                                        {lu.name}
+                                    </div>
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns:
+                                                'repeat(5, 1fr)',
+                                            gap: 8,
+                                        }}
+                                    >
                                         {lu.cards.map((uc: LineupCard) => (
-                                            <div key={uc.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                                <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 6, overflow: 'hidden', background: 'rgba(255,255,255,0.04)', position: 'relative' }}>
+                                            <div
+                                                key={uc.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: '100%',
+                                                        aspectRatio: '2/3',
+                                                        borderRadius: 6,
+                                                        overflow: 'hidden',
+                                                        background:
+                                                            'rgba(255,255,255,0.04)',
+                                                        position: 'relative',
+                                                    }}
+                                                >
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={uc.cards.image_url ?? ''} alt={uc.cards.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <img
+                                                        src={
+                                                            uc.cards
+                                                                .image_url ?? ''
+                                                        }
+                                                        alt={uc.cards.name}
+                                                        style={{
+                                                            position:
+                                                                'absolute',
+                                                            inset: 0,
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover',
+                                                        }}
+                                                    />
                                                 </div>
-                                                <span style={{ fontSize: '0.44rem', color: '#9ca3af', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uc.cards.name}</span>
-                                                <span style={{ fontSize: '0.42rem', color: '#6b7280' }}>Lv.{uc.card_level ?? 1}</span>
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.44rem',
+                                                        color: '#9ca3af',
+                                                        textAlign: 'center',
+                                                        width: '100%',
+                                                        overflow: 'hidden',
+                                                        textOverflow:
+                                                            'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {uc.cards.name}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.42rem',
+                                                        color: '#6b7280',
+                                                    }}
+                                                >
+                                                    Lv.{uc.card_level ?? 1}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
@@ -832,7 +1310,16 @@ export default function BattlesPage() {
                                     setLineupPickerOpen(false)
                                     openSetup()
                                 }}
-                                style={{ padding: '12px', borderRadius: 12, border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#6b7280', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                                style={{
+                                    padding: '12px',
+                                    borderRadius: 12,
+                                    border: '1px dashed rgba(255,255,255,0.12)',
+                                    background: 'transparent',
+                                    color: '#6b7280',
+                                    fontSize: '0.72rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                }}
                             >
                                 + Create another lineup
                             </button>
@@ -844,9 +1331,16 @@ export default function BattlesPage() {
             {battleOpen && (
                 <BattleScreen
                     trainerId={trainerId}
-                    skipToCardSelect={trainerId !== 'n' || pickedLineupIds.length > 0}
-                    preSelectedIds={pickedLineupIds.length > 0 ? pickedLineupIds : undefined}
-                    onClose={() => { setBattleOpen(false); setPickedLineupIds([]) }}
+                    skipToCardSelect={
+                        trainerId !== 'n' || pickedLineupIds.length > 0
+                    }
+                    preSelectedIds={
+                        pickedLineupIds.length > 0 ? pickedLineupIds : undefined
+                    }
+                    onClose={() => {
+                        setBattleOpen(false)
+                        setPickedLineupIds([])
+                    }}
                     onBattleWon={() => {
                         setBattleOpen(false)
                         setPickedLineupIds([])

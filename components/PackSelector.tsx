@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
@@ -72,43 +72,31 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                     </div>
                 )}
                 {packs.length > 0 && (
-                    <section style={{ marginBottom: 48 }}>
-                        <SectionHeader title="classic packs" />
-                        <div data-tutorial="packs" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 20 }}>
-                            {packs.map((pack) => (
-                                <PackCard
-                                    key={pack.id}
-                                    pack={pack}
-                                    hovered={hoveredId === pack.id}
-                                    canAfford={coins >= pack.cost}
-                                    bagFull={bagFull}
-                                    onHover={setHoveredId}
-                                    onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
-                                    onPreview={setPreviewPack}
-                                />
-                            ))}
-                        </div>
-                    </section>
+                    <PackCarousel
+                        data-tutorial="packs"
+                        title="classic packs"
+                        packs={packs}
+                        coins={coins}
+                        bagFull={bagFull}
+                        hoveredId={hoveredId}
+                        onHover={setHoveredId}
+                        onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
+                        onPreview={setPreviewPack}
+                    />
                 )}
 
                 {specialPacks.length > 0 && (
-                    <section style={{ marginBottom: 48 }}>
-                        <SectionHeader title="special packs" gold />
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 20 }}>
-                            {specialPacks.map((pack) => (
-                                <PackCard
-                                    key={pack.id}
-                                    pack={pack}
-                                    hovered={hoveredId === pack.id}
-                                    canAfford={coins >= pack.cost}
-                                    bagFull={bagFull}
-                                    onHover={setHoveredId}
-                                    onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
-                                    onPreview={setPreviewPack}
-                                />
-                            ))}
-                        </div>
-                    </section>
+                    <PackCarousel
+                        title="special packs"
+                        gold
+                        packs={specialPacks}
+                        coins={coins}
+                        bagFull={bagFull}
+                        hoveredId={hoveredId}
+                        onHover={setHoveredId}
+                        onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
+                        onPreview={setPreviewPack}
+                    />
                 )}
 
                 {boxes.length > 0 && (
@@ -136,6 +124,174 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                 <CardListModal pack={previewPack} onClose={() => setPreviewPack(null)} />
             )}
         </>
+    )
+}
+
+// ─── pack carousel ────────────────────────────────────────────────────────────
+const CARD_W = 210
+const CARD_GAP = 22
+const ARROW_SCROLL_SPEED = 4 // px per frame while hovering arrow
+
+function PackCarousel({ title, gold, packs, coins, bagFull, hoveredId, onHover, onSelect, onPreview }: {
+    title: string
+    gold?: boolean
+    packs: Pack[]
+    coins: number
+    bagFull: boolean
+    hoveredId: string | null
+    onHover: (id: string | null) => void
+    onSelect: (pack: Pack) => void
+    onPreview: (pack: Pack) => void
+    [key: string]: unknown
+}) {
+    const shouldScroll = packs.length > 5
+    const lineColor = gold ? 'rgba(234,179,8,0.18)' : 'var(--app-border-2)'
+    const textColor = gold ? '#92400e' : 'var(--app-text-secondary)'
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const rafRef = useRef<number | null>(null)
+
+    function startScroll(dir: -1 | 1) {
+        function step() {
+            if (scrollRef.current) {
+                scrollRef.current.scrollLeft += dir * ARROW_SCROLL_SPEED
+            }
+            rafRef.current = requestAnimationFrame(step)
+        }
+        rafRef.current = requestAnimationFrame(step)
+    }
+
+    function stopScroll() {
+        if (rafRef.current !== null) {
+            cancelAnimationFrame(rafRef.current)
+            rafRef.current = null
+        }
+    }
+
+    function jumpScroll(dir: -1 | 1) {
+        if (scrollRef.current) {
+            scrollRef.current.scrollBy({ left: dir * (CARD_W + CARD_GAP) * 2, behavior: 'smooth' })
+        }
+    }
+
+    const arrowBase: React.CSSProperties = {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        width: 56,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
+        cursor: 'pointer',
+        border: 'none',
+        fontSize: '1.2rem',
+        color: 'rgba(255,255,255,0.7)',
+        transition: 'background 0.15s',
+        userSelect: 'none',
+    }
+
+    return (
+        <section style={{ marginBottom: 48 }}>
+            {/* header + dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+                <div style={{ height: 1, flex: 1, background: lineColor }} />
+                <span style={{ fontSize: '0.56rem', letterSpacing: '0.24em', textTransform: 'uppercase', color: textColor, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {title}
+                </span>
+                <div style={{ height: 1, flex: 1, background: lineColor }} />
+                <select
+                    value=""
+                    onChange={(e) => {
+                        const pack = packs.find(p => p.id === e.target.value)
+                        if (pack) onSelect(pack)
+                    }}
+                    style={{
+                        flexShrink: 0,
+                        background: 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${gold ? 'rgba(234,179,8,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                        borderRadius: 6,
+                        color: gold ? '#d97706' : 'var(--app-text-secondary)',
+                        fontSize: '0.58rem',
+                        padding: '4px 10px',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        paddingRight: 24,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 7px center',
+                    }}
+                >
+                    <option value="" disabled>jump to...</option>
+                    {packs.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* strip */}
+            <div style={{ position: 'relative' }}>
+                {/* left arrow */}
+                <button
+                    style={{
+                        ...arrowBase,
+                        left: 0,
+                        background: 'linear-gradient(to right, rgba(0,0,0,0.45) 0%, transparent 100%)',
+                    }}
+                    onMouseEnter={() => startScroll(-1)}
+                    onMouseLeave={stopScroll}
+                    onClick={() => jumpScroll(-1)}
+                    aria-label="Scroll left"
+                >
+                    ‹
+                </button>
+
+                {/* scrollable row */}
+                <div
+                    ref={scrollRef}
+                    style={{
+                        display: 'flex',
+                        flexWrap: shouldScroll ? 'nowrap' : 'wrap',
+                        gap: CARD_GAP,
+                        overflowX: shouldScroll ? 'auto' : 'visible',
+                        scrollbarWidth: 'none',
+                        paddingBottom: 4,
+                        cursor: 'grab',
+                    }}
+                    onMouseLeave={() => onHover(null)}
+                >
+                    {packs.map((pack) => (
+                        <div key={pack.id} style={{ width: CARD_W, flexShrink: 0 }}>
+                            <PackCard
+                                pack={pack}
+                                hovered={hoveredId === pack.id}
+                                canAfford={coins >= pack.cost}
+                                bagFull={bagFull}
+                                onHover={onHover}
+                                onSelect={onSelect}
+                                onPreview={onPreview}
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* right arrow */}
+                <button
+                    style={{
+                        ...arrowBase,
+                        right: 0,
+                        background: 'linear-gradient(to left, rgba(0,0,0,0.45) 0%, transparent 100%)',
+                    }}
+                    onMouseEnter={() => startScroll(1)}
+                    onMouseLeave={stopScroll}
+                    onClick={() => jumpScroll(1)}
+                    aria-label="Scroll right"
+                >
+                    ›
+                </button>
+            </div>
+        </section>
     )
 }
 
@@ -288,7 +444,7 @@ function PackCard({ pack, hovered, canAfford, bagFull, onHover, onSelect, onPrev
                     boxShadow: hovered && !bagFull ? 'var(--pack-shadow-hover)' : 'var(--pack-shadow)',
                     position: 'relative',
                 }}>
-                    <div style={{ borderRadius: 10, background: 'var(--pack-card-inner)', aspectRatio: '2/3', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 12, position: 'relative' }}>
+                    <div style={{ borderRadius: 10, background: 'var(--pack-card-inner)', aspectRatio: '2/3', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 6, position: 'relative' }}>
                         <PackInscriptions packId={pack.id} />
                         <img src={pack.image} alt={pack.name} style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', filter: hovered && !bagFull ? 'drop-shadow(0 0 20px rgba(228,228,228,0.6))' : 'drop-shadow(0 0 6px rgba(228,228,228,0.12))', transition: 'filter 350ms ease', position: 'relative', zIndex: 2 }} />
                     </div>

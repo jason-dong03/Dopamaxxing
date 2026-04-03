@@ -73,7 +73,6 @@ import type {
 } from '@/lib/types'
 import { baseName } from '@/lib/types/cards'
 import type { BinderPreview } from '@/lib/types'
-import { GRADE_MULT } from '@/lib/gradeWorth'
 import { fmt } from '@/lib/utils'
 
 function Badge({

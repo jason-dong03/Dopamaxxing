@@ -2,14 +2,15 @@
 
 import { useState } from 'react'
 import type { UserCard } from '@/lib/types'
+import { fmt } from '@/lib/utils'
 
 export function SellButton({
     uc,
-    sellDisplay,
+    sellAmount,
     onSell,
 }: {
     uc: UserCard
-    sellDisplay: string
+    sellAmount: number
     onSell: () => Promise<void>
 }) {
     const [selling, setSelling] = useState(false)
@@ -35,7 +36,7 @@ export function SellButton({
             <button
                 onClick={handleClick}
                 disabled={selling}
-                className="relative w-full py-1 rounded-lg font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                className="relative block w-1/2 mx-auto py-1 rounded-lg font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5"
                 style={{
                     fontSize: '0.62rem',
                     letterSpacing: '0.06em',
@@ -82,7 +83,9 @@ export function SellButton({
                 ) : (
                     <>
                         {uc.is_hot ? '🔥 ' : ''}sell ·{' '}
-                        <span style={{ color: '#4ade80' }}>${sellDisplay}</span>
+                        <span style={{ color: '#4ade80' }}>
+                            ${fmt(sellAmount)}
+                        </span>
                     </>
                 )}
             </button>

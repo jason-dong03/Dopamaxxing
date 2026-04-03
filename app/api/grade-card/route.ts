@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/api/withAuth'
 import { NextResponse } from 'next/server'
 import { calculateGrade, gradeCost } from '@/lib/cardAttributes'
 import { awardAchievements, getEarnedAchievements } from '@/lib/awardAchievement'
+import { conditionMultFunction, weightedCondition } from '@/lib/rarityConfig'
 
 export const POST = withAuth(async ({ user, supabase }, request) => {
     const { userCardId } = await request.json()
@@ -19,15 +20,19 @@ export const POST = withAuth(async ({ user, supabase }, request) => {
         return NextResponse.json({ error: 'insufficient_coins', cost, coins: profile?.coins }, { status: 402 })
     }
 
-    const grade = calculateGrade({
+    const attrs = {
         attr_centering: uc.attr_centering,
         attr_corners: uc.attr_corners,
         attr_edges: uc.attr_edges,
         attr_surface: uc.attr_surface,
-    }, user.id)
+    }
+    const grade = calculateGrade(attrs, user.id)
+    const newWorth = parseFloat(
+        ((uc.worth ?? 0) * conditionMultFunction(weightedCondition(attrs))).toFixed(2)
+    )
 
     await Promise.all([
-        supabase.from('user_cards').update({ grade, grade_count: count + 1 }).eq('id', userCardId),
+        supabase.from('user_cards').update({ grade, grade_count: count + 1, worth: newWorth }).eq('id', userCardId),
         supabase.from('profiles').update({ coins: (profile?.coins ?? 0) - cost }).eq('id', user.id),
     ])
 

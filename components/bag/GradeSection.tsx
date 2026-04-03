@@ -84,7 +84,13 @@ export function GradeSection({
     return (
         <div className="py-1.5">
             {uc.grade != null && (
-                <p style={{ fontSize: '0.55rem', color: '#6b7280', margin: '0 0 4px' }}>
+                <p
+                    style={{
+                        fontSize: '0.55rem',
+                        color: '#6b7280',
+                        margin: '0 0 4px',
+                    }}
+                >
                     Graded {count}x · Next regrade: ${cost.toLocaleString()}
                 </p>
             )}
@@ -103,7 +109,7 @@ export function GradeSection({
             <button
                 onClick={handleGradeClick}
                 disabled={grading}
-                className="w-full py-1.5 rounded-lg font-semibold transition-all active:scale-95"
+                className="block w-1/2 mx-auto py-1.5 rounded-lg font-semibold transition-all active:scale-95"
                 style={{
                     fontSize: '0.62rem',
                     letterSpacing: '0.04em',
@@ -115,8 +121,8 @@ export function GradeSection({
                 }}
             >
                 {grading
-                    ? 'Grading…'
-                    : `${count === 0 ? 'Grade' : 'Regrade'} · $ ${cost.toLocaleString()}`}
+                    ? 'grading…'
+                    : `${count === 0 ? 'grade' : 'regrade'} · $ ${cost.toLocaleString()}`}
             </button>
 
             {coinError && (

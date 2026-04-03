@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
     RARITY_ORDER,
+    getBuyback,
     isRainbow,
     rarityGlowRgb,
     rarityGlowShadow,
@@ -16,7 +17,6 @@ import { CardTile } from '@/components/bag/CardTile'
 import { CardStats } from '@/components/bag/CardStats'
 import { ITEM_MAP, type ItemId } from '@/lib/items'
 import { TYPE_COLOR } from '@/lib/pokemon-types'
-import { GRADE_MULT } from '@/lib/gradeWorth'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const FILTERS = ['All', ...RARITY_ORDER]
@@ -144,20 +144,18 @@ export default function BagPage({
     async function handleSell(): Promise<void> {
         if (!selected) return
 
-        const mult =
-            selected.grade != null ? (GRADE_MULT[selected.grade] ?? 1) : 1
-        const saleAmount = Math.round(selected.worth * mult)
         const soldId = selected.id
+        const buyback = getBuyback(null, selected)
         await fetch('/api/buyback-card', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                card_buyback_amount: saleAmount,
+                card_buyback_amount: buyback,
                 user_card_id: soldId,
             }),
         })
         setUserCards((prev) => prev.filter((uc) => uc.id !== soldId))
-        setCoins((prev) => prev + saleAmount)
+        setCoins((prev) => prev + buyback)
         setSelected(null)
     }
 
@@ -518,7 +516,7 @@ export default function BagPage({
                                             }}
                                         >
                                             {expandMsg ||
-                                                (expanding ? '…' : '+Space')}
+                                                (expanding ? '…' : '+ space')}
                                         </button>
                                         {expandConfirm && !expandMsg && (
                                             <>
@@ -1274,10 +1272,11 @@ export default function BagPage({
             {/* fullscreen overlay */}
             {isWide && selected && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-8"
+                    className="fixed inset-0 z-50 flex items-start justify-center p-8"
                     style={{
                         background: 'rgba(0,0,0,0.9)',
                         backdropFilter: 'blur(20px)',
+                        paddingTop: '5vh',
                     }}
                     onClick={() => setSelected(null)}
                 >
