@@ -208,7 +208,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 body: JSON.stringify({ battleId: battle.id, attackIndex }),
             }).then(r => r.json())
 
-            const { battle: updated } = await fetchPromise
+            const { battle: updated, coinsLost } = await fetchPromise
             if (!updated) return
 
             const log = updated.battle_log as BattleLogEntry[]
@@ -403,6 +403,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     .catch(() => {})
             } else if (updated.status === 'lost') {
                 setPhase('lost')
+                if (coinsLost) setWonCoins(-coinsLost) // negative = lost coins
             } else {
                 const newActive = updated.user_cards[updated.user_active_index]
                 const hasLiving = updated.user_cards.some((c: BattleCard, i: number) =>

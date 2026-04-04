@@ -379,7 +379,17 @@ export async function POST(request: NextRequest) {
             .from('n_battles')
             .update({ status: 'lost', user_cards: userCards, n_cards: nCards, turn, battle_log: log.slice(-20), n_next_move: null })
             .eq('id', battleId).select('*').single()
-        return NextResponse.json({ battle: lostBattle })
+        // Deduct 1-100 coins from player on defeat (floored at 0)
+        const coinsLost = Math.floor(Math.random() * 100) + 1
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('coins')
+            .eq('id', user.id)
+            .single()
+        const currentCoins = (profile?.coins ?? 0) as number
+        const newCoins = Math.max(0, currentCoins - coinsLost)
+        await supabase.from('profiles').update({ coins: newCoins }).eq('id', user.id)
+        return NextResponse.json({ battle: lostBattle, coinsLost: currentCoins - newCoins })
     }
 
     const { data: updated } = await supabase

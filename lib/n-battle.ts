@@ -2057,6 +2057,12 @@ export function calcDamage(
     )
     dmg = Math.round(dmg * effectiveness)
 
+    // Apply 85-100% damage variance (skip for zero-damage status/heal moves)
+    if (dmg > 0) {
+        const variance = 0.85 + Math.random() * 0.15
+        dmg = Math.max(1, Math.round(dmg * variance))
+    }
+
     return Math.max(0, dmg)
 }
 
