@@ -6,7 +6,7 @@ import { TRAINER_INFO } from '@/lib/n-battle'
 import type { CardForBattle } from '@/lib/types'
 import { baseName } from '@/lib/types/cards'
 
-export type BattlePhase = 'pre-dialogue' | 'team-reveal' | 'card-select' | 'battle' | 'won' | 'lost'
+export type BattlePhase = 'pre-dialogue' | 'team-reveal' | 'card-select' | 'battle' | 'post-dialogue' | 'won' | 'lost'
 
 export type EvolveCandidate = {
     userCardId: string
@@ -52,6 +52,8 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [crownDropped, setCrownDropped]           = useState(false)
     const [wonCoins, setWonCoins]                   = useState<number | null>(null)
     const [startError, setStartError]               = useState<string | null>(null)
+    const [postDialogueQuote, setPostDialogueQuote] = useState<string | null>(null)
+    const [postDialogueType, setPostDialogueType]   = useState<'win' | 'loss' | null>(null)
 
     const advanceResolveRef = useRef<(() => void) | null>(null)
     // Ref-based acting guard — prevents concurrent doAttack/doSwitch calls
@@ -384,7 +386,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             setBattle(updated)
 
             if (updated.status === 'won') {
-                setPhase('won')
+                const trainerKey = (options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO
+                setPostDialogueQuote(TRAINER_INFO[trainerKey]?.dialogue?.defeatQuote ?? '')
+                setPostDialogueType('win')
+                setPhase('post-dialogue')
                 fetch('/api/n-battle/award-exp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -402,8 +407,11 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                     .then(d => { if (d.granted) setCrownDropped(true) })
                     .catch(() => {})
             } else if (updated.status === 'lost') {
-                setPhase('lost')
                 if (coinsLost) setWonCoins(-coinsLost) // negative = lost coins
+                const trainerKey = (options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO
+                setPostDialogueQuote(TRAINER_INFO[trainerKey]?.dialogue?.victoryQuote ?? '')
+                setPostDialogueType('loss')
+                setPhase('post-dialogue')
             } else {
                 const newActive = updated.user_cards[updated.user_active_index]
                 const hasLiving = updated.user_cards.some((c: BattleCard, i: number) =>
@@ -547,6 +555,13 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         return `${last.actor === 'user' ? 'You' : 'N'} used ${last.attackName}!${last.damage > 0 ? ` Dealt ${last.damage} dmg.` : ''}`
     }, [battle, acting, battleTextOverride])
 
+    function advancePostDialogue() {
+        if (postDialogueType === 'win') setPhase('won')
+        else setPhase('lost')
+        setPostDialogueQuote(null)
+        setPostDialogueType(null)
+    }
+
     return {
         phase, setPhase,
         battle, setBattle,
@@ -581,5 +596,8 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         nRecalling,
         trainerSprite,
         startError,
+        postDialogueQuote,
+        postDialogueType,
+        advancePostDialogue,
     }
 }

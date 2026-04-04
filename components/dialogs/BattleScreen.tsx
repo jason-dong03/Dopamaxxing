@@ -536,6 +536,55 @@ export default function BattleScreen({
         )
     }
 
+    // ── POST-DIALOGUE ─────────────────────────────────────────────────────────
+    if (battle.phase === 'post-dialogue') {
+        const isWin = battle.postDialogueType === 'win'
+        const trainerColor = TRAINER_INFO[tid]?.color ?? '#818cf8'
+        return createPortal(
+            <div
+                onClick={battle.advancePostDialogue}
+                style={{
+                    position: 'fixed', inset: 0, zIndex: 99999, cursor: 'pointer',
+                    background: `linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.95) 70%, #000 100%), url('/assets/pokemon-fight.jpg') center/cover no-repeat`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
+                    paddingBottom: 60, userSelect: 'none',
+                }}
+            >
+                {/* Trainer sprite */}
+                <div style={{ marginBottom: 24 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={TRAINER_INFO[tid]?.sprite}
+                        alt={TRAINER_INFO[tid]?.name}
+                        style={{ height: 100, imageRendering: 'pixelated', filter: `drop-shadow(0 0 20px ${trainerColor}66)` }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
+                </div>
+                {/* Dialogue box */}
+                <div style={{
+                    width: '100%', maxWidth: 480, padding: '0 20px',
+                }}>
+                    <div style={{
+                        background: 'rgba(0,0,0,0.9)', border: `1px solid ${trainerColor}55`,
+                        borderRadius: 12, padding: '14px 18px',
+                        boxShadow: `0 0 20px ${trainerColor}22`,
+                    }}>
+                        <div style={{ fontSize: '0.58rem', fontWeight: 700, color: trainerColor, letterSpacing: '0.08em', marginBottom: 8, textTransform: 'uppercase' }}>
+                            {isWin ? `${TRAINER_INFO[tid]?.name} is defeated` : TRAINER_INFO[tid]?.name}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                            {battle.postDialogueQuote}
+                        </div>
+                        <div style={{ textAlign: 'right', marginTop: 10 }}>
+                            <span style={{ fontSize: '0.55rem', color: '#4b5563', letterSpacing: '0.06em' }}>TAP TO CONTINUE ▶</span>
+                        </div>
+                    </div>
+                </div>
+            </div>,
+            document.body,
+        )
+    }
+
     // ── WON ───────────────────────────────────────────────────────────────────
     if (battle.phase === 'won') {
         const evoCandidate = battle.evolveCandidates[0] ?? null
@@ -697,13 +746,17 @@ export default function BattleScreen({
 
     // ── LOST ──────────────────────────────────────────────────────────────────
     if (battle.phase === 'lost') {
+        const coinsLostAmt = battle.wonCoins !== null ? Math.abs(battle.wonCoins) : null
+        const coinMsg = coinsLostAmt === null ? null
+            : coinsLostAmt === 0 ? "You lost nothing... this time."
+            : `You lost ${coinsLostAmt} coin${coinsLostAmt !== 1 ? 's' : ''}.`
         return createPortal(
             <div
                 style={{
                     position: 'fixed',
                     inset: 0,
                     zIndex: 99999,
-                    background: 'rgba(0,0,0,0.97)',
+                    background: '#000',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -712,42 +765,28 @@ export default function BattleScreen({
                 }}
             >
                 <div style={{ textAlign: 'center', maxWidth: 420 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif'}
-                        alt={TRAINER_INFO[tid]?.name ?? 'N'}
-                        style={{
-                            display: 'block',
-                            margin: '0 auto 20px',
-                            height: 120,
-                            imageRendering: 'pixelated',
-                            opacity: 0.7,
-                        }}
-                        onError={(e) => {
-                            ;(e.target as HTMLImageElement).style.display =
-                                'none'
-                        }}
-                    />
                     <h2
                         style={{
-                            fontSize: '1.2rem',
-                            fontWeight: 700,
-                            color: '#f87171',
-                            margin: '0 0 12px',
+                            fontSize: '1.5rem',
+                            fontWeight: 900,
+                            color: '#ffffff',
+                            margin: '0 0 8px',
+                            letterSpacing: '0.04em',
                         }}
                     >
-                        Defeated.
+                        You whited out!
                     </h2>
-                    <p
-                        style={{
-                            fontSize: 'clamp(0.78rem,2.5vw,0.85rem)',
-                            color: '#6b7280',
-                            lineHeight: 1.7,
+                    {coinMsg && (
+                        <p style={{
+                            fontSize: '0.82rem',
+                            color: coinsLostAmt === 0 ? '#6b7280' : '#f87171',
                             margin: '0 0 32px',
-                        }}
-                    >
-                        {DEFEAT_QUOTE}
-                    </p>
+                            fontWeight: 600,
+                        }}>
+                            {coinMsg}
+                        </p>
+                    )}
+                    {!coinMsg && <div style={{ marginBottom: 32 }} />}
                     <div
                         style={{
                             display: 'flex',
