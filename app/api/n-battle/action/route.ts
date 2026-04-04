@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import {
-    calcDamage, checkHit, tickStatus, decrementStatus, nextAlive, getTypeEffectiveness, statStageMult,
+    calcDamage, checkHit, tickStatus, decrementStatus, nextAlive, getTypeEffectiveness,
     type BattleCard, type BattleLogEntry, type StatusEffect, type StatName,
 } from '@/lib/n-battle'
 
@@ -83,11 +83,16 @@ function applyAttack(
         }
     }
 
+    // Multi-hit support (gen 3-4 behavior: all hits land once initial check passes)
+    const actualHits = attack.hitCount
+        ? Math.floor(Math.random() * (attack.hitCount[1] - attack.hitCount[0] + 1)) + attack.hitCount[0]
+        : 1
+
     const isCritical = attack.damage > 0 && Math.random() < 0.0625
-    const rawDmg = calcDamage(attack, attacker, defender)
+    const rawDmg = calcDamage(attack, attacker, defender) * actualHits
     const dmg = isCritical ? Math.round(rawDmg * 1.5) : rawDmg
     const effectiveness = getTypeEffectiveness(attack.attackType, defender.pokemon_type)
-    let defHp = Math.max(0, defender.hp - dmg)
+    const defHp = Math.max(0, defender.hp - dmg)
     let defStatus = { ...defender, hp: defHp }
     let atkSelf = { ...attacker }
 
@@ -138,9 +143,11 @@ function applyAttack(
         critical: isCritical || undefined,
         effect: defStatus.statusEffect !== defender.statusEffect
             ? `${defender.name} is now ${STATUS_LABEL[defStatus.statusEffect]}!`
+            : actualHits > 1 ? `Hit ${actualHits} time${actualHits > 1 ? 's' : ''}!`
             : attack.selfDamage ? `${attacker.name} took ${attack.selfDamage} recoil.` : undefined,
         fainted: defHp <= 0 ? defender.name : undefined,
         statChanges: statChanges.length > 0 ? statChanges : undefined,
+        hitCount: actualHits > 1 ? actualHits : undefined,
     }
 
     return { attacker: atkSelf, defender: defStatus, logEntry }
@@ -166,8 +173,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Battle not found or not active' }, { status: 404 })
     }
 
-    let userCards: BattleCard[] = [...battle.user_cards]
-    let nCards:    BattleCard[] = [...battle.n_cards]
+    const userCards: BattleCard[] = [...battle.user_cards]
+    const nCards:    BattleCard[] = [...battle.n_cards]
     let uIdx = battle.user_active_index as number
     let nIdx = battle.n_active_index   as number
     const log: BattleLogEntry[] = [...battle.battle_log]

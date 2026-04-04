@@ -167,6 +167,7 @@ export type Attack = {
     enemyDrops?: { stat: StatName; stages: number }[] // stat drops to enemy (e.g. Growl, Charm)
     moveAccuracy?: number | null // move's own accuracy (null = always hits), for display only
     priority?: number // turn order priority (+1 goes before 0; -1 goes after 0)
+    hitCount?: [number, number] // [min, max] hits — e.g. [2,2] Double Kick, [2,5] Icicle Spear
 }
 
 export type BattleCard = {
@@ -203,6 +204,7 @@ export type BattleLogEntry = {
     typeEffectiveness?: number // 0 = immune, 0.5 = not very effective, 2 = super effective
     statChanges?: string[] // e.g. ["Gengar's ATK sharply rose!", "Gengar's SPD rose!"]
     critical?: boolean
+    hitCount?: number // actual number of hits landed for multi-hit moves
 }
 
 export type BattleState = {
@@ -1294,10 +1296,11 @@ export const IRIS_TEAM: TeamTemplate[] = [
                 effect: 'The ground shakes violently.',
             },
             {
-                name: 'Iron Tail',
-                damage: 100,
-                attackType: 'steel',
-                effect: 'A steel-hard tail slam.',
+                name: 'Double Kick',
+                damage: 30,
+                attackType: 'fighting',
+                effect: 'Strikes twice in quick succession.',
+                hitCount: [2, 2] as [number, number],
             },
         ],
     },
@@ -1848,6 +1851,11 @@ export const MOVE_EXTRAS: Record<string, MoveExtra> = {
     'mirror-coat': { priority: -1 },
     'circle-throw': { priority: -6 },
     'dragon-tail': { priority: -6 },
+
+    // ── Multi-hit moves ───────────────────────────────────────────────────────
+    'double-kick': { hitCount: [2, 2] as [number, number] },
+    'icicle-spear': { hitCount: [2, 5] as [number, number] },
+    'bullet-seed': { hitCount: [2, 5] as [number, number] },
 }
 
 // ─── Synthetic attacks and stats for user cards ───────────────────────────────
@@ -2018,7 +2026,7 @@ export function calcDamage(
     if (attack.damageBonus && attack.bonusCondition) {
         if (
             attack.bonusCondition === 'hp_below_max' &&
-            defender.hp < defender.maxHp
+            defender.hp < defender.maxHp / 2
         ) {
             dmg += attack.damageBonus
         }
