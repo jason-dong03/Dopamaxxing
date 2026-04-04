@@ -13,6 +13,8 @@ export type Card = {
     attr_edges?: number
     attr_surface?: number
     set_id?: string
+    card_level?: number
+    storedWorth?: number
     preview_stats?: CardStats
     preview_nature?: string | null
 }

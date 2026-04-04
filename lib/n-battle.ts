@@ -1522,6 +1522,12 @@ export const COLRESS_TEAM: TeamTemplate[] = [
 
 export type TrainerId = 'n' | 'ghetsis' | 'iris' | 'colress'
 
+export type TrainerDialogue = {
+    preBattleLines: string[]
+    victoryQuote: string  // shown when trainer wins (player lost)
+    defeatQuote: string   // shown when trainer loses (player won)
+}
+
 export const TRAINER_INFO: Record<
     TrainerId,
     {
@@ -1530,6 +1536,7 @@ export const TRAINER_INFO: Record<
         sprite: string
         color: string
         types: string[]
+        dialogue: TrainerDialogue
     }
 > = {
     n: {
@@ -1538,6 +1545,19 @@ export const TRAINER_INFO: Record<
         sprite: '/trainers/N-masters.gif',
         color: '#4ade80',
         types: ['dark', 'dragon', 'water', 'rock'],
+        dialogue: {
+            preBattleLines: [
+                '...',
+                'You made it this far.',
+                'All those packs. All those sacrifices. And now you stand here \u2014 with them.',
+                "I've been waiting. Since before you opened your first pack.",
+                'My team is ready. My closest companions... and the two legends who hear my conviction..',
+                "Show me the bonds you've built. Show me that they're real.",
+                "... Let's go.",
+            ],
+            victoryQuote: '"Your bonds need to grow stronger. Return when you are ready."',
+            defeatQuote: '"The bonds between you and your Pok\u00e9mon \u2014 they\u2019re real. I can\u2019t deny it anymore."',
+        },
     },
     ghetsis: {
         name: 'Ghetsis',
@@ -1545,6 +1565,19 @@ export const TRAINER_INFO: Record<
         sprite: 'https://play.pokemonshowdown.com/sprites/trainers/ghetsis.png',
         color: '#c084fc',
         types: ['ghost', 'dark', 'dragon', 'electric'],
+        dialogue: {
+            preBattleLines: [
+                'So.',
+                'You believe you have power.',
+                'How... predictable.',
+                'Every trainer who has stood before me believed the same thing.',
+                'Power is not yours to hold. It was always mine to take.',
+                'Your Pok\u00e9mon \u2014 they are tools. Nothing more.',
+                'I will demonstrate exactly what control looks like.',
+            ],
+            victoryQuote: '"Weakness is the only thing you have proven today. Pathetic."',
+            defeatQuote: '"...Impossible. This changes nothing. I will return with something far worse."',
+        },
     },
     iris: {
         name: 'Iris',
@@ -1552,6 +1585,19 @@ export const TRAINER_INFO: Record<
         sprite: 'https://play.pokemonshowdown.com/sprites/trainers/iris.png',
         color: '#60a5fa',
         types: ['dragon', 'water', 'steel', 'rock'],
+        dialogue: {
+            preBattleLines: [
+                'Hey!',
+                "You've got a good team. I can already tell.",
+                "Dragons aren't just about power \u2014 they're about trust.",
+                'My partners and I have trained hard for this.',
+                'And I love a good fight!',
+                "So don't hold back, okay?",
+                "Let's see what you've got!",
+            ],
+            victoryQuote: '"Good battle! But you\'ve got more growing to do. Come back stronger!"',
+            defeatQuote: '"Wow! That was amazing! You and your Pok\u00e9mon \u2014 what a bond you have!"',
+        },
     },
     colress: {
         name: 'Colress',
@@ -1559,6 +1605,19 @@ export const TRAINER_INFO: Record<
         sprite: 'https://play.pokemonshowdown.com/sprites/trainers/colress.png',
         color: '#38bdf8',
         types: ['steel', 'electric', 'psychic'],
+        dialogue: {
+            preBattleLines: [
+                'Fascinating.',
+                "I've been observing your progress.",
+                'The data shows considerable potential.',
+                'But potential is merely a variable \u2014 it must be tested.',
+                'My research demands optimal opponents.',
+                "Your Pok\u00e9mon's true power... I intend to draw it out.",
+                'Shall we begin the experiment?',
+            ],
+            victoryQuote: '"The data is clear. Your potential has not yet been fully realized. More study is needed."',
+            defeatQuote: '"Remarkable. The bond between trainer and Pok\u00e9mon \u2014 it truly does amplify power beyond calculation."',
+        },
     },
 }
 

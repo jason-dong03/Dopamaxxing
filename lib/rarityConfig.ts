@@ -57,44 +57,46 @@ export const WEIGHTS: Record<string, number> = {
     '???': 0.01,
 }
 
-// Slots 1–4: mostly bulk, small uncommon+ chance
+// Slots 1–4: heavy commons, small chance of anything better (duds most of the time)
+// ~91.5% Common, ~6.5% Uncommon, ~2% Rare+
 export const WEIGHTS_BULK: Record<string, number> = {
-    Common: 78,
-    Uncommon: 16,
-    Rare: 4.5,
-    Epic: 1.0,
-    Mythical: 0.3,
-    Legendary: 0.12,
-    Divine: 0.05,
-    Celestial: 0.02,
-    '???': 0.01,
+    Common: 91.5,
+    Uncommon: 6.5,
+    Rare: 1.6,
+    Epic: 0.28,
+    Mythical: 0.08,
+    Legendary: 0.025,
+    Divine: 0.008,
+    Celestial: 0.003,
+    '???': 0.001,
 }
 
-// Slot 5: guaranteed uncommon+ (no Common)
+// Slot 5: guaranteed uncommon+ — mostly Uncommon, Rare is a treat, Epic+ is rare
+// ~72% Uncommon, ~22% Rare, ~6% Epic+
 export const WEIGHTS_UNCOMMON_PLUS: Record<string, number> = {
-    Uncommon: 58,
-    Rare: 28,
-    Epic: 9,
-    Mythical: 3,
-    Legendary: 1.4,
-    Divine: 0.45,
-    Celestial: 0.1,
-    '???': 0.05,
+    Uncommon: 72,
+    Rare: 22,
+    Epic: 4.5,
+    Mythical: 1.1,
+    Legendary: 0.3,
+    Divine: 0.07,
+    Celestial: 0.02,
+    '???': 0.005,
 }
 
 // Bonus 6th card & event bonus: guaranteed rare+
 export const WEIGHTS_RARE_PLUS: Record<string, number> = {
-    Rare: 62,
-    Epic: 22,
-    Mythical: 9,
-    Legendary: 4.5,
-    Divine: 1.5,
-    Celestial: 0.45,
+    Rare: 68,
+    Epic: 20,
+    Mythical: 7.5,
+    Legendary: 3.0,
+    Divine: 1.0,
+    Celestial: 0.3,
     '???': 0.05,
 }
 
 // Chance of a hidden 6th card per pack (rare+ guaranteed if hit)
-export const BONUS_CARD_CHANCE = 0.08 // 8%
+export const BONUS_CARD_CHANCE = 0.05 // 5% (down from 8%)
 
 // Generic weighted pick from any weight table
 export function pickRarityFromWeights(weights: Record<string, number>): string {
@@ -245,10 +247,6 @@ export const HOT_MARKET_CHANCE = 0.05 // 5% chance of hot market
 export const HOT_MARKET_MULTIPLIER = 1.25 // +25% coins on hot market
 export const FIRST_EDITION_MULTIPLIER = 2.5 // 1st edition cards are worth 2.5× base buyback
 
-function randBetween(min: number, max: number) {
-    return Math.random() * (max - min) + min
-}
-
 export type Attrs = {
     attr_centering: number
     attr_corners: number
@@ -293,8 +291,10 @@ export function getBuyback(
     userCard: UserCard | null,
 ): number {
     if (card) {
-        const isFirstEdition = (card.set_id as string | undefined)?.endsWith('-1ed') ?? false
-        return calculateBuyback(card.rarity, card.worth ?? 0, isFirstEdition).amount
+        const isFirstEdition =
+            (card.set_id as string | undefined)?.endsWith('-1ed') ?? false
+        return calculateBuyback(card.rarity, card.worth ?? 0, isFirstEdition)
+            .amount
     } else if (userCard) {
         // worth is already the correct sell price (tierRate applied at pack open, condMult applied on grade)
         return userCard.worth ?? 0
@@ -302,38 +302,101 @@ export function getBuyback(
     return 0
 }
 export function tierBuyBack(rarity: string): number {
-    if (rarity === '???') return 2.75
-    if (rarity === 'Celestial') return 2
-    if (rarity === 'Divine') return 1.5
-    if (rarity === 'Legendary') return 0.95
-    if (rarity === 'Mythical') return 0.8
+    if (rarity === '???') return 10
+    if (rarity === 'Celestial') return 4.5
+    if (rarity === 'Divine') return 2.25
+    if (rarity === 'Legendary') return 1.25
+    if (rarity === 'Mythical') return 0.85
     if (rarity === 'Epic') return 0.65
     if (rarity === 'Rare') return 0.45
     return 0.2
 }
 /**
+ * Returns the starting level for a newly pulled card.
+ * 70% chance of level 1 (less for higher rarities), rest exponentially distributed 2–100.
+ * Expected level for non-1 draws scales with rarity.
+ */
+export function randomCardLevel(rarity: string): number {
+    const configs: Record<
+        string,
+        { level1Prob: number; expectedLevel: number }
+    > = {
+        Common: { level1Prob: 0.7, expectedLevel: 3 },
+        Uncommon: { level1Prob: 0.65, expectedLevel: 4 },
+        Rare: { level1Prob: 0.58, expectedLevel: 6 },
+        Epic: { level1Prob: 0.5, expectedLevel: 10 },
+        Legendary: { level1Prob: 0.42, expectedLevel: 16 },
+        Mythical: { level1Prob: 0.35, expectedLevel: 25 },
+        Divine: { level1Prob: 0.28, expectedLevel: 38 },
+        Celestial: { level1Prob: 0.22, expectedLevel: 55 },
+        '???': { level1Prob: 0.15, expectedLevel: 75 },
+    }
+    const cfg = configs[rarity] ?? configs['Common']!
+    if (Math.random() < cfg.level1Prob) return 1
+
+    // Geometric decay: P(k) ∝ r^(k-2) for k in [2,100]
+    // r chosen so E[k | k≥2] ≈ expectedLevel: r = (E-2)/(E-1)
+    const r = Math.min(0.99, (cfg.expectedLevel - 2) / (cfg.expectedLevel - 1))
+    const norm = (1 - Math.pow(r, 99)) / (1 - r)
+    const rand = Math.random()
+    let cumulative = 0
+    for (let k = 2; k <= 100; k++) {
+        cumulative += Math.pow(r, k - 2) / norm
+        if (rand <= cumulative) return k
+    }
+    return 100
+}
+
+/**
+ * Level multiplier for buyback (step tiers):
+ *   1 → 1×  |  2–10 → 1.5×  |  11–25 → 1.75×  |  26–50 → 2.25×
+ *   51–75 → 2.75×  |  76–99 → 3×  |  100 → 6×
+ */
+export function levelBuybackMult(level: number): number {
+    if (level >= 100) return 3.5
+    if (level >= 76) return 2.75
+    if (level >= 51) return 2.25
+    if (level >= 26) return 1.75
+    if (level >= 11) return 1.5
+    if (level >= 2) return 1.2
+    return 0.5
+}
+
+/**
  * Calculates buyback value.
- *   1. base = card market price
- *   2. × tierBuybackRate (5x = ???, 2.5x = celestial, 1.5 = divine, 0.95 = legendary, 0.8 = mythical)
- *      (0.65 = epic, 0.45 = rare, 0.2 = uncommon & common)
+ *   storedWorth = base × tierRate × levelMult  (saved to user_cards.worth)
+ *   amount      = storedWorth × editionMult × hotMult  (shown as coins at pack open)
+ *   After grading: worth is multiplied by conditionMult in grade-card route.
  */
 export function calculateBuyback(
     rarity: string,
     _marketPrice = 0,
     isFirstEdition = false,
+    level = 1,
 ): {
     amount: number
+    storedWorth: number
     rate: number
     isHot: boolean
 } {
     const rate = tierBuyBack(rarity)
     const editionMult = isFirstEdition ? FIRST_EDITION_MULTIPLIER : 1
     const isHot = Math.random() < HOT_MARKET_CHANCE
+    const storedWorth = parseFloat(
+        (_marketPrice * rate * levelBuybackMult(level)).toFixed(2),
+    )
     let amount = parseFloat(
-        (_marketPrice * rate * editionMult * (isHot ? HOT_MARKET_MULTIPLIER : 1)).toFixed(2),
+        (
+            storedWorth *
+            editionMult *
+            (isHot ? HOT_MARKET_MULTIPLIER : 1)
+        ).toFixed(2),
     )
     if (amount < 0.01) amount = 0.01
-    return { amount, rate, isHot }
+    if (storedWorth < 0.01 && storedWorth !== 0) {
+        return { amount, storedWorth: 0.01, rate, isHot }
+    }
+    return { amount, storedWorth, rate, isHot }
 }
 
 // ─── gacha ────────────────────────────────────────────────────────────────────

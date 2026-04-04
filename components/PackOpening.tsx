@@ -504,9 +504,10 @@ export default function PackOpening({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cardId: card.id,
-                    worth: getCardWorth(card),
+                    worth: card.storedWorth ?? getCardWorth(card),
                     isHot: card.isHot,
                     rarity: card.rarity,
+                    cardLevel: card.card_level,
                     attrs: cardAttrs(card),
                     previewStats: card.preview_stats,
                     previewNature: card.preview_nature,
@@ -527,9 +528,10 @@ export default function PackOpening({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     cardId: card.id,
-                    worth: getCardWorth(card),
+                    worth: card.storedWorth ?? getCardWorth(card),
                     isHot: card.isHot,
                     rarity: card.rarity,
+                    cardLevel: card.card_level,
                     attrs: cardAttrs(card),
                     previewStats: card.preview_stats,
                     previewNature: card.preview_nature,

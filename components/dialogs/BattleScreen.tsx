@@ -3,13 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 
-import {
-    PRE_BATTLE_LINES,
-    VICTORY_QUOTE,
-    DEFEAT_QUOTE,
-} from '@/content/n-battle/dialogue'
-import { buildRevealTeam } from '@/content/n-battle/team'
+import { TRAINER_INFO } from '@/lib/n-battle'
 import type { TeamRevealEntry } from '@/content/n-battle/team'
+import { buildRevealTeam } from '@/content/n-battle/team'
 
 import { TeamRevealPhase } from '@/components/battle/TeamRevealPhase'
 import { CardSelectPhase } from '@/components/battle/CardSelectPhase'
@@ -55,10 +51,19 @@ export default function BattleScreen({
         preSelectedIds,
     })
 
-    // ── Build reveal team once on mount ───────────────────────────────────────
+    // ── Trainer dialogue derived from config ──────────────────────────────────
+    const tid = (trainerId ?? 'n') as keyof typeof TRAINER_INFO
+    const trainerDialogue = TRAINER_INFO[tid]?.dialogue ?? TRAINER_INFO.n.dialogue
+    const PRE_BATTLE_LINES = trainerDialogue.preBattleLines
+    const VICTORY_QUOTE = trainerDialogue.defeatQuote  // trainer says this when they lose (player wins)
+    const DEFEAT_QUOTE = trainerDialogue.victoryQuote  // trainer says this when they win (player loses)
+
+    // ── Build reveal team — only for N ────────────────────────────────────────
     useEffect(() => {
-        setRevealTeam(buildRevealTeam())
-    }, [])
+        if ((trainerId ?? 'n') === 'n') {
+            setRevealTeam(buildRevealTeam())
+        }
+    }, [trainerId])
 
     // ── If skipping to card-select, either auto-start (full lineup) or load card picker ──
     useEffect(() => {
@@ -109,7 +114,7 @@ export default function BattleScreen({
         } else {
             battle.setPhase('team-reveal')
         }
-    }, [isTyping, dialogueIdx, currentLine, battle])
+    }, [isTyping, dialogueIdx, currentLine, battle, PRE_BATTLE_LINES])
 
     useEffect(() => {
         if (battle.phase !== 'pre-dialogue') return
@@ -165,8 +170,8 @@ export default function BattleScreen({
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src="/trainers/N-masters.gif"
-                        alt="N"
+                        src={TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif'}
+                        alt={TRAINER_INFO[tid]?.name ?? 'N'}
                         style={{
                             height: 'clamp(110px,18vh,220px)',
                             imageRendering: 'pixelated',
@@ -213,7 +218,7 @@ export default function BattleScreen({
                             boxShadow: '0 2px 12px rgba(22,163,74,0.5)',
                         }}
                     >
-                        N
+                        {TRAINER_INFO[tid]?.name ?? 'N'}
                     </div>
 
                     <p
@@ -316,8 +321,13 @@ export default function BattleScreen({
         )
     }
 
-    // ── TEAM REVEAL ───────────────────────────────────────────────────────────
+    // ── TEAM REVEAL — only for N; other trainers skip to card-select ─────────
     if (battle.phase === 'team-reveal') {
+        if ((trainerId ?? 'n') !== 'n') {
+            // Non-N trainer: skip team reveal immediately
+            battle.proceedToCardSelect()
+            return null
+        }
         return createPortal(
             <TeamRevealPhase
                 team={revealTeam}
@@ -591,8 +601,8 @@ export default function BattleScreen({
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src="/trainers/N-masters.gif"
-                        alt="N"
+                        src={TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif'}
+                        alt={TRAINER_INFO[tid]?.name ?? 'N'}
                         style={{
                             display: 'block',
                             margin: '0 auto 20px',
@@ -669,8 +679,8 @@ export default function BattleScreen({
                 <div style={{ textAlign: 'center', maxWidth: 420 }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src="/trainers/N-masters.gif"
-                        alt="N"
+                        src={TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif'}
+                        alt={TRAINER_INFO[tid]?.name ?? 'N'}
                         style={{
                             display: 'block',
                             margin: '0 auto 20px',

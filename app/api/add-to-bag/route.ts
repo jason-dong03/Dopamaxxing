@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         if (!user)
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const { cardId, worth, isHot, rarity, attrs: previewAttrs, previewStats, previewNature } = await request.json()
+        const { cardId, worth, isHot, rarity, cardLevel, attrs: previewAttrs, previewStats, previewNature } = await request.json()
 
         // Check bag capacity
         const [{ count: cardCount }, { data: profileData }] = await Promise.all([
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
             user_id: user.id,
             card_id: cardId,
             card_xp: 0,
-            card_level: 1,
+            card_level: cardLevel ?? 1,
             is_favorited: false,
             worth,
             is_hot: isHot,

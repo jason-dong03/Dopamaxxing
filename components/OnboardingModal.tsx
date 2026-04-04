@@ -19,7 +19,7 @@ const CUTSCENE_LINES = [
 ]
 
 // ─── Starter pack choices ─────────────────────────────────────────────────────
-const STARTER_PACK_IDS = ['sv10.5b', 'sv10.5w', 'sv08.5', 'sv03.5', 'me02.5']
+const STARTER_PACK_IDS = ['sv10.5b', 'sv10.5w', 'sv08.5', 'sv10', 'sv03.5', 'sv04.5', 'sv03', 'swsh12.5', 'me02.5', 'me02']
 const STARTER_PACKS = PACKS.filter(p => STARTER_PACK_IDS.includes(p.id))
 
 // ─── Tutorial steps ───────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ type StepDef = {
 const STEPS: StepDef[] = [
     {
         title: 'Your Coin Balance',
-        body: "You've started with $100 coins and earn 1 coin per minute. Your balance is always shown at the top.",
+        body: "You've started with $20 coins from your mom and earn passive coins over time. Your balance is always shown at the top.",
         target: '[data-tutorial="coins"]',
         prompt: 'Click your coin balance to continue',
     },
@@ -322,7 +322,7 @@ export default function OnboardingModal() {
                     </div>
 
                     {/* Pack grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, maxHeight: '50vh', overflowY: 'auto' }}>
                         {STARTER_PACKS.map(pack => (
                             <button
                                 key={pack.id}
@@ -407,8 +407,10 @@ export default function OnboardingModal() {
         height: targetRect.height + PAD * 2,
     } : null
 
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const TOOLTIP_H = 160 // estimated tooltip height
     const tooltipAbove = targetRect && !current?.tooltipAnchor
-        ? targetRect.top > (typeof window !== 'undefined' ? window.innerHeight * 0.5 : 400)
+        ? (hole && hole.bottom + TOOLTIP_H + 14 > vh && hole.top - TOOLTIP_H - 14 > 0)
         : false
 
     return createPortal(
@@ -436,10 +438,10 @@ export default function OnboardingModal() {
                         left: '50%', transform: 'translateX(-50%)',
                         width: 'min(360px, calc(100vw - 32px))',
                         ...(current?.tooltipAnchor === 'inside-top'
-                            ? { top: hole.top + 14 }
+                            ? { top: Math.max(8, hole.top + 14) }
                             : tooltipAbove
-                                ? { bottom: window.innerHeight - hole.top + 14 }
-                                : { top: hole.bottom + 14 }
+                                ? { bottom: Math.max(8, vh - hole.top + 14) }
+                                : { top: Math.min(vh - TOOLTIP_H - 8, hole.bottom + 14) }
                         ),
                         background: 'linear-gradient(160deg,#0e0e1a 0%,#0a0a12 100%)',
                         border: '1px solid rgba(168,85,247,0.3)',

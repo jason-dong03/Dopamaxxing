@@ -17,6 +17,7 @@ export default function PassiveCoins() {
                 const data = await res.json()
                 if (!data.awarded) return
 
+                window.dispatchEvent(new CustomEvent('coin-change', { detail: { delta: data.awarded } }))
                 const id = Date.now()
                 setToasts((prev) => [...prev, { id, awarded: data.awarded }])
                 setTimeout(

@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { calculateBuyback } from '@/lib/rarityConfig'
+import { calculateBuyback, levelBuybackMult } from '@/lib/rarityConfig'
 import {
     NATURE_BY_NAME,
     NATURE_TIER_COLOR,
@@ -76,6 +76,7 @@ export function CardStatsPanel({
         currentCard.rarity,
         currentCard.worth,
         (currentCard.set_id as string | undefined)?.endsWith('-1ed') ?? false,
+        currentCard.card_level ?? 1,
     )
     const bagLeft = bagCount !== null ? bagCapacity - bagCount : null
     const bagFull = bagCount !== null && bagCount >= bagCapacity
@@ -150,6 +151,16 @@ export function CardStatsPanel({
                                         : '—'}
                                 </span>
                             </div>
+                            {currentCard.card_level != null && (
+                                <div>
+                                    <span style={{ color: '#9ca3af' }}>
+                                        ② Level ({currentCard.card_level}):
+                                    </span>
+                                    <span style={{ color: '#34d399', marginLeft: 4 }}>
+                                        {levelBuybackMult(currentCard.card_level)}×
+                                    </span>
+                                </div>
+                            )}
                             <div>
                                 <span style={{ color: '#9ca3af' }}>
                                     ③ Buyback rate ({currentCard.rarity}
@@ -393,7 +404,7 @@ export function CardStatsPanel({
                 >
                     <p
                         style={{
-                            fontSize: '1rem',
+                            fontSize: '0.75rem',
                             fontWeight: 600,
                             color: 'var(--app-text)',
                             margin: 0,
@@ -403,15 +414,40 @@ export function CardStatsPanel({
                     >
                         {currentCard.name}
                     </p>
-                    <span
+                    <div
                         style={{
-                            fontSize: '0.62rem',
-                            color: 'var(--app-text-faint)',
-                            lineHeight: 1.2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
                         }}
                     >
-                        #{currentCard.national_pokedex_number}
-                    </span>
+                        <span
+                            style={{
+                                fontSize: '0.62rem',
+                                color: 'var(--app-text-faint)',
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            #{currentCard.national_pokedex_number}
+                        </span>
+                        {currentCard.card_level != null && (
+                            <span
+                                style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: 700,
+                                    color: '#60a5fa',
+                                    background: 'rgba(96,165,250,0.12)',
+                                    border: '1px solid rgba(96,165,250,0.25)',
+                                    borderRadius: 4,
+                                    padding: '1px 5px',
+                                    lineHeight: 1.4,
+                                    fontFamily: 'monospace',
+                                }}
+                            >
+                                Lv.{currentCard.card_level}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Tab bar */}

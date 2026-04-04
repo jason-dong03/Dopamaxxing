@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import {
     calculateBuyback,
+    randomCardLevel,
     WEIGHTS_BULK, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS,
     BONUS_CARD_CHANCE, pickRarityFromWeights,
     applyProfileXP, packXpGain,
@@ -235,13 +236,16 @@ export async function POST(request: NextRequest) {
             const pokeData = pokeDataResults[i].status === 'fulfilled' ? pokeDataResults[i].value : null
             const previewStats = rollStats(rarity, pokeData?.baseStats ?? undefined)
             const previewNature = rollNature(rarity)
-            const buybackResult = calculateBuyback(rarity, Number(card.market_price_usd) || 0, (card.set_id as string)?.endsWith('-1ed') ?? false)
+            const cardLevel = randomCardLevel(rarity)
+            const { storedWorth, ...buybackResult } = calculateBuyback(rarity, Number(card.market_price_usd) || 0, (card.set_id as string)?.endsWith('-1ed') ?? false, cardLevel)
             return {
                 ...card,
                 isNew: !ownedIds.has(card.id as string),
                 worth: card.market_price_usd,
+                storedWorth,
                 coins: buybackResult.amount,
                 pokedex_num: card.national_pokedex_number,
+                card_level: cardLevel,
                 ...previewAttrs,
                 ...buybackResult,
                 preview_stats: previewStats,

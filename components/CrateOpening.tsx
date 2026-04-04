@@ -29,9 +29,11 @@ type PoolCard = { id: string; image_url: string; name: string; rarity: string }
 type WonCard = PoolCard & {
     national_pokedex_number: number
     worth: number
+    storedWorth?: number
     isNew: boolean
     coins: number
     isHot: boolean
+    card_level?: number
     attr_centering?: number
     attr_corners?: number
     attr_edges?: number
@@ -168,9 +170,10 @@ export default function CrateOpening({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 cardId: wonCard.id,
-                worth: getCardWorth(wonCard),
+                worth: wonCard.storedWorth ?? getCardWorth(wonCard),
                 isHot: wonCard.isHot,
                 rarity: wonCard.rarity,
+                cardLevel: wonCard.card_level,
                 attrs: {
                     attr_centering: wonCard.attr_centering,
                     attr_corners: wonCard.attr_corners,

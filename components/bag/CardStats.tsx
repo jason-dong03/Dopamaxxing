@@ -1274,9 +1274,15 @@ export function CardStats({
                             {(tierRate * 100).toFixed(0)}%
                         </span>
                     </div>
+                    <div>
+                        <span style={{ color: '#9ca3af' }}>③ Level:</span>
+                        <span style={{ color: '#34d399', marginLeft: 4 }}>
+                            {uc.card_level}×
+                        </span>
+                    </div>
                     {isGraded && (
                         <div>
-                            <span style={{ color: '#9ca3af' }}>③ Condition mult:</span>
+                            <span style={{ color: '#9ca3af' }}>④ Condition mult:</span>
                             <span style={{ color: '#60a5fa', marginLeft: 4 }}>
                                 {condMult.toFixed(2)}×
                             </span>

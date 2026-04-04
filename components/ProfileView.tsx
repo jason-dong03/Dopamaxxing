@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { rarityTextStyle } from '@/lib/rarityConfig'
+import { rarityTextStyle, xpForLevel } from '@/lib/rarityConfig'
 import { NATURE_BY_NAME, NATURE_TIER_COLOR } from '@/lib/pokemon-stats'
 import { TYPE_COLOR } from '@/lib/pokemon-types'
 import { getTitleColor, getTitleRarity } from '@/lib/titleConfig'
@@ -1408,7 +1408,7 @@ export default function ProfileView({
     const rarity = showcaseCard?.cards.rarity ?? 'Common'
     const level = profile?.level ?? 1
     const xp = profile?.xp ?? 0
-    const xpNeeded = level * 100
+    const xpNeeded = xpForLevel(level)
     const xpPct = Math.min((xp / xpNeeded) * 100, 100)
 
     return (

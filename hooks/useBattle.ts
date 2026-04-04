@@ -47,7 +47,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [faintedSide, setFaintedSide]             = useState<'player' | 'enemy' | null>(null)
     const [nSendingOut, setNSendingOut]             = useState(false)
     const [nRecalling, setNRecalling]               = useState(false)
-    const [trainerSprite, setTrainerSprite]         = useState('/trainers/N-masters.gif')
+    const [trainerSprite, setTrainerSprite]         = useState(TRAINER_INFO[(options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO]?.sprite ?? '/trainers/N-masters.gif')
     const [isCriticalHit, setIsCriticalHit]         = useState(false)
     const [crownDropped, setCrownDropped]           = useState(false)
     const [wonCoins, setWonCoins]                   = useState<number | null>(null)

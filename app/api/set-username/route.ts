@@ -22,7 +22,7 @@ export const POST = withAuth(async ({ user, supabase }, request) => {
 
     const { error } = await supabase
         .from('profiles')
-        .update({ username: username.toLowerCase(), coins: 100 })
+        .update({ username: username.toLowerCase(), coins: 20 })
         .eq('id', user.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
