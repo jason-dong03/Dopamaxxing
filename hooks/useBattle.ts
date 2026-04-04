@@ -39,7 +39,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     const [sessionExp, setSessionExp]       = useState<Record<string, number>>({})
     const [cardPp, setCardPp]               = useState<Record<string, number[]>>({})
     const [forcedSwitch, setForcedSwitch]   = useState(false)
-    const [bagFullHeals, setBagFullHeals]   = useState(1)
+    const [bagItems, setBagItems]            = useState<Record<string, number>>({})
     const [evolveCandidates, setEvolveCandidates] = useState<EvolveCandidate[]>([])
     const [awardedExp, setAwardedExp] = useState<Array<{ id: string; name: string; gained: number; newLevel: number | null }>>([])
     const [battleTextOverride, setBattleTextOverride] = useState<string | null>(null)
@@ -133,7 +133,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             setCardPp(pp)
             fetch('/api/items')
                 .then(r => r.json())
-                .then(d => { setBagFullHeals(d.inventory?.['full-heal'] ?? 0) })
+                .then(d => { setBagItems(d.inventory ?? {}) })
                 .catch(() => {})
         } catch (err) {
             console.error('[startBattle] exception:', err)
@@ -173,7 +173,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             // Load real item inventory
             fetch('/api/items')
                 .then(r => r.json())
-                .then(d => { setBagFullHeals(d.inventory?.['full-heal'] ?? 0) })
+                .then(d => { setBagItems(d.inventory ?? {}) })
                 .catch(() => {})
         } catch (err) {
             console.error('[startBattle] exception:', err)
@@ -474,7 +474,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
     // ── Use Item (Bag) ────────────────────────────────────────────────────────
     async function doUseItem(item: string) {
         if (!battle || acting) return
-        if (item === 'full-heal' && bagFullHeals <= 0) return
+        if ((bagItems[item] ?? 0) <= 0) return
         setActing(true)
         setBattleMenu('main')
         try {
@@ -486,13 +486,17 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             const { battle: updated } = await res.json()
             if (updated) {
                 setBattle(updated)
-                if (item === 'full-heal') {
-                    setBagFullHeals(prev => prev - 1)
-                    const cardName = updated.user_cards[updated.user_active_index]?.name ?? 'Pokémon'
-                    setBattleTextOverride(`${cardName} was\ncured of its status!`)
-                    await waitForAdvance()
-                    setBattleTextOverride(null)
+                setBagItems(prev => ({ ...prev, [item]: Math.max(0, (prev[item] ?? 0) - 1) }))
+                const cardName = updated.user_cards[updated.user_active_index]?.name ?? 'Pokémon'
+                const itemText: Record<string, string> = {
+                    'full-heal': `${cardName} was\ncured of its status!`,
+                    'potion': `${cardName} restored\n50 HP!`,
+                    'super-potion': `${cardName} restored\n120 HP!`,
+                    'x-attack': `${cardName}'s ATK\nrose!`,
                 }
+                setBattleTextOverride(itemText[item] ?? `Used ${item}!`)
+                await waitForAdvance()
+                setBattleTextOverride(null)
             }
         } catch (err) {
             console.error('[doUseItem] exception:', err)
@@ -555,7 +559,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
         sessionExp,
         cardPp,
         forcedSwitch,
-        bagFullHeals,
+        bagItems,
         evolveCandidates,
         awardedExp,
         toggleCard,

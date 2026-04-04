@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Battle not found or not active' }, { status: 404 })
     }
 
-    let userCards: BattleCard[] = [...battle.user_cards]
+    const userCards: BattleCard[] = [...battle.user_cards]
     const uIdx: number = battle.user_active_index
 
     // Check the user actually owns this item
@@ -40,6 +40,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No status to cure' }, { status: 400 })
         }
         userCards[uIdx] = { ...card, statusEffect: 'none', statusTurns: 0 }
+    } else if (item === 'potion') {
+        const card = userCards[uIdx]
+        if (card.hp >= card.maxHp) {
+            return NextResponse.json({ error: 'HP is already full' }, { status: 400 })
+        }
+        userCards[uIdx] = { ...card, hp: Math.min(card.maxHp, card.hp + 50) }
+    } else if (item === 'super-potion') {
+        const card = userCards[uIdx]
+        if (card.hp >= card.maxHp) {
+            return NextResponse.json({ error: 'HP is already full' }, { status: 400 })
+        }
+        userCards[uIdx] = { ...card, hp: Math.min(card.maxHp, card.hp + 120) }
+    } else if (item === 'x-attack') {
+        const card = userCards[uIdx]
+        if ((card.attackStage ?? 0) >= 6) {
+            return NextResponse.json({ error: 'ATK cannot go higher' }, { status: 400 })
+        }
+        userCards[uIdx] = { ...card, attackStage: Math.min(6, (card.attackStage ?? 0) + 1) }
     } else {
         return NextResponse.json({ error: 'Unknown item' }, { status: 400 })
     }

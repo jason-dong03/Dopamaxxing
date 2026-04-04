@@ -29,7 +29,7 @@ type Props = {
     onRun: () => void
     onUseItem: (item: string) => void
     cardPp: Record<string, number[]>
-    bagFullHeals: number
+    bagItems: Record<string, number>
     forcedSwitch: boolean
     waitingForAdvance: boolean
     onAdvance: () => void
@@ -48,7 +48,7 @@ export function BattleBottomBar({
     onRun,
     onUseItem,
     cardPp,
-    bagFullHeals,
+    bagItems,
     forcedSwitch,
     waitingForAdvance,
     onAdvance,
@@ -268,27 +268,34 @@ export function BattleBottomBar({
                         }}
                     >← Back</button>
                 </div>
-                <div
-                    onClick={() => {
-                        if (!acting && bagFullHeals > 0 && hasStatus) onUseItem('full-heal')
-                    }}
-                    style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '8px 12px', borderRadius: 8,
-                        background: bagFullHeals > 0 && hasStatus ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${bagFullHeals > 0 && hasStatus ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                        cursor: bagFullHeals > 0 && hasStatus && !acting ? 'pointer' : 'not-allowed',
-                        opacity: bagFullHeals === 0 ? 0.4 : 1,
-                    }}
-                >
-                    <div>
-                        <div style={{ fontFamily: FONT, fontSize: '0.65rem', color: '#e2e8f0' }}>Full Heal</div>
-                        <div style={{ fontFamily: FONT, fontSize: '0.5rem', color: '#6b7280', marginTop: 2 }}>
-                            {hasStatus ? `Cures ${activeCard.name}'s ${activeCard.statusEffect}` : 'No status to cure'}
+                {[
+                    { id: 'full-heal', label: 'Full Heal', desc: hasStatus ? `Cures ${activeCard.name}'s ${activeCard.statusEffect}` : 'No status to cure', usable: hasStatus },
+                    { id: 'potion', label: 'Potion', desc: '+50 HP', usable: activeCard.hp < activeCard.maxHp },
+                    { id: 'super-potion', label: 'Super Potion', desc: '+120 HP', usable: activeCard.hp < activeCard.maxHp },
+                    { id: 'x-attack', label: 'X Attack', desc: '+1 ATK stage', usable: (activeCard.attackStage ?? 0) < 6 },
+                ].filter(it => (bagItems[it.id] ?? 0) > 0).map(it => (
+                    <div
+                        key={it.id}
+                        onClick={() => { if (!acting && it.usable) onUseItem(it.id) }}
+                        style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '8px 12px', borderRadius: 8, marginBottom: 4,
+                            background: it.usable ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${it.usable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                            cursor: it.usable && !acting ? 'pointer' : 'not-allowed',
+                            opacity: it.usable ? 1 : 0.4,
+                        }}
+                    >
+                        <div>
+                            <div style={{ fontFamily: FONT, fontSize: '0.65rem', color: '#e2e8f0' }}>{it.label}</div>
+                            <div style={{ fontFamily: FONT, fontSize: '0.5rem', color: '#6b7280', marginTop: 2 }}>{it.desc}</div>
                         </div>
+                        <span style={{ fontFamily: FONT, fontSize: '0.6rem', color: '#60a5fa' }}>×{bagItems[it.id]}</span>
                     </div>
-                    <span style={{ fontFamily: FONT, fontSize: '0.6rem', color: '#60a5fa' }}>×{bagFullHeals}</span>
-                </div>
+                ))}
+                {Object.values(bagItems).every(q => q <= 0) && (
+                    <div style={{ fontFamily: FONT, fontSize: '0.6rem', color: '#6b7280', textAlign: 'center', padding: '12px 0' }}>Bag is empty</div>
+                )}
             </div>
         )
     }

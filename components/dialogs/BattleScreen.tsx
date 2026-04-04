@@ -441,7 +441,7 @@ export default function BattleScreen({
                     onRun={onClose}
                     onUseItem={battle.doUseItem}
                     cardPp={battle.cardPp}
-                    bagFullHeals={battle.bagFullHeals}
+                    bagItems={battle.bagItems}
                     forcedSwitch={battle.forcedSwitch}
                     waitingForAdvance={battle.waitingForAdvance}
                     onAdvance={battle.advanceText}
