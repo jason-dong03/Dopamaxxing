@@ -12,6 +12,7 @@ import { CardSelectPhase } from '@/components/battle/CardSelectPhase'
 import { BattleField } from '@/components/battle/BattleField'
 import { BattleBottomBar } from '@/components/battle/BattleBottomBar'
 import { useBattle } from '@/hooks/useBattle'
+import { PixelFade } from '@/components/battle/PixelFade'
 
 export default function BattleScreen({
     onClose,
@@ -30,6 +31,9 @@ export default function BattleScreen({
     useEffect(() => {
         setMounted(true)
     }, [])
+
+    // ── Pixel transition overlay ──────────────────────────────────────────────
+    const [pixelFade, setPixelFade] = useState<'in' | 'out' | null>(null)
 
     // ── Pre-dialogue state ────────────────────────────────────────────────────
     const [dialogueIdx, setDialogueIdx] = useState(0)
@@ -64,6 +68,19 @@ export default function BattleScreen({
             setRevealTeam(buildRevealTeam())
         }
     }, [trainerId])
+
+    // ── Trigger pixel fade when moving to/from battle ────────────────────────
+    const prevPhaseRef = useRef<string | null>(null)
+    useEffect(() => {
+        const prev = prevPhaseRef.current
+        const curr = battle.phase
+        if (prev === 'card-select' && curr === 'battle') {
+            setPixelFade('in')
+        } else if ((prev === 'battle') && (curr === 'won' || curr === 'lost')) {
+            setPixelFade('in')
+        }
+        prevPhaseRef.current = curr
+    }, [battle.phase])
 
     // ── If skipping to card-select, either auto-start (full lineup) or load card picker ──
     useEffect(() => {
@@ -139,6 +156,24 @@ export default function BattleScreen({
     }, [battle.phase])
 
     if (!mounted) return null
+
+    // ── Pixel fade overlay (renders via portal on top of everything) ──────────
+    if (pixelFade) {
+        const handleFadeComplete = () => {
+            if (pixelFade === 'in') {
+                setPixelFade('out')
+            } else {
+                setPixelFade(null)
+            }
+        }
+        const portal = createPortal(
+            <PixelFade direction={pixelFade} onComplete={handleFadeComplete} />,
+            document.body,
+        )
+        if (pixelFade === 'in') return portal
+        // For 'out', render overlay + the current phase content below
+        return <>{portal}</>
+    }
 
     // ── PRE-DIALOGUE ──────────────────────────────────────────────────────────
     if (battle.phase === 'pre-dialogue') {
