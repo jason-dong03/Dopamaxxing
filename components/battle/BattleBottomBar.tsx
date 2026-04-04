@@ -62,6 +62,7 @@ export function BattleBottomBar({
     const typeRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const fullTextRef = useRef('')
     const fastTypeRef = useRef(false)
+    const isFirstTextRef = useRef(true) // skip typewriter on the very first text (battle load)
 
     const rawText = (battleMenu === 'main' || battleMenu === 'fight')
         ? (switchPhase !== 'idle' ? switchText : battleText)
@@ -90,6 +91,13 @@ export function BattleBottomBar({
         fullTextRef.current = rawText
         if (typeRef.current) { clearInterval(typeRef.current); typeRef.current = null }
         if (!rawText) { setTypedText(''); setIsTyping(false); return }
+        // Show the first battle text instantly (no typewriter on load)
+        if (isFirstTextRef.current) {
+            isFirstTextRef.current = false
+            setTypedText(rawText)
+            setIsTyping(false)
+            return
+        }
         setTypedText('')
         startTyping(rawText, fastTypeRef.current)
         return () => { if (typeRef.current) { clearInterval(typeRef.current); typeRef.current = null } }

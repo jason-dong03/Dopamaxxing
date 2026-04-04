@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import {
@@ -78,7 +78,8 @@ export default function BattlesPage() {
     const [battleOpen, setBattleOpen] = useState(false)
     const [lineupPickerOpen, setLineupPickerOpen] = useState(false)
     const [pickedLineupIds, setPickedLineupIds] = useState<string[]>([])
-    const [trainerId, setTrainerId] = useState<TrainerId>('n')
+    const dailyTrainerId = getDailyTrainerId()
+    const [battleTrainerId, setBattleTrainerId] = useState<TrainerId>(dailyTrainerId)
     const [battlesWon, setBattlesWon] = useState<number | null>(null)
     const [lastWonAt, setLastWonAt] = useState<string | null>(null)
     const [cooldownLeft, setCooldownLeft] = useState(0)
@@ -87,6 +88,7 @@ export default function BattlesPage() {
     const [userLevel, setUserLevel] = useState<number | null>(null)
     const [shopOpen, setShopOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
+    const battleRowRef = useRef<HTMLDivElement>(null)
     const [hasMewtwo, setHasMewtwo] = useState(false)
 
     useEffect(() => { setMounted(true) }, [])
@@ -111,7 +113,7 @@ export default function BattlesPage() {
     }, [])
 
     useEffect(() => {
-        setTrainerId(getDailyTrainerId())
+        setBattleTrainerId(dailyTrainerId)
         fetch('/api/n-battle/stats')
             .then((r) => r.json())
             .then((d) => {
@@ -256,8 +258,8 @@ export default function BattlesPage() {
         setLineups((prev) => prev.filter((l) => l.id !== id))
     }
 
-    const trainer = TRAINER_INFO[trainerId]
-    const trainerPool = getTrainerPool(trainerId, userLevel ?? undefined)
+    const trainer = TRAINER_INFO[dailyTrainerId]
+    const trainerPool = getTrainerPool(dailyTrainerId, userLevel ?? undefined)
 
     return (
         <div
@@ -480,7 +482,7 @@ export default function BattlesPage() {
                             ))}
                         </div>
                         <button
-                            onClick={() => { if (!onCooldown) setLineupPickerOpen(true) }}
+                            onClick={() => { if (!onCooldown) { setBattleTrainerId(dailyTrainerId); setLineupPickerOpen(true) } }}
                             disabled={onCooldown}
                             style={{
                                 padding: '10px 32px',
@@ -579,118 +581,130 @@ export default function BattlesPage() {
                 </div>
             </div>
 
-            {/* ── Story Battles ─────────────────────────────────────────────── */}
-            <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#818cf8', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Story Battles</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(129,140,248,0.2)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {(['n', 'ghetsis', 'iris', 'colress'] as TrainerId[]).map(tid => {
-                        const t = TRAINER_INFO[tid]
-                        const isDaily = tid === trainerId
-                        const difficultyLabel: Record<string, string> = { n: 'Intermediate', ghetsis: 'Hard', iris: 'Medium', colress: 'Strategic' }
-                        const difficultyColor: Record<string, string> = { n: '#4ade80', ghetsis: '#f87171', iris: '#fbbf24', colress: '#60a5fa' }
-                        return (
-                            <div key={tid} style={{
-                                background: isDaily ? `${t.color}0d` : 'rgba(255,255,255,0.02)',
-                                border: `1px solid ${isDaily ? t.color + '44' : 'rgba(255,255,255,0.06)'}`,
-                                borderRadius: 12, padding: '12px 14px',
-                                display: 'flex', alignItems: 'center', gap: 12,
-                            }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={t.sprite} alt={t.name} style={{ height: 56, imageRendering: 'pixelated', filter: `drop-shadow(0 0 8px ${t.color}55)`, flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0' }}>{t.name}</span>
-                                        {isDaily && <span style={{ fontSize: '0.5rem', fontWeight: 700, color: t.color, background: `${t.color}22`, border: `1px solid ${t.color}44`, borderRadius: 4, padding: '1px 6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Today</span>}
+            {/* ── Battle Carousel (Story / Special / Hidden) ─────────────── */}
+            {(() => {
+                const difficultyLabel: Record<string, string> = { n: 'Intermediate', ghetsis: 'Hard', iris: 'Medium', colress: 'Strategic' }
+                const difficultyColor: Record<string, string> = { n: '#4ade80', ghetsis: '#f87171', iris: '#fbbf24', colress: '#60a5fa' }
+                const CARD_W = 160
+                const scroll = (dir: number) => battleRowRef.current?.scrollBy({ left: dir * (CARD_W + 12), behavior: 'smooth' })
+
+                return (
+                    <div style={{ marginBottom: 20 }}>
+                        {/* Row header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase' }}>All Battles</span>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                            <button onClick={() => scroll(-1)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', fontSize: '0.75rem', flexShrink: 0 }}>‹</button>
+                            <button onClick={() => scroll(1)}  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', fontSize: '0.75rem', flexShrink: 0 }}>›</button>
+                        </div>
+
+                        {/* Scrollable row */}
+                        <div
+                            ref={battleRowRef}
+                            style={{
+                                display: 'flex', gap: 12, overflowX: 'auto',
+                                scrollbarWidth: 'none', msOverflowStyle: 'none',
+                                paddingBottom: 4,
+                            }}
+                        >
+                            {/* Story trainer cards */}
+                            {(['n', 'ghetsis', 'iris', 'colress'] as TrainerId[]).map(tid => {
+                                const t = TRAINER_INFO[tid]
+                                const isDaily = tid === dailyTrainerId
+                                return (
+                                    <div key={tid} style={{
+                                        flexShrink: 0, width: CARD_W,
+                                        background: isDaily ? `${t.color}0d` : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${isDaily ? t.color + '44' : 'rgba(255,255,255,0.06)'}`,
+                                        borderRadius: 12, padding: '14px 12px',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                    }}>
+                                        <div style={{ fontSize: '0.48rem', fontWeight: 700, color: '#818cf8', letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>
+                                            {isDaily ? '⭐ DAILY' : 'STORY'}
+                                        </div>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={t.sprite} alt={t.name} style={{ height: 64, imageRendering: 'pixelated', filter: `drop-shadow(0 0 10px ${t.color}55)` }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                        <div style={{ textAlign: 'center', width: '100%' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e2e8f0', marginBottom: 2 }}>{t.name}</div>
+                                            <div style={{ fontSize: '0.52rem', color: '#6b7280', marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                                            <span style={{ fontSize: '0.48rem', fontWeight: 700, color: difficultyColor[tid], background: `${difficultyColor[tid]}18`, border: `1px solid ${difficultyColor[tid]}33`, borderRadius: 4, padding: '1px 6px' }}>{difficultyLabel[tid]}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => { setBattleTrainerId(tid); setLineupPickerOpen(true) }}
+                                            disabled={isDaily && onCooldown}
+                                            style={{
+                                                width: '100%', padding: '7px 0', borderRadius: 7, marginTop: 'auto',
+                                                fontSize: '0.65rem', fontWeight: 700,
+                                                background: isDaily && onCooldown ? 'rgba(255,255,255,0.03)' : `${t.color}1a`,
+                                                border: `1px solid ${isDaily && onCooldown ? 'rgba(255,255,255,0.08)' : t.color + '55'}`,
+                                                color: isDaily && onCooldown ? '#4b5563' : t.color,
+                                                cursor: isDaily && onCooldown ? 'not-allowed' : 'pointer',
+                                            }}
+                                        >{isDaily && onCooldown ? 'On Cooldown' : 'Battle'}</button>
                                     </div>
-                                    <div style={{ fontSize: '0.6rem', color: '#6b7280', marginBottom: 6 }}>{t.title}</div>
-                                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                                        <span style={{ fontSize: '0.52rem', fontWeight: 700, color: difficultyColor[tid], background: `${difficultyColor[tid]}18`, border: `1px solid ${difficultyColor[tid]}33`, borderRadius: 4, padding: '1px 6px' }}>{difficultyLabel[tid]}</span>
-                                        {t.types.slice(0,2).map(tp => (
-                                            <span key={tp} style={{ fontSize: '0.48rem', fontWeight: 700, color: TYPE_COLOR[tp] ?? '#94a3b8', background: `${TYPE_COLOR[tp] ?? '#94a3b8'}18`, border: `1px solid ${TYPE_COLOR[tp] ?? '#94a3b8'}33`, borderRadius: 3, padding: '1px 5px', textTransform: 'capitalize' }}>{tp}</span>
-                                        ))}
+                                )
+                            })}
+
+                            {/* Special Battles card */}
+                            <div style={{
+                                flexShrink: 0, width: CARD_W,
+                                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(251,146,60,0.12)',
+                                borderRadius: 12, padding: '14px 12px',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            }}>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 700, color: '#fb923c', letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>SPECIAL</div>
+                                <div style={{ fontSize: '2rem', marginTop: 8 }}>🎪</div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#374151', marginBottom: 4 }}>Events</div>
+                                    <div style={{ fontSize: '0.52rem', color: '#1f2937', lineHeight: 1.5 }}>No active events</div>
+                                </div>
+                            </div>
+
+                            {/* Hidden Battles card */}
+                            {hasMewtwo ? (
+                                <div style={{
+                                    flexShrink: 0, width: CARD_W,
+                                    background: 'linear-gradient(160deg, rgba(167,139,250,0.08) 0%, rgba(0,0,0,0.3) 100%)',
+                                    border: '1px solid rgba(167,139,250,0.3)',
+                                    borderRadius: 12, padding: '14px 12px',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                }}>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 700, color: '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>HIDDEN</div>
+                                    <div style={{ fontSize: '2.2rem', marginTop: 4 }}>✨</div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e2e8f0', marginBottom: 2 }}>Mewtwo</div>
+                                        <div style={{ fontSize: '0.48rem', color: '#6b7280', marginBottom: 6 }}>Hidden legend</div>
+                                        <span style={{ fontSize: '0.44rem', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 4, padding: '1px 5px' }}>Legendary</span>
+                                    </div>
+                                    <button
+                                        onClick={() => { setBattleTrainerId('n'); setLineupPickerOpen(true) }}
+                                        style={{
+                                            width: '100%', padding: '7px 0', borderRadius: 7, marginTop: 'auto',
+                                            fontSize: '0.65rem', fontWeight: 700,
+                                            background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.5)',
+                                            color: '#a78bfa', cursor: 'pointer',
+                                        }}
+                                    >Battle</button>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    flexShrink: 0, width: CARD_W,
+                                    background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)',
+                                    borderRadius: 12, padding: '14px 12px', filter: 'grayscale(0.5)',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                }}>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 700, color: '#374151', letterSpacing: '0.08em', textTransform: 'uppercase', alignSelf: 'flex-start' }}>HIDDEN</div>
+                                    <div style={{ fontSize: '2rem', marginTop: 8 }}>🔒</div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#374151', marginBottom: 4 }}>???</div>
+                                        <div style={{ fontSize: '0.5rem', color: '#1f2937', lineHeight: 1.5 }}>Collect special cards to unlock</div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => { setTrainerId(tid); setLineupPickerOpen(true) }}
-                                    disabled={isDaily && onCooldown}
-                                    style={{
-                                        flexShrink: 0, padding: '8px 14px', borderRadius: 8,
-                                        fontSize: '0.68rem', fontWeight: 700,
-                                        background: isDaily && onCooldown ? 'rgba(255,255,255,0.03)' : `${t.color}1a`,
-                                        border: `1px solid ${isDaily && onCooldown ? 'rgba(255,255,255,0.08)' : t.color + '55'}`,
-                                        color: isDaily && onCooldown ? '#4b5563' : t.color,
-                                        cursor: isDaily && onCooldown ? 'not-allowed' : 'pointer',
-                                    }}
-                                >Battle</button>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-
-            {/* ── Special Battles ───────────────────────────────────────────── */}
-            <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#fb923c', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Special Battles</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(251,146,60,0.2)' }} />
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: '20px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.68rem', color: '#374151', marginBottom: 4 }}>No special events active</div>
-                    <div style={{ fontSize: '0.58rem', color: '#1f2937' }}>Check back for limited-time battles and events</div>
-                </div>
-            </div>
-
-            {/* ── Hidden Battles ────────────────────────────────────────────── */}
-            <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#6b7280', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Hidden Battles</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(107,114,128,0.2)' }} />
-                </div>
-                {hasMewtwo ? (
-                    <div style={{
-                        background: 'linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(0,0,0,0.3) 100%)',
-                        border: '1px solid rgba(167,139,250,0.3)',
-                        borderRadius: 12, padding: '14px',
-                        display: 'flex', alignItems: 'center', gap: 12,
-                    }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.5rem' }}>
-                            ✨
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e2e8f0', marginBottom: 2 }}>Mewtwo Encounter</div>
-                            <div style={{ fontSize: '0.58rem', color: '#9ca3af', marginBottom: 8 }}>Hidden legend — unlocked by card ownership</div>
-                            <span style={{ fontSize: '0.5rem', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.4)', borderRadius: 4, padding: '1px 6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Legendary</span>
-                        </div>
-                        <button
-                            onClick={() => { setTrainerId('n'); setLineupPickerOpen(true) }}
-                            style={{
-                                flexShrink: 0, padding: '8px 14px', borderRadius: 8,
-                                fontSize: '0.68rem', fontWeight: 700,
-                                background: 'rgba(167,139,250,0.18)', border: '1px solid rgba(167,139,250,0.5)',
-                                color: '#a78bfa', cursor: 'pointer',
-                            }}
-                        >Battle</button>
-                    </div>
-                ) : (
-                    <div style={{
-                        background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.04)',
-                        borderRadius: 12, padding: '20px 14px',
-                        display: 'flex', alignItems: 'center', gap: 14,
-                        filter: 'grayscale(0.4)',
-                    }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: '1.2rem' }}>🔒</span>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: 4 }}>??? — Unknown Trainer</div>
-                            <div style={{ fontSize: '0.58rem', color: '#1f2937' }}>Collect special cards to unlock hidden challengers</div>
+                            )}
                         </div>
                     </div>
-                )}
-            </div>
+                )
+            })()}
 
             <div
                 style={{
@@ -1502,9 +1516,9 @@ export default function BattlesPage() {
 
             {battleOpen && (
                 <BattleScreen
-                    trainerId={trainerId}
+                    trainerId={battleTrainerId}
                     skipToCardSelect={
-                        trainerId !== 'n' || pickedLineupIds.length > 0
+                        battleTrainerId !== 'n' || pickedLineupIds.length > 0
                     }
                     preSelectedIds={
                         pickedLineupIds.length > 0 ? pickedLineupIds : undefined

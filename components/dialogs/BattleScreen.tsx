@@ -69,23 +69,24 @@ export default function BattleScreen({
         }
     }, [trainerId])
 
-    // ── Trigger pixel fade when moving to/from battle ────────────────────────
+    // ── Trigger pixel fade on battle end (won/lost) ─────────────────────────
     const prevPhaseRef = useRef<string | null>(null)
     useEffect(() => {
         const prev = prevPhaseRef.current
         const curr = battle.phase
-        if (prev === 'card-select' && curr === 'battle') {
-            setPixelFade('in')
-        } else if ((prev === 'battle') && (curr === 'won' || curr === 'lost')) {
+        if (prev === 'battle' && (curr === 'won' || curr === 'lost')) {
             setPixelFade('in')
         }
         prevPhaseRef.current = curr
     }, [battle.phase])
 
-    // ── If skipping to card-select, either auto-start (full lineup) or load card picker ──
+    // ── If skipping to card-select, start fade THEN kick off battle API call ──
+    // Fade-in starts immediately at mount so the screen is black while battle loads.
     useEffect(() => {
         if (skipToCardSelect) {
             if (preSelectedIds && preSelectedIds.length === 5) {
+                // Start the pixel fade NOW (battle loads while screen is black)
+                setPixelFade('in')
                 battle.startBattleWith(preSelectedIds)
             } else {
                 battle.proceedToCardSelect()
@@ -158,22 +159,25 @@ export default function BattleScreen({
     if (!mounted) return null
 
     // ── Pixel fade overlay (renders via portal on top of everything) ──────────
-    if (pixelFade) {
-        const handleFadeComplete = () => {
-            if (pixelFade === 'in') {
-                setPixelFade('out')
-            } else {
-                setPixelFade(null)
-            }
+    const handleFadeComplete = () => {
+        if (pixelFade === 'in') {
+            // Hold black for 1.5s before fading out
+            setTimeout(() => setPixelFade('out'), 1500)
+        } else {
+            setPixelFade(null)
         }
-        const portal = createPortal(
-            <PixelFade direction={pixelFade} onComplete={handleFadeComplete} />,
+    }
+    // While fading IN: pure black screen, nothing behind it
+    if (pixelFade === 'in') {
+        return createPortal(
+            <PixelFade direction="in" onComplete={handleFadeComplete} />,
             document.body,
         )
-        if (pixelFade === 'in') return portal
-        // For 'out', render overlay + the current phase content below
-        return <>{portal}</>
     }
+    // Fade-out overlay sits above phase content (z-index 999999 in PixelFade)
+    const fadeOutOverlay = pixelFade === 'out'
+        ? createPortal(<PixelFade direction="out" onComplete={handleFadeComplete} />, document.body)
+        : null
 
     // ── PRE-DIALOGUE ──────────────────────────────────────────────────────────
     if (battle.phase === 'pre-dialogue') {
@@ -377,35 +381,40 @@ export default function BattleScreen({
     if (battle.phase === 'card-select') {
         // Auto-starting with a full lineup — show loading or error
         if (preSelectedIds && preSelectedIds.length === 5) {
-            return createPortal(
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 99998,
-                    background: 'rgba(0,0,0,0.97)',
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center', gap: 16,
-                }}>
-                    {battle.startError ? (
-                        <>
-                            <p style={{ fontSize: '0.85rem', color: '#f87171' }}>{battle.startError}</p>
-                            <button
-                                onClick={onClose}
-                                style={{
-                                    padding: '9px 24px', borderRadius: 10, fontSize: '0.8rem',
-                                    background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-                                    color: '#9ca3af', cursor: 'pointer',
-                                }}
-                            >
-                                Close
-                            </button>
-                        </>
-                    ) : (
-                        <p style={{ fontSize: '0.8rem', color: '#4b5563', letterSpacing: '0.04em' }}>
-                            Starting battle…
-                        </p>
-                    )}
-                </div>,
-                document.body,
-            )
+            return (
+            <>
+                {fadeOutOverlay}
+                {createPortal(
+                    <div style={{
+                        position: 'fixed', inset: 0, zIndex: 99998,
+                        background: 'rgba(0,0,0,0.97)',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', gap: 16,
+                    }}>
+                        {battle.startError ? (
+                            <>
+                                <p style={{ fontSize: '0.85rem', color: '#f87171' }}>{battle.startError}</p>
+                                <button
+                                    onClick={onClose}
+                                    style={{
+                                        padding: '9px 24px', borderRadius: 10, fontSize: '0.8rem',
+                                        background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
+                                        color: '#9ca3af', cursor: 'pointer',
+                                    }}
+                                >
+                                    Close
+                                </button>
+                            </>
+                        ) : (
+                            <p style={{ fontSize: '0.8rem', color: '#4b5563', letterSpacing: '0.04em' }}>
+                                Starting battle…
+                            </p>
+                        )}
+                    </div>,
+                    document.body,
+                )}
+            </>
+        )
         }
         return createPortal(
             <CardSelectPhase
@@ -425,7 +434,10 @@ export default function BattleScreen({
 
     // ── BATTLE ────────────────────────────────────────────────────────────────
     if (battle.phase === 'battle' && battle.battle) {
-        return createPortal(
+        return (
+          <>
+            {fadeOutOverlay}
+            {createPortal(
             <div
                 style={{
                     position: 'fixed',
@@ -533,6 +545,8 @@ export default function BattleScreen({
                 `}</style>
             </div>,
             document.body,
+        )}
+          </>
         )
     }
 

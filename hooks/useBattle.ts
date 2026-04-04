@@ -133,6 +133,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
                 pp[card.id] = card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
             }
             setCardPp(pp)
+            // Auto-show "What will X do?" without requiring a click
+            const firstActive = json.battle.user_cards[json.battle.user_active_index]
+            if (firstActive) setBattleTextOverride(`What will
+${baseName(firstActive.name).toUpperCase()} do?`)
             fetch('/api/items')
                 .then(r => r.json())
                 .then(d => { setBagItems(d.inventory ?? {}) })
@@ -166,6 +170,10 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             setBattleMenu('main')
             const tid = (options?.trainerId ?? 'n') as keyof typeof TRAINER_INFO
             setTrainerSprite(TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif')
+            // Auto-show "What will X do?" without requiring a click
+            const firstActiveCard = json.battle.user_cards[json.battle.user_active_index]
+            if (firstActiveCard) setBattleTextOverride(`What will
+${baseName(firstActiveCard.name).toUpperCase()} do?`)
             // Init client-side PP from each user card's maxPp
             const pp: Record<string, number[]> = {}
             for (const card of json.battle.user_cards) {
