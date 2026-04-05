@@ -261,6 +261,64 @@ export default function BattlesPage() {
     const trainer = TRAINER_INFO[dailyTrainerId]
     const trainerPool = getTrainerPool(dailyTrainerId, userLevel ?? undefined)
 
+    if (userLevel !== null && userLevel < 10) {
+        return (
+            <div
+                style={{
+                    minHeight: 'calc(100vh - 64px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 16,
+                    padding: '24px 16px',
+                }}
+            >
+                <div
+                    style={{
+                        fontSize: 56,
+                        lineHeight: 1,
+                    }}
+                >
+                    🔒
+                </div>
+                <div
+                    style={{
+                        fontSize: 22,
+                        fontWeight: 700,
+                        color: 'rgba(255,255,255,0.9)',
+                        letterSpacing: '-0.02em',
+                    }}
+                >
+                    Battles
+                </div>
+                <div
+                    style={{
+                        fontSize: 14,
+                        color: 'rgba(255,255,255,0.4)',
+                        textAlign: 'center',
+                        maxWidth: 260,
+                    }}
+                >
+                    Unlocks at level 10
+                </div>
+                <div
+                    style={{
+                        marginTop: 8,
+                        padding: '10px 20px',
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        fontSize: 13,
+                        color: 'rgba(255,255,255,0.5)',
+                    }}
+                >
+                    You are level {userLevel} — {10 - userLevel} more to go
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div
             style={{

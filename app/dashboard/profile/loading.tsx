@@ -1,7 +1,7 @@
 export default function ProfileLoading() {
     return (
         <div
-            className="flex gap-5 items-center justify-center"
+            className="flex flex-col sm:flex-row gap-5 sm:items-start items-stretch justify-center"
             style={{
                 minHeight: 'calc(100vh - 64px)',
                 background: '#08080d',
@@ -9,10 +9,10 @@ export default function ProfileLoading() {
             }}
         >
             {/* left: viewer + tags */}
-            <div className="flex flex-col flex-shrink-0 animate-pulse" style={{ width: 300, gap: 12 }}>
+            <div className="flex flex-col flex-shrink-0 animate-pulse sm:w-[300px] w-full" style={{ gap: 12 }}>
                 <div
-                    className="rounded-2xl"
-                    style={{ width: 300, height: 460, background: 'rgba(255,255,255,0.04)' }}
+                    className="rounded-2xl w-full sm:w-[300px]"
+                    style={{ height: 460, background: 'rgba(255,255,255,0.04)' }}
                 />
                 <div style={{ height: 22, width: 160, borderRadius: 6, background: 'rgba(255,255,255,0.06)' }} />
                 <div className="flex gap-2">
@@ -24,9 +24,8 @@ export default function ProfileLoading() {
 
             {/* right: info panel */}
             <div
-                className="flex flex-col rounded-2xl animate-pulse"
+                className="flex flex-col rounded-2xl animate-pulse sm:w-[340px] w-full"
                 style={{
-                    width: 340,
                     minHeight: 580,
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.08)',
