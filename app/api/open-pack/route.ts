@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { calculateBuyback, randomCardLevel, WEIGHTS_BULK, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS, BONUS_CARD_CHANCE, pickRarityFromWeights } from '@/lib/rarityConfig'
+import { calculateBuyback, randomCardLevel, WEIGHTS_BULK, WEIGHTS_SLOT5, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS, BONUS_CARD_CHANCE, pickRarityFromWeights } from '@/lib/rarityConfig'
 import { getMergedPacks } from '@/lib/packMeta'
-import { applyProfileXP, packXpGain } from '@/lib/rarityConfig'
+import { applyProfileXP, packXpGain, xpForLevel } from '@/lib/rarityConfig'
 import { generateAttributes } from '@/lib/cardAttributes'
 import { getEventMagnitude, getTodayEvents } from '@/lib/dailyEvents'
 import { awardAchievements, getEarnedAchievements } from '@/lib/awardAchievement'
@@ -201,8 +201,8 @@ export async function POST(request: NextRequest) {
                 if (card) pickedCards.push(card)
             }
 
-            // Slot 5: guaranteed uncommon+
-            const guaranteedCard = pickCard(WEIGHTS_UNCOMMON_PLUS)
+            // Slot 5: elevated odds (not guaranteed — ~70% uncommon+, ~30% common)
+            const guaranteedCard = pickCard(WEIGHTS_SLOT5)
             if (guaranteedCard) pickedCards.push(guaranteedCard)
 
             // Hidden 8% chance for a bonus 6th card (guaranteed rare+)
@@ -364,7 +364,19 @@ export async function POST(request: NextRequest) {
             })()
         }
 
-        return NextResponse.json({ cards: cardsWithMeta, cardPool, godPack: isGodPack })
+        const xpGained = packXpGain(oldLevel)
+        return NextResponse.json({
+            cards: cardsWithMeta,
+            cardPool,
+            godPack: isGodPack,
+            xpGain: xpGained,
+            oldLevel,
+            newLevel,
+            oldXP: profile?.xp ?? 0,
+            newXP,
+            xpRequired: xpForLevel(newLevel),
+            leveledUp: newLevel > oldLevel,
+        })
     } catch (err) {
         console.error('[open-pack] unhandled error:', err)
         return NextResponse.json(

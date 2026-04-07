@@ -71,8 +71,21 @@ export const WEIGHTS_BULK: Record<string, number> = {
     '???': 0.001,
 }
 
-// Slot 5: guaranteed uncommon+ — mostly Uncommon, Rare is a treat, Epic+ is rare
-// ~72% Uncommon, ~22% Rare, ~6% Epic+
+// Slot 5 (last card): elevated odds vs bulk — ~30% common, ~42% uncommon, ~20% rare, ~8% epic+
+// Not guaranteed, just meaningfully better than slots 1-4
+export const WEIGHTS_SLOT5: Record<string, number> = {
+    Common: 30,
+    Uncommon: 42,
+    Rare: 20,
+    Epic: 5.5,
+    Mythical: 1.6,
+    Legendary: 0.6,
+    Divine: 0.2,
+    Celestial: 0.07,
+    '???': 0.02,
+}
+
+// Used for card_count packs (guaranteed uncommon+) and other contexts requiring no Common
 export const WEIGHTS_UNCOMMON_PLUS: Record<string, number> = {
     Uncommon: 72,
     Rare: 22,
@@ -111,22 +124,50 @@ export function pickRarityFromWeights(weights: Record<string, number>): string {
 
 // ─── profile leveling ─────────────────────────────────────────────────────────
 
-export const USER_LEVEL_K = 100
 export const MAX_USER_LEVEL = 100
 
-/** XP required to advance FROM a given profile level to the next */
+/**
+ * XP required to advance FROM a given profile level to the next.
+ *
+ * "Erratic" curve — four distinct zones to give a Pokémon-like feel:
+ *   Lv  1-15 : Fast start     (×0.55 of base)
+ *   Lv 16-35 : First grind    (×1.10)
+ *   Lv 36-55 : Second wind    (×0.80 — easier again)
+ *   Lv 56-75 : Hard wall      (×1.30)
+ *   Lv 76+   : Endgame grind  (×2.00)
+ *
+ * Spot-checks:
+ *   xpForLevel(1)  ≈ 55      xpForLevel(10) ≈ 5 500   xpForLevel(15) ≈ 12 375
+ *   xpForLevel(20) ≈ 44 000  xpForLevel(40) ≈ 128 000 xpForLevel(50) ≈ 200 000
+ *   xpForLevel(60) ≈ 374 400 xpForLevel(80) ≈ 832 000 xpForLevel(100)≈ 2 000 000
+ */
 export function xpForLevel(level: number): number {
-    return USER_LEVEL_K * level * level
+    const base = 100 * level * level
+    const multiplier =
+        level <= 15 ? 0.55 :
+        level <= 35 ? 1.10 :
+        level <= 55 ? 0.80 :
+        level <= 75 ? 1.30 :
+        2.00
+    return Math.round(base * multiplier)
 }
-// Spot-check: xpForLevel(1)=100, xpForLevel(10)=10000,
-//             xpForLevel(25)=62500, xpForLevel(50)=250000, xpForLevel(100)=1000000
 
-/** XP awarded for opening a pack (base) */
-export const XP_PER_PACK = 15
-
-/** XP awarded for opening a pack, scaled by player level (sqrt scaling) */
+/**
+ * XP awarded for opening one pack, keyed to player level.
+ *
+ * Mirrors the erratic feel — rises fast early, dips during the mid grind
+ * (making the wall feel harder), surges again during the "second wind" window,
+ * then decays toward endgame:
+ *   Lv  1-15 : 26 → 47 XP  (fast; every pack feels meaningful)
+ *   Lv 16-40 : 50 → 30 XP  (declines — grind feels heavier)
+ *   Lv 41-60 : 30 → 60 XP  (rises — second wind payoff)
+ *   Lv 61+   : 60 → 15 XP  (slow decay into endgame)
+ */
 export function packXpGain(level: number): number {
-    return Math.round(XP_PER_PACK * Math.sqrt(level))
+    if (level <= 15) return Math.round(25 + level * 1.5)
+    if (level <= 40) return Math.round(50 - (level - 15) * 0.8)
+    if (level <= 60) return Math.round(30 + (level - 40) * 1.5)
+    return Math.round(Math.max(15, 60 - (level - 60) * 0.5))
 }
 
 /** Apply XP to a profile (not a card), handling multi-level-ups. */

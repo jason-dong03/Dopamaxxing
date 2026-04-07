@@ -40,6 +40,7 @@ export type AutoMetric =
     | 'n_packs_opened'
     | 'sold_highest_card'
     | 'n_battle_won'
+    | 'has_prismatic_eeveelutions'
 
 /** Shape returned from the `quests` DB table */
 export type Quest = {
@@ -122,6 +123,7 @@ export type AllMetrics = {
     n_packs_opened: number
     sold_highest_card: number
     n_battle_won: number
+    has_prismatic_eeveelutions: number
 }
 
 export function getProgress(quest: Quest, metrics: Partial<AllMetrics>): number {

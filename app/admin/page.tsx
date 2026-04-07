@@ -10,6 +10,7 @@ import RepriceTab from '@/components/admin/RepriceTab'
 import CardMovesTab from '@/components/admin/CardMovesTab'
 import SeedMovesTab from '@/components/admin/SeedMovesTab'
 import BackfillTypesTab from '@/components/admin/BackfillTypesTab'
+import BackfillPendingMovesTab from '@/components/admin/BackfillPendingMovesTab'
 const TABS = [
     'Users',
     'Achievements',
@@ -20,6 +21,7 @@ const TABS = [
     'CardMoves',
     'SeedMoves',
     'BackfillTypes',
+    'BackfillMoves',
 ] as const
 type Tab = (typeof TABS)[number]
 
@@ -87,6 +89,7 @@ export default function AdminPage() {
             {tab === 'CardMoves' && <CardMovesTab />}
             {tab === 'SeedMoves' && <SeedMovesTab />}
             {tab === 'BackfillTypes' && <BackfillTypesTab />}
+            {tab === 'BackfillMoves' && <BackfillPendingMovesTab />}
         </div>
     )
 }

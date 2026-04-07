@@ -45,5 +45,18 @@ export async function GET(request: NextRequest) {
         cards = Array.from(seen.values())
     }
 
-    return NextResponse.json({ cards, total: cards.length })
+    // check which cards the current user owns
+    let ownedCardIds: string[] = []
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        const cardIds = cards.map((c) => c.id)
+        const { data: owned } = await supabase
+            .from('user_cards')
+            .select('card_id')
+            .eq('user_id', user.id)
+            .in('card_id', cardIds)
+        ownedCardIds = (owned ?? []).map((r) => r.card_id)
+    }
+
+    return NextResponse.json({ cards, total: cards.length, ownedCardIds })
 }

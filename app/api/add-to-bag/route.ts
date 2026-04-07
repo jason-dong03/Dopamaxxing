@@ -4,7 +4,7 @@ import { generateAttributes } from '@/lib/cardAttributes'
 import { getEventMagnitude } from '@/lib/dailyEvents'
 import { awardAchievements, getEarnedAchievements } from '@/lib/awardAchievement'
 import { rollStats, rollNature, applyNatureToStats, type CardStats } from '@/lib/pokemon-stats'
-import { fetchPokemonData, getInitialMoves, type StoredMove } from '@/lib/pokemon-moves'
+import { fetchPokemonData, getInitialMoves, getNewMovesInRange, type StoredMove } from '@/lib/pokemon-moves'
 
 export async function POST(request: NextRequest) {
     try {
@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
         // ── PokeAPI: fetch base stats + moves in one call ─────────────────
         let rolledStats: CardStats = rollStats(rarity ?? 'Common') // fallback (no dex data)
         let initialMoves: StoredMove[] = []
+        let pendingMovesForLevel: StoredMove[] = []
+        const spawnLevel = cardLevel ?? 1
         try {
             const { data: cardRow } = await supabase
                 .from('cards')
@@ -57,11 +59,23 @@ export async function POST(request: NextRequest) {
             if (dexNum) {
                 const [pokeData, moves] = await Promise.all([
                     fetchPokemonData(dexNum),
-                    getInitialMoves(dexNum, 1),
+                    getInitialMoves(dexNum, spawnLevel),
                 ])
                 // Stats use real base stats × rarity multiplier × ±15% variance
                 if (pokeData) rolledStats = rollStats(rarity ?? 'Common', pokeData.baseStats)
                 initialMoves = moves
+
+                // If card spawned above level 1, populate pending_moves with all
+                // moves learnable up to spawnLevel that aren't already in the active set.
+                // This lets the user make move selections for the levels they skipped.
+                if (spawnLevel > 1) {
+                    const allUpToLevel = await getNewMovesInRange(dexNum, 0, spawnLevel)
+                    const activeNames = new Set(initialMoves.map(m => m.name))
+                    pendingMovesForLevel = allUpToLevel
+                        .filter(m => !activeNames.has(m.name))
+                        // Keep the most recently learnable ones (closest to spawnLevel), cap at 12
+                        .slice(-12)
+                }
             }
         } catch { /* PokeAPI is optional — falls back to rarity ranges */ }
 
@@ -83,6 +97,7 @@ export async function POST(request: NextRequest) {
             ...finalStats,
             nature: natureName,
             moves: initialMoves.length > 0 ? initialMoves : null,
+            pending_moves: pendingMovesForLevel.length > 0 ? pendingMovesForLevel : null,
         })
         if (error) console.error('Error inserting card:', error)
 

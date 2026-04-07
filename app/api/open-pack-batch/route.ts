@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
     calculateBuyback,
     randomCardLevel,
-    WEIGHTS_BULK, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS,
+    WEIGHTS_BULK, WEIGHTS_SLOT5, WEIGHTS_UNCOMMON_PLUS, WEIGHTS_RARE_PLUS,
     BONUS_CARD_CHANCE, pickRarityFromWeights,
-    applyProfileXP, packXpGain,
+    applyProfileXP, packXpGain, xpForLevel,
 } from '@/lib/rarityConfig'
 import { getMergedPacks } from '@/lib/packMeta'
 import { generateAttributes } from '@/lib/cardAttributes'
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
                 const r = pickCard(WEIGHTS_RARE_PLUS); if (r) picked.push(r)
             } else {
                 for (let i = 0; i < 4; i++) { const c = pickCard(WEIGHTS_BULK); if (c) picked.push(c) }
-                const g = pickCard(WEIGHTS_UNCOMMON_PLUS); if (g) picked.push(g)
+                const g = pickCard(WEIGHTS_SLOT5); if (g) picked.push(g)
                 if (Math.random() < BONUS_CARD_CHANCE || extraCard) {
                     const b = pickCard(WEIGHTS_RARE_PLUS); if (b) picked.push(b)
                 }
@@ -253,7 +253,18 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        return NextResponse.json({ cards: cardsWithMeta })
+        const xpGained = packXpGain(oldLevel) * count
+        return NextResponse.json({
+            cards: cardsWithMeta,
+            xpGain: xpGained,
+            xpGainPerPack: packXpGain(oldLevel),
+            oldLevel,
+            newLevel,
+            oldXP: profile?.xp ?? 0,
+            newXP,
+            xpRequired: xpForLevel(newLevel),
+            leveledUp: newLevel > oldLevel,
+        })
     } catch (err) {
         console.error('[open-pack-batch] unhandled error:', err)
         return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })

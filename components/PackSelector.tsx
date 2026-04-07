@@ -280,7 +280,7 @@ function PackCarousel({ title, gold, packs, coins, bagFull, hoveredId, onHover, 
                     onMouseLeave={() => onHover(null)}
                 >
                     {packs.map((pack) => (
-                        <div key={pack.id} style={{ width: CARD_W, flexShrink: 0 }}>
+                        <div key={pack.id} style={{ width: CARD_W, flexShrink: 0, position: 'relative', zIndex: 3 }}>
                             <PackCard
                                 pack={pack}
                                 hovered={hoveredId === pack.id}
@@ -553,6 +553,7 @@ type CardPreview = { id: string; name: string; rarity: string; hp: number | null
 
 function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
     const [cards, setCards] = useState<CardPreview[]>([])
+    const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     const [artView, setArtView] = useState(false)
     const [expanded, setExpanded] = useState(false)
@@ -570,6 +571,7 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
                 return a.name.localeCompare(b.name)
             })
             setCards(sorted)
+            setOwnedIds(new Set(data.ownedCardIds ?? []))
         } catch { /* ignore */ } finally {
             setLoading(false)
         }
@@ -652,11 +654,16 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 10 }}>
                             {cards.map((c) => (
                                 <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    {c.image_url ? (
-                                        <img src={c.image_url} alt={c.name} style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: 7, border: `1px solid ${RARITY_COLOR[c.rarity as never] ?? '#374151'}40` }} />
-                                    ) : (
-                                        <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 7, background: 'var(--app-surface-2)', border: '1px solid var(--app-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>?</div>
-                                    )}
+                                    <div style={{ position: 'relative', width: '100%' }}>
+                                        {c.image_url ? (
+                                            <img src={c.image_url} alt={c.name} style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: 7, border: `1px solid ${RARITY_COLOR[c.rarity as never] ?? '#374151'}40`, display: 'block' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 7, background: 'var(--app-surface-2)', border: '1px solid var(--app-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>?</div>
+                                        )}
+                                        {ownedIds.has(c.id) && (
+                                            <span style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', fontSize: '0.46rem', fontWeight: 700, color: '#4ade80', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(74,222,128,0.35)', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>owned</span>
+                                        )}
+                                    </div>
                                     <span style={{ fontSize: '0.54rem', color: RARITY_COLOR[c.rarity as never] ?? 'var(--app-text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{c.name}</span>
                                 </div>
                             ))}
@@ -708,7 +715,10 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
                                                     <div style={{ width: '100%', aspectRatio: '2/3', background: 'var(--app-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: 'var(--app-text-ghost)' }}>?</div>
                                                 )}
                                                 <div style={{ padding: '5px 6px 5px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    <span style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--app-text)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                                                        <span style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--app-text)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{c.name}</span>
+                                                        {ownedIds.has(c.id) && <span style={{ fontSize: '0.48rem', fontWeight: 700, color: '#4ade80', background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>owned</span>}
+                                                    </div>
                                                     {c.market_price_usd != null && <span style={{ fontSize: '0.56rem', color: '#4ade80', fontWeight: 600 }}>${Number(c.market_price_usd).toFixed(2)}</span>}
                                                 </div>
                                             </div>

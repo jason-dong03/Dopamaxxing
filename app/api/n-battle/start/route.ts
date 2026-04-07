@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     // Validate ownership + fetch card data including moves
     const { data: rows } = await supabase
         .from('user_cards')
-        .select('id, card_level, card_xp, nature, moves, cards!inner(id, name, hp, rarity, image_url, pokemon_type)')
+        .select('id, card_level, card_xp, nature, moves, stat_spd, stat_accuracy, stat_evasion, cards!inner(id, name, hp, rarity, image_url, pokemon_type)')
         .eq('user_id', user.id)
         .in('id', userCardIds)
 
@@ -139,7 +139,12 @@ export async function POST(request: NextRequest) {
         const cardType: string = row.cards.pokemon_type ?? 'normal'
         const level = (row.card_level as number | null) ?? RARITY_LEVEL[rarity] ?? 1
         const hp = rollLevelHp(level)
-        const stats = getUserCardStats(rarity)
+        const fallbackStats = getUserCardStats(rarity)
+        // Use real stat_spd/accuracy/evasion from DB when available (these reflect actual
+        // base stats × rarity multiplier, giving faster Pokémon a real speed advantage)
+        const speed   = (row.stat_spd        as number | null) ?? fallbackStats.speed
+        const evasion = (row.stat_evasion     as number | null) ?? fallbackStats.evasion
+        const accuracy = (row.stat_accuracy   as number | null) ?? fallbackStats.accuracy
         return {
             id:               row.cards.id,
             name:             row.cards.name,
@@ -155,9 +160,9 @@ export async function POST(request: NextRequest) {
             statusEffect:     'none',
             statusTurns:      0,
             lastAttackDamage: 0,
-            speed:            stats.speed,
-            evasion:          stats.evasion,
-            accuracy:         stats.accuracy,
+            speed,
+            evasion,
+            accuracy,
         }
     })
 

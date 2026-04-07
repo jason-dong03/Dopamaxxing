@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import {
-    calcDamage, checkHit, tickStatus, decrementStatus, nextAlive, getTypeEffectiveness,
+    calcDamage, checkHit, tickStatus, decrementStatus, nextAlive, getTypeEffectiveness, statStageMult,
     type BattleCard, type BattleLogEntry, type StatusEffect, type StatName,
 } from '@/lib/n-battle'
 
@@ -186,14 +186,16 @@ export async function POST(request: NextRequest) {
     const precomputed = battle.n_next_move as { attackIndex: number } | null
     const nAttackIdx  = precomputed?.attackIndex ?? 0
 
-    // Determine turn order: move priority first → base speed → user wins ties
+    // Determine turn order: move priority first → effective speed (base × stage mult) → user wins ties
     const uMoveForOrder = uActive.attacks[attackIndex] ?? uActive.attacks[0]
     const nMoveForOrder = nCurrent.attacks[nAttackIdx] ?? nCurrent.attacks[0]
     const uPrio = uMoveForOrder?.priority ?? 0
     const nPrio = nMoveForOrder?.priority ?? 0
+    const uEffectiveSpeed = (uActive.speed ?? 60) * statStageMult(uActive.speedStage ?? 0)
+    const nEffectiveSpeed = (nCurrent.speed ?? 60) * statStageMult(nCurrent.speedStage ?? 0)
     const nGoesFirst = nPrio !== uPrio
         ? nPrio > uPrio                          // higher priority goes first
-        : (nCurrent.speed ?? 60) > (uActive.speed ?? 60)  // user wins speed ties
+        : nEffectiveSpeed > uEffectiveSpeed      // user wins speed ties
 
     // ── Shared outcome container ─────────────────────────────────────────────
     let outcome: 'won_u' | 'won_n' | null = null

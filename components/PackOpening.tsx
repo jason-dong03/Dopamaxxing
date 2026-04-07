@@ -112,6 +112,20 @@ export default function PackOpening({
 
     const [godPack, setGodPack] = useState(false)
     const [autoRunning, setAutoRunning] = useState(false)
+
+    // XP / level-up
+    const [userLevel, setUserLevel] = useState<number>(1)
+    const [xpGainPerPack, setXpGainPerPack] = useState<number | null>(null)
+    const [levelUpInfo, setLevelUpInfo] = useState<{
+        oldLevel: number
+        newLevel: number
+        oldXP: number
+        newXP: number
+        xpRequired: number
+        xpGain: number
+    } | null>(null)
+    const [levelUpClaiming, setLevelUpClaiming] = useState(false)
+    const [levelUpClaimed, setLevelUpClaimed] = useState(false)
     const [fanningOut, setFanningOut] = useState(false)
     const [bbTooltipPos, setBbTooltipPos] = useState<{
         x: number
@@ -251,11 +265,17 @@ export default function PackOpening({
             if (!user) return
             supabase
                 .from('profiles')
-                .select('coins')
+                .select('coins, level, xp')
                 .eq('id', user.id)
                 .single()
                 .then(({ data }) => {
-                    if (data) setUserCoins(Number(data.coins))
+                    if (data) {
+                        setUserCoins(Number(data.coins))
+                        const lvl = Number(data.level ?? 1)
+                        setUserLevel(lvl)
+                        // XP per pack = 15 * sqrt(level), same formula as server
+                        setXpGainPerPack(Math.round(15 * Math.sqrt(lvl)))
+                    }
                 })
         })
     }, [phase])
@@ -335,6 +355,18 @@ export default function PackOpening({
                 return
             }
             openedCards = data.cards
+            if (data.leveledUp) {
+                setLevelUpInfo({
+                    oldLevel: data.oldLevel,
+                    newLevel: data.newLevel,
+                    oldXP: data.oldXP,
+                    newXP: data.newXP,
+                    xpRequired: data.xpRequired,
+                    xpGain: data.xpGain,
+                })
+                setLevelUpClaimed(false)
+            }
+            if (data.xpGainPerPack) setXpGainPerPack(data.xpGainPerPack)
             if (!free && pack.cost > 0) {
                 setUserCoins((prev) => (prev ?? 0) - pack.cost * openCount)
                 triggerCoinFlash(pack.cost * openCount, false)
@@ -370,6 +402,18 @@ export default function PackOpening({
             }
             openedCards = data.cards
             if (data.godPack) setGodPack(true)
+            if (data.leveledUp) {
+                setLevelUpInfo({
+                    oldLevel: data.oldLevel,
+                    newLevel: data.newLevel,
+                    oldXP: data.oldXP,
+                    newXP: data.newXP,
+                    xpRequired: data.xpRequired,
+                    xpGain: data.xpGain,
+                })
+                setLevelUpClaimed(false)
+            }
+            if (data.xpGain) setXpGainPerPack(data.xpGain)
             if (!free && pack.cost > 0) {
                 setUserCoins((prev) => (prev ?? 0) - pack.cost)
                 triggerCoinFlash(pack.cost, false)
@@ -1205,6 +1249,24 @@ export default function PackOpening({
                                     )}
                                 </div>
                             )}
+                            {/* XP per pack label */}
+                            {xpGainPerPack !== null && (
+                                <div
+                                    style={{
+                                        fontSize: '0.65rem',
+                                        color: '#6b7280',
+                                        letterSpacing: '0.04em',
+                                        marginTop: 2,
+                                    }}
+                                >
+                                    +{xpGainPerPack * openCount} XP
+                                    {openCount > 1 && (
+                                        <span style={{ color: '#4b5563' }}>
+                                            {' '}({xpGainPerPack} per pack)
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                             {/* Back button rendered in fixed top-left position below */}
                         </div>
                     </div>
@@ -1845,6 +1907,145 @@ export default function PackOpening({
                     ← Back
                 </button>
             )}
+
+            {/* ── level-up overlay ────────────────────────────────────── */}
+            {levelUpInfo && !levelUpClaimed && createPortal(
+                <LevelUpOverlay
+                    info={levelUpInfo}
+                    claiming={levelUpClaiming}
+                    onClaim={async () => {
+                        setLevelUpClaiming(true)
+                        await fetch('/api/claim-level-rewards', { method: 'POST' })
+                        window.dispatchEvent(new Event('stash-claimed'))
+                        setLevelUpClaiming(false)
+                        setLevelUpClaimed(true)
+                        setLevelUpInfo(null)
+                    }}
+                />,
+                document.body,
+            )}
         </>
+    )
+}
+
+// ─── LevelUpOverlay ──────────────────────────────────────────────────────────
+
+type LevelUpOverlayProps = {
+    info: {
+        oldLevel: number
+        newLevel: number
+        oldXP: number
+        newXP: number
+        xpRequired: number
+        xpGain: number
+    }
+    claiming: boolean
+    onClaim: () => void
+}
+
+function LevelUpOverlay({ info, claiming, onClaim }: LevelUpOverlayProps) {
+    const { oldLevel, newLevel, newXP, xpRequired } = info
+    const barPct = Math.min(100, Math.round((newXP / xpRequired) * 100))
+    const levelsGained = newLevel - oldLevel
+
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0,0,0,0.78)',
+                backdropFilter: 'blur(6px)',
+                animation: 'fadeIn 300ms ease-out',
+            }}
+        >
+            <div
+                style={{
+                    background: 'linear-gradient(160deg, rgba(20,20,32,0.98), rgba(10,10,20,0.98))',
+                    border: '1px solid rgba(251,191,36,0.35)',
+                    borderRadius: 24,
+                    padding: '36px 40px',
+                    maxWidth: 340,
+                    width: '90vw',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 16,
+                    boxShadow: '0 0 60px rgba(251,191,36,0.12)',
+                    animation: 'cardPop 350ms cubic-bezier(0.34,1.56,0.64,1)',
+                }}
+            >
+                {/* level badge */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', color: '#fbbf24', textTransform: 'uppercase', margin: 0 }}>
+                        Level Up{levelsGained > 1 ? ` ×${levelsGained}` : ''}!
+                    </p>
+                    <p style={{ fontSize: '2.4rem', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1 }}>
+                        {oldLevel}
+                        <span style={{ color: '#fbbf24', margin: '0 8px' }}>→</span>
+                        {newLevel}
+                    </p>
+                </div>
+
+                {/* XP bar */}
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: '#6b7280' }}>
+                        <span>XP</span>
+                        <span>{newXP} / {xpRequired}</span>
+                    </div>
+                    <div style={{ width: '100%', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div
+                            style={{
+                                height: '100%',
+                                width: `${barPct}%`,
+                                borderRadius: 999,
+                                background: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+                                transition: 'width 800ms cubic-bezier(0.4,0,0.2,1)',
+                                boxShadow: '0 0 8px rgba(251,191,36,0.6)',
+                            }}
+                        />
+                    </div>
+                </div>
+
+                {/* rewards note */}
+                <p style={{ fontSize: '0.68rem', color: '#9ca3af', margin: 0, textAlign: 'center' }}>
+                    Rewards are waiting in your stash
+                </p>
+
+                {/* claim button */}
+                <button
+                    onClick={onClaim}
+                    disabled={claiming}
+                    style={{
+                        marginTop: 4,
+                        padding: '10px 36px',
+                        borderRadius: 12,
+                        background: claiming ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.18)',
+                        border: '1px solid rgba(251,191,36,0.5)',
+                        color: '#fbbf24',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                        cursor: claiming ? 'default' : 'pointer',
+                        transition: 'all 150ms',
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!claiming) {
+                            e.currentTarget.style.background = 'rgba(251,191,36,0.28)'
+                            e.currentTarget.style.boxShadow = '0 0 20px rgba(251,191,36,0.2)'
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(251,191,36,0.18)'
+                        e.currentTarget.style.boxShadow = 'none'
+                    }}
+                >
+                    {claiming ? 'claiming…' : 'claim rewards'}
+                </button>
+            </div>
+        </div>
     )
 }

@@ -168,6 +168,16 @@ export default async function QuestsPage() {
         (rarityRows ?? []).some((r: any) => legendaryRarities.has(r.cards?.rarity) && r.cards?.name?.toLowerCase().includes('mewtwo')),
     ].filter(Boolean).length
 
+    // Prismatic Eeveelutions (sv08.5) — count how many legendary+ evolutions the user owns
+    const EEVEELUTIONS = ['vaporeon', 'jolteon', 'flareon', 'espeon', 'umbreon', 'leafeon', 'glaceon', 'sylveon']
+    const hasPrismaticEeveelutions = EEVEELUTIONS.filter(evo =>
+        (rarityRows ?? []).some((r: any) =>
+            legendaryRarities.has(r.cards?.rarity) &&
+            r.cards?.set_id === 'sv08.5' &&
+            (r.cards?.name as string ?? '').toLowerCase().includes(evo)
+        )
+    ).length
+
     // Check if user added jsndong03 as friend
     let addedOwnerFriend = 0
     if (ownerProfile?.id) {
@@ -222,6 +232,7 @@ export default async function QuestsPage() {
         ),
         sold_highest_card: ((nqpData as any)?.sold_highest_count ?? 0) >= 1 ? 1 : 0,
         n_battle_won: (nBattleWonCount ?? 0) > 0 ? 1 : 0,
+        has_prismatic_eeveelutions: hasPrismaticEeveelutions,
     }
 
     const ownedCards = (rarityRows ?? []).map((r: any) => ({

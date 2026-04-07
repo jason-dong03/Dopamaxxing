@@ -494,6 +494,16 @@ export function QuestCard({
                                                 .includes('mewtwo'),
                                     },
                                 ],
+                                has_prismatic_eeveelutions: [
+                                    'Vaporeon', 'Jolteon', 'Flareon', 'Espeon',
+                                    'Umbreon', 'Leafeon', 'Glaceon', 'Sylveon',
+                                ].map((evo) => ({
+                                    label: `${evo} (Legendary+, Prismatic)`,
+                                    match: (c: OwnedCard) =>
+                                        LEG.has(c.rarity) &&
+                                        c.set_id === 'sv08.5' &&
+                                        c.name.toLowerCase().includes(evo.toLowerCase()),
+                                })),
                             }
                             // Slug-based combos for quests that don't use auto metrics
                             const SLUG_COMBOS: Partial<Record<string, Req[]>> = {
