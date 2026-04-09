@@ -144,11 +144,15 @@ export const MAX_USER_LEVEL = 100
 export function xpForLevel(level: number): number {
     const base = 100 * level * level
     const multiplier =
-        level <= 15 ? 0.55 :
-        level <= 35 ? 1.10 :
-        level <= 55 ? 0.80 :
-        level <= 75 ? 1.30 :
-        2.00
+        level <= 15
+            ? 0.55
+            : level <= 35
+              ? 1.1
+              : level <= 55
+                ? 0.8
+                : level <= 75
+                  ? 1.3
+                  : 2.0
     return Math.round(base * multiplier)
 }
 
@@ -346,11 +350,11 @@ export function tierBuyBack(rarity: string): number {
     if (rarity === '???') return 3.5
     if (rarity === 'Celestial') return 2.5
     if (rarity === 'Divine') return 1.75
-    if (rarity === 'Legendary') return 1
-    if (rarity === 'Mythical') return 0.85
-    if (rarity === 'Epic') return 0.65
-    if (rarity === 'Rare') return 0.45
-    return 0.2
+    if (rarity === 'Legendary') return 1.15
+    if (rarity === 'Mythical') return 0.8
+    if (rarity === 'Epic') return 0.6
+    if (rarity === 'Rare') return 0.5
+    return 0.35
 }
 /**
  * Returns the starting level for a newly pulled card.

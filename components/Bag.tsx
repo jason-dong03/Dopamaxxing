@@ -67,19 +67,21 @@ export default function BagPage({
     const [selectedCol, setSelectedCol] = useState(0)
     const [isWide, setIsWide] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
+    const [isTablet, setIsTablet] = useState(false)
     const [activeTab, setActiveTab] = useState<'cards' | 'misc'>('cards')
     const headerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const check = () => {
-            setIsWide(window.innerWidth >= 1280)
-            setIsMobile(window.innerWidth < 640)
+            const w = window.innerWidth
+            setIsWide(w >= 1280)
+            setIsMobile(w < 640)
+            setIsTablet(w >= 640 && w < 1024)
         }
         check()
         window.addEventListener('resize', check)
         return () => window.removeEventListener('resize', check)
     }, [])
-
     // Refresh coins from DB on mount to ensure accuracy
     useEffect(() => {
         const supabase = createClient()
@@ -149,14 +151,18 @@ export default function BagPage({
         const soldId = selected.id
         const rawWorth = selected.cards.market_price_usd ?? 0
         const isGraded = selected.grade != null
-        const condMult = conditionMultFunction(weightedCondition({
-            attr_centering: selected.attr_centering ?? 0,
-            attr_corners: selected.attr_corners ?? 0,
-            attr_edges: selected.attr_edges ?? 0,
-            attr_surface: selected.attr_surface ?? 0,
-        }))
+        const condMult = conditionMultFunction(
+            weightedCondition({
+                attr_centering: selected.attr_centering ?? 0,
+                attr_corners: selected.attr_corners ?? 0,
+                attr_edges: selected.attr_edges ?? 0,
+                attr_surface: selected.attr_surface ?? 0,
+            }),
+        )
         const cardWorth = isGraded ? rawWorth * condMult : rawWorth
-        const buyback = parseFloat((cardWorth * tierBuyBack(selected.cards.rarity)).toFixed(2))
+        const buyback = parseFloat(
+            (cardWorth * tierBuyBack(selected.cards.rarity)).toFixed(2),
+        )
         await fetch('/api/buyback-card', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1155,7 +1161,9 @@ export default function BagPage({
                                     style={{
                                         gridTemplateColumns: isMobile
                                             ? 'repeat(2, 1fr)'
-                                            : 'repeat(5, 1fr)',
+                                            : isTablet
+                                              ? 'repeat(3, 1fr)'
+                                              : 'repeat(5, 1fr)',
                                         alignItems: 'center',
                                     }}
                                 >
@@ -1183,7 +1191,12 @@ export default function BagPage({
                                                         return next
                                                     })
                                                 } else {
-                                                    const col = i % 5
+                                                    const currentCols = isMobile
+                                                        ? 2
+                                                        : isTablet
+                                                          ? 3
+                                                          : 5
+                                                    const col = i % currentCols
                                                     setSelectedCol(col)
                                                     setSelected((prev) =>
                                                         prev?.id === uc.id

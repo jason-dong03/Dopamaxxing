@@ -104,6 +104,7 @@ export function CardStats({
     >('overview')
     const [learnSlot, setLearnSlot] = useState<{ moveIdx: number } | null>(null)
     const [learnLoading, setLearnLoading] = useState(false)
+    const [summaryOpen, setSummaryOpen] = useState(true)
     const [refreshLoading, setRefreshLoading] = useState(false)
     const [refreshResult, setRefreshResult] = useState<{
         poolSize: number
@@ -121,7 +122,10 @@ export function CardStats({
     const [showEvolutionTooltip, setShowEvolutionTooltip] = useState(false)
     const [showEvolutionCutscene, setShowEvolutionCutscene] = useState(false)
     const [pendingOpen, setPendingOpen] = useState(false)
-    const [worthTooltipPos, setWorthTooltipPos] = useState<{ x: number; y: number } | null>(null)
+    const [worthTooltipPos, setWorthTooltipPos] = useState<{
+        x: number
+        y: number
+    } | null>(null)
 
     useEffect(() => {
         const name = baseName(uc.cards.name)
@@ -177,9 +181,10 @@ export function CardStats({
     // Sell = worth × tier rate (computed fresh, not from stale uc.worth)
     const computedSellAmount = parseFloat((cardWorth * tierRate).toFixed(2))
     const worthDelta = cardWorth - rawWorth
-    const worthDisplay = isGraded && worthDelta !== 0
-        ? `$${fmt(cardWorth)} (${worthDelta > 0 ? '+' : '-'}$${fmt(Math.abs(worthDelta))})`
-        : `$${fmt(cardWorth)}`
+    const worthDisplay =
+        isGraded && worthDelta !== 0
+            ? `$${fmt(cardWorth)} (${worthDelta > 0 ? '+' : '-'}$${fmt(Math.abs(worthDelta))})`
+            : `$${fmt(cardWorth)}`
 
     // colored stat rows
     const stats = [
@@ -265,7 +270,22 @@ export function CardStats({
     const hasPending = (uc.pending_moves?.length ?? 0) > 0
 
     const imageBlock = (
-        <div style={{ position: 'relative' }}>
+        <button
+            onClick={() => {
+                if (!cleanView) setCleanView(true)
+            }}
+            title="Open clean view"
+            style={{
+                position: 'relative',
+                display: 'block',
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                textAlign: 'inherit',
+            }}
+        >
             {cardOnly}
             {!cleanView && isFirstEdition && (
                 <FirstEditionBadge variant="detail" />
@@ -287,7 +307,7 @@ export function CardStats({
                     }}
                 />
             )}
-        </div>
+        </button>
     )
 
     // ─── nature & combat stat helpers ─────────────────────────────────────────
@@ -368,12 +388,152 @@ export function CardStats({
             setLearnSlot(null)
         }
     }
+    const summaryBlock = (
+        <div
+            style={{
+                marginBottom: 14,
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.03)',
+                overflow: 'hidden',
+            }}
+        >
+            <button
+                onClick={() => setSummaryOpen((v) => !v)}
+                style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    padding: '10px 12px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                }}
+            >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                            marginBottom: 3,
+                        }}
+                    >
+                        {uc.is_hot && (
+                            <span
+                                style={{
+                                    fontSize: '0.62rem',
+                                    color: '#fb923c',
+                                    lineHeight: 1,
+                                }}
+                            >
+                                🔥
+                            </span>
+                        )}
+
+                        <span
+                            style={{
+                                fontSize:
+                                    mode === 'overlay' ? '1rem' : '0.8rem',
+                                fontWeight: 700,
+                                color: '#fff',
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {baseName(uc.cards.name)}
+                        </span>
+
+                        <span
+                            className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
+                            style={{
+                                fontSize: '0.48rem',
+                                ...rarityTextStyle(rarity),
+                            }}
+                        >
+                            {rarity}
+                        </span>
+                    </div>
+
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#9ca3af',
+                                fontFamily: 'monospace',
+                            }}
+                        >
+                            #
+                            {String(
+                                uc.cards.national_pokedex_number ?? 0,
+                            ).padStart(3, '0')}
+                        </span>
+
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#60a5fa',
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                            }}
+                        >
+                            Lv. {uc.card_level}
+                        </span>
+
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#eab308',
+                                fontFamily: 'monospace',
+                            }}
+                        >
+                            ${Number(uc.cards.market_price_usd ?? 0).toFixed(2)}
+                        </span>
+
+                        {uc.grade != null && (
+                            <span
+                                style={{
+                                    fontSize: '0.56rem',
+                                    color: '#f87171',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 700,
+                                }}
+                            >
+                                PSA {uc.grade}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <span
+                    style={{
+                        fontSize: '0.72rem',
+                        color: '#9ca3af',
+                        flexShrink: 0,
+                    }}
+                >
+                    {summaryOpen ? '▲' : '▼'}
+                </span>
+            </button>
+        </div>
+    )
 
     const infoBlock = (
         <div
             className="flex flex-col flex-1 min-w-0 overflow-y-auto"
             style={{ minHeight: 320 }}
         >
+            {summaryBlock}
             {/* tab switcher */}
             <div
                 style={{
@@ -420,7 +580,8 @@ export function CardStats({
                                     borderRadius: '50%',
                                     background: '#f97316',
                                     boxShadow: '0 0 5px rgba(249,115,22,0.8)',
-                                    animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                    animation:
+                                        'pendingPulse 1.5s ease-in-out infinite',
                                 }}
                             />
                         )}
@@ -431,166 +592,184 @@ export function CardStats({
             {detailTab === 'overview' && (
                 <>
                     {/* name + rarity */}
-                    <div className="mb-4">
-                        <div className="flex items-center gap-3 mb-2">
-                            {/* favorites toggle */}
-                            <button
-                                onClick={onToggleFavorite}
-                                className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
-                                style={{ cursor: 'pointer' }}
-                                title={
-                                    uc.is_favorited
-                                        ? 'Remove from favorites'
-                                        : 'Add to favorites'
-                                }
-                            >
+                    {!summaryOpen && (
+                        <div className="mb-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                {/* favorites toggle */}
+                                <button
+                                    onClick={onToggleFavorite}
+                                    className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+                                    style={{ cursor: 'pointer' }}
+                                    title={
+                                        uc.is_favorited
+                                            ? 'Remove from favorites'
+                                            : 'Add to favorites'
+                                    }
+                                >
+                                    <span
+                                        style={{
+                                            fontSize: '1rem',
+                                            color: '#facc15',
+                                            lineHeight: 1,
+                                            filter: uc.is_favorited
+                                                ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))'
+                                                : 'none',
+                                            transition: 'filter 0.15s ease',
+                                        }}
+                                    >
+                                        {uc.is_favorited ? '★' : '☆'}
+                                    </span>
+                                    <span
+                                        style={{
+                                            fontSize: '0.58rem',
+                                            color: uc.is_favorited
+                                                ? '#facc15'
+                                                : '#6b7280',
+                                        }}
+                                    >
+                                        {uc.is_favorited
+                                            ? 'favorited'
+                                            : 'favorite'}
+                                    </span>
+                                </button>
+                                {/* showcase toggle (1 per user) */}
+                                <ShowcaseButton uc={uc} />
+                            </div>
+                            {uc.is_hot && (
                                 <span
+                                    className="block mb-1"
                                     style={{
-                                        fontSize: '1rem',
-                                        color: '#facc15',
-                                        lineHeight: 1,
-                                        filter: uc.is_favorited
-                                            ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))'
-                                            : 'none',
-                                        transition: 'filter 0.15s ease',
+                                        fontSize: '0.6rem',
+                                        color: '#fb923c',
                                     }}
                                 >
-                                    {uc.is_favorited ? '★' : '☆'}
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: '0.58rem',
-                                        color: uc.is_favorited
-                                            ? '#facc15'
-                                            : '#6b7280',
-                                    }}
-                                >
-                                    {uc.is_favorited ? 'favorited' : 'favorite'}
-                                </span>
-                            </button>
-                            {/* showcase toggle (1 per user) */}
-                            <ShowcaseButton uc={uc} />
-                        </div>
-                        {uc.is_hot && (
-                            <span
-                                className="block mb-1"
-                                style={{ fontSize: '0.6rem', color: '#fb923c' }}
-                            >
-                                🔥 hot market pull
-                            </span>
-                        )}
-                        <h3
-                            className="text-white font-bold leading-snug mb-1.5"
-                            style={{
-                                fontSize:
-                                    mode === 'overlay' ? '1.3rem' : '0.95rem',
-                            }}
-                        >
-                            {baseName(uc.cards.name)}
-                        </h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                                className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
-                                style={{
-                                    fontSize: '0.58rem',
-                                    ...rarityTextStyle(rarity),
-                                }}
-                            >
-                                {rarity}
-                            </span>
-                            {uc.cards.pokemon_type && (
-                                <span
-                                    style={{
-                                        fontSize: '0.55rem',
-                                        fontWeight: 700,
-                                        textTransform: 'capitalize',
-                                        color: '#fff',
-                                        background:
-                                            TYPE_COLOR[uc.cards.pokemon_type] ??
-                                            '#6b7280',
-                                        borderRadius: 4,
-                                        padding: '1px 6px',
-                                        letterSpacing: '0.04em',
-                                    }}
-                                >
-                                    {uc.cards.pokemon_type}
+                                    🔥 hot market pull
                                 </span>
                             )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-2">
-                            <span
-                                style={{
-                                    fontSize: '0.4rem',
-                                    color: '#6b7280',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                }}
-                            >
-                                raw value
-                            </span>
-                            <span
+                            <h3
+                                className="text-white font-bold leading-snug mb-1.5"
                                 style={{
                                     fontSize:
                                         mode === 'overlay'
-                                            ? '0.75rem'
-                                            : '0.58rem',
-                                    fontWeight: 700,
-                                    fontFamily: 'monospace',
-                                    color: '#dedc4a',
+                                            ? '1.3rem'
+                                            : '0.95rem',
                                 }}
                             >
-                                ${fmt(Number(uc.cards.market_price_usd))}
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: '0.4rem',
-                                    color: '#6b7280',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                }}
-                            >
-                                worth:
-                            </span>
-                            <span
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 12,
-                                    height: 12,
-                                    borderRadius: '50%',
-                                    border: '1px solid #4b5563',
-                                    color: '#9ca3af',
-                                    fontSize: '0.45rem',
-                                    fontWeight: 700,
-                                    cursor: 'default',
-                                    flexShrink: 0,
-                                }}
-                                onMouseEnter={(e) => {
-                                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    setWorthTooltipPos({ x: r.left, y: r.bottom + 6 })
-                                }}
-                                onMouseLeave={() => setWorthTooltipPos(null)}
-                            >
-                                ?
-                            </span>
-                            <span
-                                style={{
-                                    fontSize:
-                                        mode === 'overlay'
-                                            ? '0.75rem'
-                                            : '0.58rem',
-                                    fontWeight: 700,
-                                    fontFamily: 'monospace',
-                                    color:
-                                        worthDelta > 0 ? '#4ade80' : '#de4a4a',
-                                }}
-                            >
-                                {worthDisplay}
-                            </span>
+                                {baseName(uc.cards.name)}
+                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                    className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
+                                    style={{
+                                        fontSize: '0.58rem',
+                                        ...rarityTextStyle(rarity),
+                                    }}
+                                >
+                                    {rarity}
+                                </span>
+                                {uc.cards.pokemon_type && (
+                                    <span
+                                        style={{
+                                            fontSize: '0.55rem',
+                                            fontWeight: 700,
+                                            textTransform: 'capitalize',
+                                            color: '#fff',
+                                            background:
+                                                TYPE_COLOR[
+                                                    uc.cards.pokemon_type
+                                                ] ?? '#6b7280',
+                                            borderRadius: 4,
+                                            padding: '1px 6px',
+                                            letterSpacing: '0.04em',
+                                        }}
+                                    >
+                                        {uc.cards.pokemon_type}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <span
+                                    style={{
+                                        fontSize: '0.4rem',
+                                        color: '#6b7280',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                    }}
+                                >
+                                    raw value
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize:
+                                            mode === 'overlay'
+                                                ? '0.75rem'
+                                                : '0.58rem',
+                                        fontWeight: 700,
+                                        fontFamily: 'monospace',
+                                        color: '#dedc4a',
+                                    }}
+                                >
+                                    ${fmt(Number(uc.cards.market_price_usd))}
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize: '0.4rem',
+                                        color: '#6b7280',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                    }}
+                                >
+                                    worth:
+                                </span>
+                                <span
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: '50%',
+                                        border: '1px solid #4b5563',
+                                        color: '#9ca3af',
+                                        fontSize: '0.45rem',
+                                        fontWeight: 700,
+                                        cursor: 'default',
+                                        flexShrink: 0,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        const r = (
+                                            e.currentTarget as HTMLElement
+                                        ).getBoundingClientRect()
+                                        setWorthTooltipPos({
+                                            x: r.left,
+                                            y: r.bottom + 6,
+                                        })
+                                    }}
+                                    onMouseLeave={() =>
+                                        setWorthTooltipPos(null)
+                                    }
+                                >
+                                    ?
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize:
+                                            mode === 'overlay'
+                                                ? '0.75rem'
+                                                : '0.58rem',
+                                        fontWeight: 700,
+                                        fontFamily: 'monospace',
+                                        color:
+                                            worthDelta > 0
+                                                ? '#4ade80'
+                                                : '#de4a4a',
+                                    }}
+                                >
+                                    {worthDisplay}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-
+                    )}
                     {/* stat rows */}
                     <div style={{ borderTop: `1px solid ${borderColor}` }}>
                         {stats.map(({ label, value, color, isLevel }) => (
@@ -1073,9 +1252,16 @@ export function CardStats({
                                 Moves
                             </div>
                             {hasPending && (
-                                <div style={{ position: 'relative', marginRight: 6 }}>
+                                <div
+                                    style={{
+                                        position: 'relative',
+                                        marginRight: 6,
+                                    }}
+                                >
                                     <button
-                                        onClick={() => setPendingOpen((v) => !v)}
+                                        onClick={() =>
+                                            setPendingOpen((v) => !v)
+                                        }
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1105,8 +1291,10 @@ export function CardStats({
                                             borderRadius: '50%',
                                             background: '#f97316',
                                             pointerEvents: 'none',
-                                            boxShadow: '0 0 5px rgba(249,115,22,0.8)',
-                                            animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                            boxShadow:
+                                                '0 0 5px rgba(249,115,22,0.8)',
+                                            animation:
+                                                'pendingPulse 1.5s ease-in-out infinite',
                                         }}
                                     />
                                 </div>
@@ -1217,7 +1405,6 @@ export function CardStats({
                                 )
                             })}
                         </div>
-
                     </div>
 
                     {/* sell button at bottom */}
@@ -1245,242 +1432,412 @@ export function CardStats({
             />
         ) : null
 
-    const worthTooltip = worthTooltipPos && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-                style={{
-                    position: 'fixed',
-                    top: worthTooltipPos.y,
-                    left: worthTooltipPos.x,
-                    width: 220,
-                    background: 'rgba(15,15,20,0.97)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    zIndex: 99999,
-                    pointerEvents: 'none',
-                    fontSize: '0.62rem',
-                    lineHeight: 1.6,
-                    color: '#d1d5db',
-                }}
-            >
-                <div style={{ fontWeight: 700, color: '#f9fafb', marginBottom: 6, fontSize: '0.65rem' }}>
-                    Card worth
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div>
-                        <span style={{ color: '#9ca3af' }}>Market price:</span>
-                        <span style={{ color: '#fbbf24', marginLeft: 4 }}>
-                            ${fmt(Number(uc.cards.market_price_usd))}
-                        </span>
-                    </div>
-                    {isGraded && (
-                        <div>
-                            <span style={{ color: '#9ca3af' }}>Condition mult:</span>
-                            <span style={{ color: '#60a5fa', marginLeft: 4 }}>
-                                {condMult.toFixed(2)}×
-                            </span>
-                        </div>
-                    )}
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 2, paddingTop: 4 }}>
-                        <span style={{ color: '#9ca3af' }}>Worth:</span>
-                        <span style={{ color: '#4ade80', marginLeft: 4, fontWeight: 700 }}>
-                            ${fmt(cardWorth)}
-                        </span>
-                    </div>
-                </div>
-            </div>,
-            document.body,
-        )
-        : null
+    const worthTooltip =
+        worthTooltipPos && typeof document !== 'undefined'
+            ? createPortal(
+                  <div
+                      style={{
+                          position: 'fixed',
+                          top: worthTooltipPos.y,
+                          left: worthTooltipPos.x,
+                          width: 220,
+                          background: 'rgba(15,15,20,0.97)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 8,
+                          padding: '10px 12px',
+                          zIndex: 99999,
+                          pointerEvents: 'none',
+                          fontSize: '0.62rem',
+                          lineHeight: 1.6,
+                          color: '#d1d5db',
+                      }}
+                  >
+                      <div
+                          style={{
+                              fontWeight: 700,
+                              color: '#f9fafb',
+                              marginBottom: 6,
+                              fontSize: '0.65rem',
+                          }}
+                      >
+                          Card worth
+                      </div>
+                      <div
+                          style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 4,
+                          }}
+                      >
+                          <div>
+                              <span style={{ color: '#9ca3af' }}>
+                                  Market price:
+                              </span>
+                              <span style={{ color: '#fbbf24', marginLeft: 4 }}>
+                                  ${fmt(Number(uc.cards.market_price_usd))}
+                              </span>
+                          </div>
+                          {isGraded && (
+                              <div>
+                                  <span style={{ color: '#9ca3af' }}>
+                                      Condition mult:
+                                  </span>
+                                  <span
+                                      style={{
+                                          color: '#60a5fa',
+                                          marginLeft: 4,
+                                      }}
+                                  >
+                                      {condMult.toFixed(2)}×
+                                  </span>
+                              </div>
+                          )}
+                          <div
+                              style={{
+                                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                                  marginTop: 2,
+                                  paddingTop: 4,
+                              }}
+                          >
+                              <span style={{ color: '#9ca3af' }}>Worth:</span>
+                              <span
+                                  style={{
+                                      color: '#4ade80',
+                                      marginLeft: 4,
+                                      fontWeight: 700,
+                                  }}
+                              >
+                                  ${fmt(cardWorth)}
+                              </span>
+                          </div>
+                      </div>
+                  </div>,
+                  document.body,
+              )
+            : null
 
-    const learnOverlay = pendingOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-                style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 99998,
-                    background: 'rgba(0,0,0,0.75)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 16,
-                }}
-                onClick={(e) => { if (e.target === e.currentTarget) setPendingOpen(false) }}
-            >
-                <div
-                    style={{
-                        background: 'rgba(12,12,18,0.98)',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                        borderRadius: 12,
-                        padding: '18px 20px',
-                        width: '100%',
-                        maxWidth: 420,
-                        maxHeight: '80vh',
-                        overflowY: 'auto',
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                        <div>
-                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#f9fafb', marginBottom: 2 }}>
-                                New moves available
-                            </div>
-                            <div style={{ fontSize: '0.52rem', color: '#6b7280' }}>
-                                {uc.cards.name} can learn {(uc.pending_moves ?? []).length} new move{(uc.pending_moves ?? []).length !== 1 ? 's' : ''}
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setPendingOpen(false)}
-                            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '1rem', cursor: 'pointer', padding: 4 }}
-                        >
-                            ✕
-                        </button>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {(uc.pending_moves ?? []).map((mv, moveIdx) => {
-                            const typeColor = TYPE_COLOR[mv.type] ?? '#94a3b8'
-                            return (
-                                <div
-                                    key={moveIdx}
-                                    style={{
-                                        padding: '10px 12px',
-                                        borderRadius: 9,
-                                        border: '1px solid rgba(239,68,68,0.25)',
-                                        background: 'rgba(239,68,68,0.04)',
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                        <span
-                                            style={{
-                                                fontSize: '0.5rem',
-                                                background: typeColor + '33',
-                                                color: typeColor,
-                                                border: `1px solid ${typeColor}44`,
-                                                borderRadius: 4,
-                                                padding: '1px 5px',
-                                                textTransform: 'uppercase',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {mv.type}
-                                        </span>
-                                        <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: 700, color: '#fca5a5' }}>
-                                            {mv.displayName}
-                                        </span>
-                                        {mv.power && (
-                                            <span style={{ fontSize: '0.6rem', fontFamily: 'monospace', color: '#f87171', flexShrink: 0 }}>
-                                                {mv.power}
-                                            </span>
-                                        )}
-                                        <span
-                                            style={{
-                                                fontSize: '0.52rem',
-                                                fontWeight: 700,
-                                                color: isMoveSlotFree ? '#4ade80' : '#f59e0b',
-                                                background: isMoveSlotFree ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)',
-                                                border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                                                borderRadius: 4,
-                                                padding: '1px 5px',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {isMoveSlotFree ? 'Free' : '100 coins'}
-                                        </span>
-                                    </div>
-                                    {mv.effect && (
-                                        <p style={{ fontSize: '0.52rem', color: '#9ca3af', margin: '0 0 8px', lineHeight: 1.4 }}>
-                                            {mv.effect}
-                                        </p>
-                                    )}
-                                    {learnSlot?.moveIdx === moveIdx ? (
-                                        <div>
-                                            <div style={{ fontSize: '0.5rem', color: '#9ca3af', marginBottom: 5 }}>
-                                                Replace which move?{' '}
-                                                <span style={{ color: '#f59e0b' }}>(costs 100 coins)</span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                {(uc.moves ?? []).map((existing, slotIdx) => (
-                                                    <button
-                                                        key={slotIdx}
-                                                        disabled={learnLoading}
-                                                        onClick={() => handleLearnMove(moveIdx, slotIdx)}
-                                                        style={{
-                                                            fontSize: '0.52rem',
-                                                            padding: '3px 8px',
-                                                            borderRadius: 5,
-                                                            border: '1px solid rgba(239,68,68,0.4)',
-                                                            background: 'rgba(239,68,68,0.1)',
-                                                            color: '#fca5a5',
-                                                            cursor: 'pointer',
-                                                        }}
-                                                    >
-                                                        {existing.displayName}
-                                                    </button>
-                                                ))}
-                                                <button
-                                                    onClick={() => setLearnSlot(null)}
-                                                    style={{
-                                                        fontSize: '0.52rem',
-                                                        padding: '3px 8px',
-                                                        borderRadius: 5,
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        background: 'transparent',
-                                                        color: '#6b7280',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            <button
-                                                disabled={learnLoading}
-                                                onClick={() =>
-                                                    isMoveSlotFree
-                                                        ? handleLearnMove(moveIdx, moveSlotsUsed)
-                                                        : setLearnSlot({ moveIdx })
-                                                }
-                                                style={{
-                                                    fontSize: '0.55rem',
-                                                    padding: '4px 14px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid rgba(239,68,68,0.4)',
-                                                    background: 'rgba(239,68,68,0.1)',
-                                                    color: '#fca5a5',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {learnLoading ? '...' : 'Learn Move'}
-                                            </button>
-                                            <button
-                                                onClick={() => setPendingOpen(false)}
-                                                style={{
-                                                    fontSize: '0.52rem',
-                                                    padding: '4px 8px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid rgba(255,255,255,0.08)',
-                                                    background: 'transparent',
-                                                    color: '#4b5563',
-                                                    cursor: 'pointer',
-                                                }}
-                                            >
-                                                Skip
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-            </div>,
-            document.body,
-        )
-        : null
+    const learnOverlay =
+        pendingOpen && typeof document !== 'undefined'
+            ? createPortal(
+                  <div
+                      style={{
+                          position: 'fixed',
+                          inset: 0,
+                          zIndex: 99998,
+                          background: 'rgba(0,0,0,0.75)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: 16,
+                      }}
+                      onClick={(e) => {
+                          if (e.target === e.currentTarget)
+                              setPendingOpen(false)
+                      }}
+                  >
+                      <div
+                          style={{
+                              background: 'rgba(12,12,18,0.98)',
+                              border: '1px solid rgba(239,68,68,0.3)',
+                              borderRadius: 12,
+                              padding: '18px 20px',
+                              width: '100%',
+                              maxWidth: 420,
+                              maxHeight: '80vh',
+                              overflowY: 'auto',
+                          }}
+                      >
+                          <div
+                              style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  marginBottom: 14,
+                              }}
+                          >
+                              <div>
+                                  <div
+                                      style={{
+                                          fontSize: '0.65rem',
+                                          fontWeight: 700,
+                                          color: '#f9fafb',
+                                          marginBottom: 2,
+                                      }}
+                                  >
+                                      New moves available
+                                  </div>
+                                  <div
+                                      style={{
+                                          fontSize: '0.52rem',
+                                          color: '#6b7280',
+                                      }}
+                                  >
+                                      {uc.cards.name} can learn{' '}
+                                      {(uc.pending_moves ?? []).length} new move
+                                      {(uc.pending_moves ?? []).length !== 1
+                                          ? 's'
+                                          : ''}
+                                  </div>
+                              </div>
+                              <button
+                                  onClick={() => setPendingOpen(false)}
+                                  style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#6b7280',
+                                      fontSize: '1rem',
+                                      cursor: 'pointer',
+                                      padding: 4,
+                                  }}
+                              >
+                                  ✕
+                              </button>
+                          </div>
+                          <div
+                              style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 10,
+                              }}
+                          >
+                              {(uc.pending_moves ?? []).map((mv, moveIdx) => {
+                                  const typeColor =
+                                      TYPE_COLOR[mv.type] ?? '#94a3b8'
+                                  return (
+                                      <div
+                                          key={moveIdx}
+                                          style={{
+                                              padding: '10px 12px',
+                                              borderRadius: 9,
+                                              border: '1px solid rgba(239,68,68,0.25)',
+                                              background:
+                                                  'rgba(239,68,68,0.04)',
+                                          }}
+                                      >
+                                          <div
+                                              style={{
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  gap: 8,
+                                                  marginBottom: 4,
+                                              }}
+                                          >
+                                              <span
+                                                  style={{
+                                                      fontSize: '0.5rem',
+                                                      background:
+                                                          typeColor + '33',
+                                                      color: typeColor,
+                                                      border: `1px solid ${typeColor}44`,
+                                                      borderRadius: 4,
+                                                      padding: '1px 5px',
+                                                      textTransform:
+                                                          'uppercase',
+                                                      flexShrink: 0,
+                                                  }}
+                                              >
+                                                  {mv.type}
+                                              </span>
+                                              <span
+                                                  style={{
+                                                      flex: 1,
+                                                      fontSize: '0.72rem',
+                                                      fontWeight: 700,
+                                                      color: '#fca5a5',
+                                                  }}
+                                              >
+                                                  {mv.displayName}
+                                              </span>
+                                              {mv.power && (
+                                                  <span
+                                                      style={{
+                                                          fontSize: '0.6rem',
+                                                          fontFamily:
+                                                              'monospace',
+                                                          color: '#f87171',
+                                                          flexShrink: 0,
+                                                      }}
+                                                  >
+                                                      {mv.power}
+                                                  </span>
+                                              )}
+                                              <span
+                                                  style={{
+                                                      fontSize: '0.52rem',
+                                                      fontWeight: 700,
+                                                      color: isMoveSlotFree
+                                                          ? '#4ade80'
+                                                          : '#f59e0b',
+                                                      background: isMoveSlotFree
+                                                          ? 'rgba(74,222,128,0.08)'
+                                                          : 'rgba(245,158,11,0.08)',
+                                                      border: `1px solid ${isMoveSlotFree ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                                      borderRadius: 4,
+                                                      padding: '1px 5px',
+                                                      flexShrink: 0,
+                                                  }}
+                                              >
+                                                  {isMoveSlotFree
+                                                      ? 'Free'
+                                                      : '100 coins'}
+                                              </span>
+                                          </div>
+                                          {mv.effect && (
+                                              <p
+                                                  style={{
+                                                      fontSize: '0.52rem',
+                                                      color: '#9ca3af',
+                                                      margin: '0 0 8px',
+                                                      lineHeight: 1.4,
+                                                  }}
+                                              >
+                                                  {mv.effect}
+                                              </p>
+                                          )}
+                                          {learnSlot?.moveIdx === moveIdx ? (
+                                              <div>
+                                                  <div
+                                                      style={{
+                                                          fontSize: '0.5rem',
+                                                          color: '#9ca3af',
+                                                          marginBottom: 5,
+                                                      }}
+                                                  >
+                                                      Replace which move?{' '}
+                                                      <span
+                                                          style={{
+                                                              color: '#f59e0b',
+                                                          }}
+                                                      >
+                                                          (costs 100 coins)
+                                                      </span>
+                                                  </div>
+                                                  <div
+                                                      style={{
+                                                          display: 'flex',
+                                                          gap: 4,
+                                                          flexWrap: 'wrap',
+                                                      }}
+                                                  >
+                                                      {(uc.moves ?? []).map(
+                                                          (
+                                                              existing,
+                                                              slotIdx,
+                                                          ) => (
+                                                              <button
+                                                                  key={slotIdx}
+                                                                  disabled={
+                                                                      learnLoading
+                                                                  }
+                                                                  onClick={() =>
+                                                                      handleLearnMove(
+                                                                          moveIdx,
+                                                                          slotIdx,
+                                                                      )
+                                                                  }
+                                                                  style={{
+                                                                      fontSize:
+                                                                          '0.52rem',
+                                                                      padding:
+                                                                          '3px 8px',
+                                                                      borderRadius: 5,
+                                                                      border: '1px solid rgba(239,68,68,0.4)',
+                                                                      background:
+                                                                          'rgba(239,68,68,0.1)',
+                                                                      color: '#fca5a5',
+                                                                      cursor: 'pointer',
+                                                                  }}
+                                                              >
+                                                                  {
+                                                                      existing.displayName
+                                                                  }
+                                                              </button>
+                                                          ),
+                                                      )}
+                                                      <button
+                                                          onClick={() =>
+                                                              setLearnSlot(null)
+                                                          }
+                                                          style={{
+                                                              fontSize:
+                                                                  '0.52rem',
+                                                              padding:
+                                                                  '3px 8px',
+                                                              borderRadius: 5,
+                                                              border: '1px solid rgba(255,255,255,0.1)',
+                                                              background:
+                                                                  'transparent',
+                                                              color: '#6b7280',
+                                                              cursor: 'pointer',
+                                                          }}
+                                                      >
+                                                          Cancel
+                                                      </button>
+                                                  </div>
+                                              </div>
+                                          ) : (
+                                              <div
+                                                  style={{
+                                                      display: 'flex',
+                                                      gap: 6,
+                                                  }}
+                                              >
+                                                  <button
+                                                      disabled={learnLoading}
+                                                      onClick={() =>
+                                                          isMoveSlotFree
+                                                              ? handleLearnMove(
+                                                                    moveIdx,
+                                                                    moveSlotsUsed,
+                                                                )
+                                                              : setLearnSlot({
+                                                                    moveIdx,
+                                                                })
+                                                      }
+                                                      style={{
+                                                          fontSize: '0.55rem',
+                                                          padding: '4px 14px',
+                                                          borderRadius: 6,
+                                                          border: '1px solid rgba(239,68,68,0.4)',
+                                                          background:
+                                                              'rgba(239,68,68,0.1)',
+                                                          color: '#fca5a5',
+                                                          cursor: 'pointer',
+                                                          fontWeight: 600,
+                                                      }}
+                                                  >
+                                                      {learnLoading
+                                                          ? '...'
+                                                          : 'Learn Move'}
+                                                  </button>
+                                                  <button
+                                                      onClick={() =>
+                                                          setPendingOpen(false)
+                                                      }
+                                                      style={{
+                                                          fontSize: '0.52rem',
+                                                          padding: '4px 8px',
+                                                          borderRadius: 6,
+                                                          border: '1px solid rgba(255,255,255,0.08)',
+                                                          background:
+                                                              'transparent',
+                                                          color: '#4b5563',
+                                                          cursor: 'pointer',
+                                                      }}
+                                                  >
+                                                      Skip
+                                                  </button>
+                                              </div>
+                                          )}
+                                      </div>
+                                  )
+                              })}
+                          </div>
+                      </div>
+                  </div>,
+                  document.body,
+              )
+            : null
 
     if (mode === 'overlay') {
         return (
@@ -1556,7 +1913,13 @@ export function CardStats({
                 </div>
 
                 {cleanView ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            padding: '8px 0',
+                        }}
+                    >
                         <Card3DViewer uc={uc} width={260} />
                     </div>
                 ) : (
@@ -1590,32 +1953,42 @@ export function CardStats({
             {evolutionCutscene}
 
             {/* 3D viewer modal — pops over everything when clean view is active */}
-            {cleanView && typeof document !== 'undefined' && createPortal(
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, zIndex: 99997,
-                        background: 'rgba(0,0,0,0.92)',
-                        backdropFilter: 'blur(22px)',
-                        WebkitBackdropFilter: 'blur(22px)',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
-                        gap: 12,
-                    }}
-                    onClick={() => setCleanView(false)}
-                >
-                    <div onClick={e => e.stopPropagation()}>
-                        <Card3DViewer uc={uc} width={300} />
-                    </div>
-                    <p style={{
-                        fontSize: '0.5rem', color: 'rgba(255,255,255,0.22)',
-                        letterSpacing: '0.1em', pointerEvents: 'none',
-                        marginTop: 4,
-                    }}>
-                        TAP OUTSIDE TO DISMISS
-                    </p>
-                </div>,
-                document.body,
-            )}
+            {cleanView &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <div
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 99997,
+                            background: 'rgba(0,0,0,0.92)',
+                            backdropFilter: 'blur(22px)',
+                            WebkitBackdropFilter: 'blur(22px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 12,
+                        }}
+                        onClick={() => setCleanView(false)}
+                    >
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <Card3DViewer uc={uc} width={300} />
+                        </div>
+                        <p
+                            style={{
+                                fontSize: '0.5rem',
+                                color: 'rgba(255,255,255,0.22)',
+                                letterSpacing: '0.1em',
+                                pointerEvents: 'none',
+                                marginTop: 4,
+                            }}
+                        >
+                            TAP OUTSIDE TO DISMISS
+                        </p>
+                    </div>,
+                    document.body,
+                )}
 
             {/* close row */}
             <div
@@ -1666,22 +2039,40 @@ export function CardStats({
                         position: 'relative',
                     }}
                 >
-                    <img
-                        src={cardImgSrc(uc)}
-                        alt={uc.cards.name}
-                        className={rainbow ? 'glow-rainbow' : ''}
-                        style={{
-                            width: '100%',
-                            height: 'auto',
-                            display: 'block',
-                            borderRadius: 8,
-                            boxShadow: rainbow
-                                ? undefined
-                                : rarityGlowShadow(rarity, 'sm'),
-                            filter: condFilter,
-                            transform: centerSkew,
+                    <button
+                        onClick={() => {
+                            if (!cleanView) setCleanView(true)
                         }}
-                    />
+                        title="Open clean view"
+                        style={{
+                            maxWidth: 190,
+                            margin: '0 auto',
+                            position: 'relative',
+                            display: 'block',
+                            width: '100%',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <img
+                            src={cardImgSrc(uc)}
+                            alt={uc.cards.name}
+                            className={rainbow ? 'glow-rainbow' : ''}
+                            style={{
+                                width: '100%',
+                                height: 'auto',
+                                display: 'block',
+                                borderRadius: 8,
+                                boxShadow: rainbow
+                                    ? undefined
+                                    : rarityGlowShadow(rarity, 'sm'),
+                                filter: condFilter,
+                                transform: centerSkew,
+                            }}
+                        />
+                    </button>
                     {uc.grade != null && (
                         <span
                             style={{
@@ -1708,17 +2099,34 @@ export function CardStats({
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 5,
-                            marginBottom: 2,
+                            gap: 6,
+                            flexWrap: 'wrap',
+                            marginBottom: 3,
                         }}
                     >
                         {uc.is_hot && (
                             <span
-                                style={{ fontSize: '0.5rem', color: '#fb923c' }}
+                                style={{
+                                    fontSize: '0.58rem',
+                                    color: '#fb923c',
+                                    lineHeight: 1,
+                                }}
                             >
                                 🔥
                             </span>
                         )}
+
+                        <h3
+                            className="text-white font-bold"
+                            style={{
+                                fontSize: '0.82rem',
+                                lineHeight: 1.2,
+                                margin: 0,
+                            }}
+                        >
+                            {baseName(uc.cards.name)}
+                        </h3>
+
                         <span
                             className={`font-bold uppercase tracking-widest ${rarityClassName(rarity)}`}
                             style={{
@@ -1729,6 +2137,7 @@ export function CardStats({
                             {rarity}
                         </span>
                     </div>
+
                     <div
                         style={{
                             display: 'flex',
@@ -1737,12 +2146,6 @@ export function CardStats({
                             justifyContent: 'space-between',
                         }}
                     >
-                        <h3
-                            className="text-white font-bold"
-                            style={{ fontSize: '0.82rem', lineHeight: 1.2 }}
-                        >
-                            {baseName(uc.cards.name)}
-                        </h3>
                         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                             <span
                                 style={{
@@ -1785,10 +2188,17 @@ export function CardStats({
                                         fontFamily: 'sans-serif',
                                     }}
                                     onMouseEnter={(e) => {
-                                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                        setWorthTooltipPos({ x: r.left, y: r.bottom + 6 })
+                                        const r = (
+                                            e.currentTarget as HTMLElement
+                                        ).getBoundingClientRect()
+                                        setWorthTooltipPos({
+                                            x: r.left,
+                                            y: r.bottom + 6,
+                                        })
                                     }}
-                                    onMouseLeave={() => setWorthTooltipPos(null)}
+                                    onMouseLeave={() =>
+                                        setWorthTooltipPos(null)
+                                    }
                                 >
                                     ?
                                 </span>
@@ -1849,8 +2259,10 @@ export function CardStats({
                                                 height: 6,
                                                 borderRadius: '50%',
                                                 background: '#f97316',
-                                                boxShadow: '0 0 5px rgba(249,115,22,0.8)',
-                                                animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                                boxShadow:
+                                                    '0 0 5px rgba(249,115,22,0.8)',
+                                                animation:
+                                                    'pendingPulse 1.5s ease-in-out infinite',
                                             }}
                                         />
                                     )}
@@ -2389,9 +2801,18 @@ export function CardStats({
                                             Moves
                                         </div>
                                         {hasPending && (
-                                            <div style={{ position: 'relative', marginRight: 6 }}>
+                                            <div
+                                                style={{
+                                                    position: 'relative',
+                                                    marginRight: 6,
+                                                }}
+                                            >
                                                 <button
-                                                    onClick={() => setPendingOpen((v) => !v)}
+                                                    onClick={() =>
+                                                        setPendingOpen(
+                                                            (v) => !v,
+                                                        )
+                                                    }
                                                     style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -2421,8 +2842,10 @@ export function CardStats({
                                                         borderRadius: '50%',
                                                         background: '#f97316',
                                                         pointerEvents: 'none',
-                                                        boxShadow: '0 0 5px rgba(249,115,22,0.8)',
-                                                        animation: 'pendingPulse 1.5s ease-in-out infinite',
+                                                        boxShadow:
+                                                            '0 0 5px rgba(249,115,22,0.8)',
+                                                        animation:
+                                                            'pendingPulse 1.5s ease-in-out infinite',
                                                     }}
                                                 />
                                             </div>
