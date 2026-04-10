@@ -15,6 +15,7 @@ import { awardLevelUpRewards } from '@/lib/awardLevelUp'
 import { rollStats, rollNatureWithTier } from '@/lib/pokemon-stats'
 import { fetchPokemonData } from '@/lib/pokemon-moves'
 import { recalcBattleRating } from '@/lib/battlePower'
+import { getOrRefreshStock } from '@/lib/packStock'
 
 type CardRow = Record<string, unknown>
 
@@ -95,35 +96,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'bag_full', bagCount, bagCapacity }, { status: 409 })
         }
 
-        // Stock check — caps count to available stock instead of blocking
+        // Stock check — regenerates if expired, caps count to available stock
         let count = requestedCount
         if (!free) {
-            const { data: stockRow } = await supabase
+            const { stock } = await getOrRefreshStock(supabase, user.id)
+            const available = stock[setId] ?? 0
+            if (available <= 0) {
+                return NextResponse.json(
+                    { error: 'insufficient_stock', available: 0 },
+                    { status: 409 },
+                )
+            }
+            count = Math.min(requestedCount, available)
+            await supabase
                 .from('pack_stock')
-                .select('quantity, refreshed_at')
+                .update({ quantity: available - count })
                 .eq('user_id', user.id)
                 .eq('pack_id', setId)
-                .maybeSingle()
-
-            if (stockRow) {
-                const refreshedAt = new Date(stockRow.refreshed_at).getTime()
-                const expired = Date.now() - refreshedAt >= 5 * 60 * 1000
-                if (!expired) {
-                    if (stockRow.quantity <= 0) {
-                        return NextResponse.json(
-                            { error: 'insufficient_stock', available: 0 },
-                            { status: 409 },
-                        )
-                    }
-                    count = Math.min(requestedCount, stockRow.quantity)
-                    await supabase
-                        .from('pack_stock')
-                        .update({ quantity: stockRow.quantity - count })
-                        .eq('user_id', user.id)
-                        .eq('pack_id', setId)
-                }
-                // If expired: stock API will regenerate on next fetch — don't block opening
-            }
         }
 
         const totalCost = parseFloat((costPerPack * count).toFixed(2))

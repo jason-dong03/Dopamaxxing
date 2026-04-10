@@ -89,11 +89,12 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
     useEffect(() => {
         if (!nextRefreshAt) return
         const diff = new Date(nextRefreshAt).getTime() - Date.now()
-        if (diff <= 0) {
+        const delay = Math.max(0, diff)
+        const id = setTimeout(() => {
+            // Optimistically reset the countdown so the UI doesn't hang on "refreshing…"
+            setNextRefreshAt(new Date(Date.now() + 5 * 60 * 1000).toISOString())
             refreshStock()
-            return
-        }
-        const id = setTimeout(() => refreshStock(), diff + 600)
+        }, delay)
         return () => clearTimeout(id)
     }, [nextRefreshAt, refreshStock])
 
