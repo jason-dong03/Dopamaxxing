@@ -15,11 +15,10 @@ export async function POST() {
 
     const admin = createAdminClient()
 
-    // Get users without battle_power set (or all, sorted by updated longest ago)
+    // Recalculate all users (not just those with 0 — stale non-zero values need refresh too)
     const { data: users, error } = await admin
         .from('profiles')
         .select('id')
-        .eq('battle_power', 0)
         .limit(BATCH_SIZE)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -36,15 +35,8 @@ export async function POST() {
         }
     }
 
-    // Check how many remain
-    const { count } = await admin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('battle_power', 0)
-
     return NextResponse.json({
         updated: updated.length,
-        remaining: count === 0 ? 'Done.' : `${count} users still have 0 BP`,
         errors: errors.length > 0 ? errors : undefined,
     })
 }
