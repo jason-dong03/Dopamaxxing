@@ -49,12 +49,9 @@ function rollStock(packId: string): number {
 
     const r = Math.random()
 
-    // Crates/boxes: very rare, often 0
+    // Crates/boxes: extremely rare — 90% chance of 0, 10% chance of 1
     if (pack.aspect === 'box') {
-        if (r < 0.45) return 0
-        if (r < 0.78) return 1
-        if (r < 0.95) return 2
-        return 3
+        return r < 0.90 ? 0 : 1
     }
 
     // Base sets: rare (ids containing 'base')
