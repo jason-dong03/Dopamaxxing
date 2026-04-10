@@ -1,8 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PACKS } from '@/lib/packs'
 
-export const STOCK_REFRESH_MS = 5 * 60 * 1000 // 5 minutes
-export const TOTAL_STOCK = 18
+// Each group refreshes on its own independent timer
+export const REFRESH_MS = {
+    standard: 5  * 60 * 1000,  // 5 min
+    special:  8  * 60 * 1000,  // 8 min
+    box:      15 * 60 * 1000,  // 15 min
+}
 
 const PACK_UNLOCK_LEVEL: Record<string, number> = {
     'sv02':            1,
@@ -30,89 +34,136 @@ const PACK_UNLOCK_LEVEL: Record<string, number> = {
     'xy-p-poncho':     50,
 }
 
-function packWeight(packId: string): number {
+type Group = 'standard' | 'special' | 'box'
+
+function getGroup(pack: { aspect?: string; special?: boolean; theme_pokedex_ids?: number[] }): Group {
+    if (pack.aspect === 'box') return 'box'
+    if (pack.special || pack.theme_pokedex_ids?.length) return 'special'
+    return 'standard'
+}
+
+/** Random stock roll per pack — up to 8 for standard, scarcer for rarer types */
+function rollStock(packId: string): number {
     const pack = PACKS.find(p => p.id === packId)
-    if (!pack) return 2
-    if (pack.aspect === 'box') return 1
-    if (pack.special) return 2
-    if (pack.theme_pokedex_ids) return 3
+    if (!pack) return 0
+
+    const r = Math.random()
+
+    // Crates/boxes: very rare, often 0
+    if (pack.aspect === 'box') {
+        if (r < 0.45) return 0
+        if (r < 0.78) return 1
+        if (r < 0.95) return 2
+        return 3
+    }
+
+    // Base sets: rare (ids containing 'base')
+    if (packId.includes('base')) {
+        if (r < 0.25) return 0
+        if (r < 0.55) return 1
+        if (r < 0.80) return 2
+        if (r < 0.95) return 3
+        return 4
+    }
+
+    // Special / themed packs: moderate scarcity
+    if (pack.special || pack.theme_pokedex_ids?.length) {
+        if (r < 0.12) return 0
+        if (r < 0.35) return 1
+        if (r < 0.60) return 2
+        if (r < 0.80) return 3
+        if (r < 0.93) return 4
+        return 5
+    }
+
+    // Standard packs: dramatic variance, up to 8
+    if (r < 0.05) return 1
+    if (r < 0.15) return 2
+    if (r < 0.35) return 3
+    if (r < 0.55) return 4
+    if (r < 0.72) return 5
+    if (r < 0.85) return 6
+    if (r < 0.94) return 7
     return 8
 }
 
-function distributeStock(unlockedPackIds: string[]): Record<string, number> {
-    if (unlockedPackIds.length === 0) return {}
-    const weights = unlockedPackIds.map(id => ({ id, w: packWeight(id) }))
-    const totalWeight = weights.reduce((s, x) => s + x.w, 0)
-    const result: Record<string, number> = {}
-    let remaining = TOTAL_STOCK
-    weights.forEach(({ id, w }, i) => {
-        const isLast = i === weights.length - 1
-        const raw = isLast ? remaining : Math.round((w / totalWeight) * TOTAL_STOCK)
-        const qty = Math.max(0, Math.min(raw, remaining))
-        result[id] = qty
-        remaining -= qty
-    })
-    return result
+export type StockResult = {
+    stock: Record<string, number>
+    nextRefreshAt: { standard: string; special: string; box: string }
 }
 
 /**
- * Returns current stock for the user, regenerating if expired.
- * Always enforces the 5-minute window — never bypasses on expiry.
+ * Returns current stock, regenerating each group independently when expired.
+ * Never bypasses the stock cap — expired stock is always regenerated before use.
  */
 export async function getOrRefreshStock(
     supabase: SupabaseClient,
     userId: string,
-): Promise<{ stock: Record<string, number>; nextRefreshAt: string }> {
-    const { data: existingRows } = await supabase
-        .from('pack_stock')
-        .select('pack_id, quantity, refreshed_at')
-        .eq('user_id', userId)
+): Promise<StockResult> {
+    const [{ data: profile }, { data: existingRows }] = await Promise.all([
+        supabase.from('profiles').select('level').eq('id', userId).single(),
+        supabase.from('pack_stock').select('pack_id, quantity, refreshed_at').eq('user_id', userId),
+    ])
 
-    const rows = existingRows ?? []
-    const now = Date.now()
-    const refreshedAt = rows[0] ? new Date(rows[0].refreshed_at).getTime() : 0
-    const expired = now - refreshedAt >= STOCK_REFRESH_MS
-
-    if (!expired && rows.length > 0) {
-        const stock: Record<string, number> = {}
-        for (const r of rows) stock[r.pack_id] = r.quantity
-        return { stock, nextRefreshAt: new Date(refreshedAt + STOCK_REFRESH_MS).toISOString() }
-    }
-
-    // Regenerate
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('level')
-        .eq('id', userId)
-        .single()
     const userLevel = profile?.level ?? 1
+    const rows = existingRows ?? []
+    const rowMap = new Map(rows.map(r => [r.pack_id as string, r]))
 
-    const unlockedIds = PACKS
+    const unlockedPacks = PACKS
         .filter(p => !p.test)
         .filter(p => userLevel >= (PACK_UNLOCK_LEVEL[p.id] ?? 1))
-        .map(p => p.id)
 
-    const newStock = distributeStock(unlockedIds)
+    const now = Date.now()
     const newRefreshedAt = new Date().toISOString()
 
-    if (Object.keys(newStock).length > 0) {
-        await supabase.from('pack_stock').upsert(
-            Object.entries(newStock).map(([pack_id, quantity]) => ({
-                user_id: userId,
-                pack_id,
-                quantity,
-                refreshed_at: newRefreshedAt,
-            })),
-            { onConflict: 'user_id,pack_id' },
-        )
-        const oldIds = rows.map(r => r.pack_id).filter(id => !(id in newStock))
+    const stock: Record<string, number> = {}
+    const upsertRows: { user_id: string; pack_id: string; quantity: number; refreshed_at: string }[] = []
+
+    // Track the oldest refreshed_at per group (to determine next refresh time)
+    const groupRefreshed: Record<Group, number> = { standard: 0, special: 0, box: 0 }
+    const groupExpired: Record<Group, boolean> = { standard: false, special: false, box: false }
+
+    // Determine which groups are expired based on existing rows
+    for (const pack of unlockedPacks) {
+        const group = getGroup(pack)
+        const row = rowMap.get(pack.id)
+        const refreshedAt = row ? new Date(row.refreshed_at).getTime() : 0
+        if (refreshedAt > groupRefreshed[group]) groupRefreshed[group] = refreshedAt
+    }
+    for (const g of ['standard', 'special', 'box'] as Group[]) {
+        groupExpired[g] = now - groupRefreshed[g] >= REFRESH_MS[g]
+    }
+
+    // Build stock: use existing for fresh groups, regenerate for expired groups
+    for (const pack of unlockedPacks) {
+        const group = getGroup(pack)
+        if (groupExpired[group]) {
+            const qty = rollStock(pack.id)
+            stock[pack.id] = qty
+            upsertRows.push({ user_id: userId, pack_id: pack.id, quantity: qty, refreshed_at: newRefreshedAt })
+        } else {
+            const row = rowMap.get(pack.id)
+            stock[pack.id] = row ? Number(row.quantity) : 0
+        }
+    }
+
+    // Persist regenerated rows
+    if (upsertRows.length > 0) {
+        await supabase.from('pack_stock').upsert(upsertRows, { onConflict: 'user_id,pack_id' })
+        // Remove stale rows for packs no longer unlocked
+        const unlockedIds = new Set(unlockedPacks.map(p => p.id))
+        const oldIds = rows.map(r => r.pack_id as string).filter(id => !unlockedIds.has(id))
         if (oldIds.length > 0) {
             await supabase.from('pack_stock').delete().eq('user_id', userId).in('pack_id', oldIds)
         }
     }
 
-    return {
-        stock: newStock,
-        nextRefreshAt: new Date(Date.now() + STOCK_REFRESH_MS).toISOString(),
+    // Compute next refresh time for each group
+    const nextRefreshAt = {
+        standard: new Date((groupExpired.standard ? now : groupRefreshed.standard) + REFRESH_MS.standard).toISOString(),
+        special:  new Date((groupExpired.special  ? now : groupRefreshed.special)  + REFRESH_MS.special).toISOString(),
+        box:      new Date((groupExpired.box      ? now : groupRefreshed.box)      + REFRESH_MS.box).toISOString(),
     }
+
+    return { stock, nextRefreshAt }
 }

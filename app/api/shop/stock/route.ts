@@ -8,5 +8,10 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { stock, nextRefreshAt } = await getOrRefreshStock(supabase, user.id)
-    return NextResponse.json({ stock, next_refresh_at: nextRefreshAt })
+    return NextResponse.json({
+        stock,
+        next_refresh_standard: nextRefreshAt.standard,
+        next_refresh_special:  nextRefreshAt.special,
+        next_refresh_box:      nextRefreshAt.box,
+    })
 }

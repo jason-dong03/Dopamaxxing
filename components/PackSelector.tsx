@@ -19,7 +19,9 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
         'classic' | 'special' | 'crates'
     >('classic')
     const [stock, setStock] = useState<Record<string, number>>({})
-    const [nextRefreshAt, setNextRefreshAt] = useState<string | null>(null)
+    const [nextRefreshStandard, setNextRefreshStandard] = useState<string | null>(null)
+    const [nextRefreshSpecial, setNextRefreshSpecial] = useState<string | null>(null)
+    const [nextRefreshBox, setNextRefreshBox] = useState<string | null>(null)
 
     const refreshStock = useCallback(() => {
         fetch('/api/shop/stock')
@@ -27,7 +29,9 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
             .then((json) => {
                 if (!json?.stock) return
                 setStock(json.stock)
-                setNextRefreshAt(json.next_refresh_at ?? null)
+                if (json.next_refresh_standard) setNextRefreshStandard(json.next_refresh_standard)
+                if (json.next_refresh_special)  setNextRefreshSpecial(json.next_refresh_special)
+                if (json.next_refresh_box)       setNextRefreshBox(json.next_refresh_box)
             })
             .catch(() => {})
     }, [])
@@ -85,18 +89,36 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
         refreshStock()
     }, [refreshStock])
 
-    // Auto-refresh stock when the timer expires
+    // Independent auto-refresh timers per group
     useEffect(() => {
-        if (!nextRefreshAt) return
-        const diff = new Date(nextRefreshAt).getTime() - Date.now()
-        const delay = Math.max(0, diff)
+        if (!nextRefreshStandard) return
+        const diff = Math.max(0, new Date(nextRefreshStandard).getTime() - Date.now())
         const id = setTimeout(() => {
-            // Optimistically reset the countdown so the UI doesn't hang on "refreshing…"
-            setNextRefreshAt(new Date(Date.now() + 5 * 60 * 1000).toISOString())
+            setNextRefreshStandard(new Date(Date.now() + 5 * 60 * 1000).toISOString())
             refreshStock()
-        }, delay)
+        }, diff)
         return () => clearTimeout(id)
-    }, [nextRefreshAt, refreshStock])
+    }, [nextRefreshStandard, refreshStock])
+
+    useEffect(() => {
+        if (!nextRefreshSpecial) return
+        const diff = Math.max(0, new Date(nextRefreshSpecial).getTime() - Date.now())
+        const id = setTimeout(() => {
+            setNextRefreshSpecial(new Date(Date.now() + 8 * 60 * 1000).toISOString())
+            refreshStock()
+        }, diff)
+        return () => clearTimeout(id)
+    }, [nextRefreshSpecial, refreshStock])
+
+    useEffect(() => {
+        if (!nextRefreshBox) return
+        const diff = Math.max(0, new Date(nextRefreshBox).getTime() - Date.now())
+        const id = setTimeout(() => {
+            setNextRefreshBox(new Date(Date.now() + 15 * 60 * 1000).toISOString())
+            refreshStock()
+        }, diff)
+        return () => clearTimeout(id)
+    }, [nextRefreshBox, refreshStock])
 
     if (selectedPack) {
         const usePackOpening =
@@ -194,7 +216,7 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         coins={coins}
                         bagFull={bagFull}
                         stock={stock}
-                        nextRefreshAt={nextRefreshAt}
+                        nextRefreshAt={nextRefreshStandard}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
                         onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
@@ -210,7 +232,7 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         coins={coins}
                         bagFull={bagFull}
                         stock={stock}
-                        nextRefreshAt={nextRefreshAt}
+                        nextRefreshAt={nextRefreshSpecial}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
                         onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
@@ -226,7 +248,7 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         coins={coins}
                         bagFull={bagFull}
                         stock={stock}
-                        nextRefreshAt={nextRefreshAt}
+                        nextRefreshAt={nextRefreshBox}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
                         onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
@@ -606,22 +628,24 @@ function CountPickerModal({
 
 function StockCountdown({ nextRefreshAt }: { nextRefreshAt: string }) {
     const [remaining, setRemaining] = useState('')
+    const [refreshing, setRefreshing] = useState(false)
 
     useEffect(() => {
+        setRefreshing(false)
         function update() {
             const diff = new Date(nextRefreshAt).getTime() - Date.now()
             if (diff <= 0) {
-                setRemaining('stock refreshing…')
-                return
+                setRefreshing(true)
+                setRemaining('restocking…')
+                return true // expired
             }
             const m = Math.floor(diff / 60000)
             const s = Math.floor((diff % 60000) / 1000)
-            setRemaining(
-                `stock refreshes in ${m}:${String(s).padStart(2, '0')}`,
-            )
+            setRemaining(`restocks in ${m}:${String(s).padStart(2, '0')}`)
+            return false
         }
-        update()
-        const id = setInterval(update, 1000)
+        if (update()) return // already expired, don't start interval
+        const id = setInterval(() => { if (update()) clearInterval(id) }, 1000)
         return () => clearInterval(id)
     }, [nextRefreshAt])
 
@@ -630,10 +654,11 @@ function StockCountdown({ nextRefreshAt }: { nextRefreshAt: string }) {
             style={{
                 textAlign: 'right',
                 fontSize: '0.58rem',
-                color: '#ffffff',
+                color: refreshing ? '#fb923c' : '#ffffff',
                 letterSpacing: '0.04em',
                 paddingRight: 4,
                 paddingBottom: 2,
+                transition: 'color 300ms',
             }}
         >
             {remaining}
@@ -814,7 +839,7 @@ function ShopPackRow({
                         color: stock > 0 ? '#ffffff' : '#ef4444',
                     }}
                 >
-                    {stock > 0 ? `x${stock}` : 'sold out'}
+                    {stock > 0 ? `x${stock}` : 'out of stock'}
                 </div>
             </div>
 
