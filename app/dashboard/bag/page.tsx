@@ -37,7 +37,7 @@ export default async function Bag() {
                 userCards={(userCards ?? []) as unknown as UserCards}
                 coins={profile?.coins ?? 0}
                 bagCapacity={profile?.bag_capacity ?? 50}
-                battlePower={profile?.battle_power ?? 0}
+                battleRating={profile?.battle_power ?? 0}
                 profileLevel={profile?.level ?? 1}
                 userItems={
                     (userItemsData ?? []) as Array<{

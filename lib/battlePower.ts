@@ -12,14 +12,14 @@ export const RARITY_WEIGHT: Record<string, number> = {
     Common:      1,
 }
 
-export type BPTier = {
+export type BRTier = {
     label: string
     color: string
     min: number
 }
 
 // Thresholds calibrated for worth-in-cents scale
-export const BP_TIERS: BPTier[] = [
+export const BR_TIERS: BRTier[] = [
     { label: 'Bronze',    color: '#cd7f32',  min: 0 },
     { label: 'Silver',    color: '#94a3b8',  min: 10_000 },
     { label: 'Gold',      color: '#eab308',  min: 50_000 },
@@ -28,14 +28,14 @@ export const BP_TIERS: BPTier[] = [
     { label: 'Legendary', color: '#f97316',  min: 1_500_000 },
 ]
 
-export function getBPTier(bp: number): BPTier {
-    for (let i = BP_TIERS.length - 1; i >= 0; i--) {
-        if (bp >= BP_TIERS[i].min) return BP_TIERS[i]
+export function getBRTier(bp: number): BRTier {
+    for (let i = BR_TIERS.length - 1; i >= 0; i--) {
+        if (bp >= BR_TIERS[i].min) return BR_TIERS[i]
     }
-    return BP_TIERS[0]
+    return BR_TIERS[0]
 }
 
-export function formatBP(bp: number, full = false): string {
+export function formatBR(bp: number, full = false): string {
     if (full) return bp.toLocaleString()
     if (bp >= 1_000_000) {
         const s = (bp / 1_000_000).toFixed(2).replace(/\.?0+$/, '')
@@ -56,18 +56,18 @@ const NATURE_TIER_MULT: Record<string, number> = {
 }
 
 /**
- * Calculates BP contribution for a single card.
+ * Calculates BR contribution for a single card.
  *
  * Formula (worth treated as cents = ×100 scale):
  *   base     = (worth × 100) × card_level × rarity_weight
  *   quality  = avg(attrs) / 7.5   (default 7.0 → ≈0.93)
  *   grade    = grade ? 1 + (grade − 5) × 0.04 : 1
  *   nature   = nature tier multiplier (1.0–1.35)
- *   bp_card  = round(base × quality × grade × nature)
+ *   br_card  = round(base × quality × grade × nature)
  *
- * Typical values: Common $0.50 → ~47 BP | Legendary $25 Lv3 → ~27,900 BP
+ * Typical values: Common $0.50 → ~47 BR | Legendary $25 Lv3 → ~27,900 BR
  */
-export function cardBP(card: {
+export function cardBR(card: {
     worth: number | null
     card_level: number | null
     rarity: string
@@ -97,9 +97,9 @@ export function cardBP(card: {
 
 /**
  * Recalculates and stores battle_power for a user.
- * Returns the computed BP value (0 on error).
+ * Returns the computed BR value (0 on error).
  */
-export async function recalcBattlePower(
+export async function recalcBattleRating(
     supabase: SupabaseClient,
     userId: string,
 ): Promise<number> {
@@ -119,7 +119,7 @@ export async function recalcBattlePower(
 
         for (const uc of (cards ?? []) as any[]) {
             const rarity = (uc.cards?.rarity as string) ?? 'Common'
-            bp += cardBP({ ...uc, rarity })
+            bp += cardBR({ ...uc, rarity })
         }
 
         await supabase

@@ -2,24 +2,24 @@
 import { useState } from 'react'
 import { getTitleColor } from '@/lib/titleConfig'
 import LinkDiscord from '../LinkDiscord'
-import { formatBP, getBPTier } from '@/lib/battlePower'
+import { formatBR, getBRTier } from '@/lib/battlePower'
 
 export default function MobileExpand({
     loginStreak,
     activeTitle,
     discordLinked,
     adminPanel,
-    battlePower,
+    battleRating,
 }: {
     loginStreak: number
     activeTitle?: string | null
     discordLinked: boolean
     adminPanel: boolean
-    battlePower?: number
+    battleRating?: number
 }) {
     const [open, setOpen] = useState(false)
 
-    const hasContent = loginStreak > 1 || activeTitle || (battlePower ?? 0) > 0
+    const hasContent = loginStreak > 1 || activeTitle || (battleRating ?? 0) > 0
 
     if (!hasContent) return null
 
@@ -89,8 +89,8 @@ export default function MobileExpand({
                             {activeTitle}
                         </span>
                     )}
-                    {(battlePower ?? 0) > 0 && (() => {
-                        const tier = getBPTier(battlePower!)
+                    {(battleRating ?? 0) > 0 && (() => {
+                        const tier = getBRTier(battleRating!)
                         return (
                             <span
                                 style={{
@@ -103,7 +103,7 @@ export default function MobileExpand({
                                     color: tier.color,
                                 }}
                             >
-                                {formatBP(battlePower!)} BP <span style={{ opacity: 0.7, fontWeight: 500 }}>{tier.label}</span>
+                                {formatBR(battleRating!)} BR <span style={{ opacity: 0.7, fontWeight: 500 }}>{tier.label}</span>
                             </span>
                         )
                     })()}
