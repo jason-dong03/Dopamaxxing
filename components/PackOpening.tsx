@@ -1382,8 +1382,8 @@ export default function PackOpening({
                         <div
                             className="relative flex items-center justify-center"
                             style={{
-                                height: 'min(460px, 88vw)',
-                                width: 'min(360px, 82vw)',
+                                height: 'min(350px, 80vw)',
+                                width: 'min(280px, 72vw)',
                             }}
                         >
                             {/* rarity glow behind the top card */}
@@ -1426,7 +1426,7 @@ export default function PackOpening({
                                         style={
                                             fanVisible
                                                 ? {
-                                                      transform: `translateX(${offset * 72}px) translateY(-80px) rotate(${offset * 13}deg)`,
+                                                      transform: `translateX(${offset * 58}px) translateY(-65px) rotate(${offset * 13}deg)`,
                                                       zIndex: 50,
                                                       pointerEvents: 'none',
                                                       transition:
@@ -1445,8 +1445,6 @@ export default function PackOpening({
                                     >
                                         <FlipCard
                                             card={card}
-                                            cardWidth={320}
-                                            cardHeight={448}
                                             onReveal={
                                                 isTop ? handleReveal : () => {}
                                             }
@@ -1538,8 +1536,8 @@ export default function PackOpening({
                                         display: 'flex',
                                         flexWrap: 'wrap',
                                         justifyContent: 'center',
-                                        gap: 8,
-                                        width: 'min(340px, 92vw)',
+                                        gap: 10,
+                                        width: 'min(620px, 96vw)',
                                         animation: 'fadeIn 250ms ease-out',
                                     }}
                                 >
@@ -1550,9 +1548,9 @@ export default function PackOpening({
                                             alt={card.name}
                                             className="rounded-lg"
                                             style={{
-                                                height: isMobile ? 'min(120px, 28vw)' : '140px',
+                                                height: isMobile ? 'min(160px, 32vw)' : '190px',
                                                 width: 'auto',
-                                                boxShadow: `0 0 10px 2px rgba(${rarityGlowRgb(card.rarity)}, 0.5)`,
+                                                boxShadow: `0 0 12px 3px rgba(${rarityGlowRgb(card.rarity)}, 0.55)`,
                                             }}
                                         />
                                     ))}
