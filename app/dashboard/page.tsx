@@ -188,9 +188,6 @@ export default async function Dashboard() {
                                 </span>
                             )}
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <BRDisplay initialBP={profile?.battle_power ?? 0} />
-                        </div>
                         {(profile?.first_name || profile?.last_name) && (
                             <p
                                 className="hidden sm:block"
@@ -216,7 +213,13 @@ export default async function Dashboard() {
                         battleRating={profile?.battle_power ?? 0}
                     />
 
-                    <div style={{ flex: 1 }} />
+                    <div
+                        className="hidden sm:flex"
+                        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                    >
+                        <BRDisplay initialBP={profile?.battle_power ?? 0} />
+                    </div>
+                    <div className="sm:hidden" style={{ flex: 1 }} />
 
                     {profile?.is_admin && (
                         <a
