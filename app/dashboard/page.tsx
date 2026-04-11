@@ -13,6 +13,7 @@ import LiberatorEasterEgg from '@/components/LiberatorEasterEgg'
 import { getTitleColor } from '@/lib/titleConfig'
 import MobileExpand from '@/components/ui/MobileExpand'
 import BRDisplay from '@/components/ui/BRDisplay'
+import LeaderboardSidebar from '@/components/ui/LeaderboardSidebar'
 
 export default async function Dashboard() {
     const supabase = await createClient()
@@ -35,6 +36,7 @@ export default async function Dashboard() {
     return (
         <div className="min-h-screen">
             <PassiveCoins />
+            <LeaderboardSidebar />
             {/* ── profile island ── */}
             <div
                 style={{
