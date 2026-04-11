@@ -163,6 +163,15 @@ export default function PackOpening({
           ? { height: 'min(270px, 60vw)', width: 'min(360px, 78vw)' }
           : { height: 'min(420px, 68vw)', width: 'auto' }
 
+    // ── dev test cards — no DB ────────────────────────────────────────────────
+    const TEST_MOCK_CARDS: Card[] = [
+        { id: 'test-legendary', name: 'Charizard', image_url: 'https://assets.tcgdex.net/en/base/base1/4/high.webp', rarity: 'Legendary', national_pokedex_number: 6, worth: 100, isNew: true, coins: 200, isHot: false },
+        { id: 'test-divine', name: 'Mewtwo', image_url: 'https://assets.tcgdex.net/en/base/base1/10/high.webp', rarity: 'Divine', national_pokedex_number: 150, worth: 500, isNew: true, coins: 1000, isHot: false },
+        { id: 'test-celestial', name: 'Blastoise', image_url: 'https://assets.tcgdex.net/en/base/base1/2/high.webp', rarity: 'Celestial', national_pokedex_number: 9, worth: 2000, isNew: true, coins: 4000, isHot: false },
+        { id: 'test-mystery', name: 'Venusaur', image_url: 'https://assets.tcgdex.net/en/base/base1/15/high.webp', rarity: '???', national_pokedex_number: 3, worth: 9999, isNew: true, coins: 9999, isHot: true },
+        { id: 'test-psa1', name: 'Raichu', image_url: 'https://assets.tcgdex.net/en/base/base1/14/high.webp', rarity: 'Celestial', national_pokedex_number: 26, worth: 1500, isNew: true, coins: 50, isHot: false, attr_centering: 1.0, attr_corners: 1.0, attr_edges: 1.0, attr_surface: 1.0 },
+    ]
+
     useEffect(() => {
         const session = loadSession()
         if (session) setResumeSession(session)
@@ -266,14 +275,7 @@ export default function PackOpening({
 
         let openedCards: Card[] = []
 
-        if (pack.test) {
-            openedCards = isMulti
-                ? Array.from(
-                      { length: effectiveCount },
-                      () => TEST_MOCK_CARDS,
-                  ).flat()
-                : TEST_MOCK_CARDS
-        } else if (isMulti) {
+        if (isMulti) {
             // Batch route — single round-trip for all packs
             const res = await fetch('/api/open-pack-batch', {
                 method: 'POST',
