@@ -26,15 +26,7 @@ import { SellButton } from './SellButton'
 import { GradeSection } from './GradeSection'
 import type { UserCard } from '@/lib/types'
 import { fmt } from '@/lib/utils'
-import { cardBR, getBRTier, formatBR } from '@/lib/battlePower'
-
-const RARITY_WEIGHT_DISPLAY: Record<string, number> = {
-    '???': 10, Celestial: 8, Divine: 6, Legendary: 4,
-    Mythical: 3, Epic: 2.5, Rare: 2, Uncommon: 1.5, Common: 1,
-}
-const NATURE_MULT_DISPLAY: Record<string, number> = {
-    regular: 1, legendary: 1.10, divine: 1.18, celestial: 1.26, '???': 1.35,
-}
+import { cardBR, formatBR } from '@/lib/battlePower'
 import React from 'react'
 import { createPortal } from 'react-dom'
 
@@ -195,7 +187,7 @@ export function CardStats({
             ? `$${fmt(cardWorth)} (${worthDelta > 0 ? '+' : '-'}$${fmt(Math.abs(worthDelta))})`
             : `$${fmt(cardWorth)}`
 
-    // per-card battle power
+    // per-card battle rating
     const thisBP = cardBR({
         worth: cardWorth,
         card_level: uc.card_level,
@@ -207,7 +199,7 @@ export function CardStats({
         grade: uc.grade,
         nature_tier: (uc as any).nature_tier ?? null,
     })
-    const bpTier = getBRTier(thisBP)
+
 
     // colored stat rows
     const stats = [
@@ -535,6 +527,17 @@ export function CardStats({
                                 PSA {uc.grade}
                             </span>
                         )}
+                        <span
+                            style={{
+                                fontSize: '0.56rem',
+                                color: '#facc15',
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                            }}
+                            title={`Battle Rating: ${thisBP.toLocaleString()}`}
+                        >
+                            {formatBR(thisBP)} BR
+                        </span>
                     </div>
                 </div>
 
@@ -912,63 +915,6 @@ export function CardStats({
                                 </div>
                             </div>
                         ))}
-
-                        {/* battle power row */}
-                        <div
-                            className="flex justify-between items-center"
-                            style={{
-                                borderBottom: `1px solid ${borderColor}`,
-                                padding: '5px 0',
-                            }}
-                        >
-                            <span
-                                className="font-semibold uppercase tracking-widest text-gray-600"
-                                style={{ fontSize: '0.55rem' }}
-                            >
-                                battle power
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span
-                                    className="font-mono font-bold"
-                                    style={{ fontSize: '0.75rem', color: '#facc15' }}
-                                    title={`${thisBP.toLocaleString()} BR — worth×level×rarity×quality×grade×nature`}
-                                >
-                                    {formatBR(thisBP)} BR
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: '0.5rem',
-                                        fontWeight: 600,
-                                        color: bpTier.color,
-                                        background: `${bpTier.color}18`,
-                                        border: `1px solid ${bpTier.color}40`,
-                                        borderRadius: 4,
-                                        padding: '1px 5px',
-                                    }}
-                                >
-                                    {bpTier.label}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* bp formula tooltip row */}
-                        <div style={{ padding: '3px 0 4px', borderBottom: `1px solid ${borderColor}` }}>
-                            {(() => {
-                                const w = RARITY_WEIGHT_DISPLAY[rarity] ?? 1
-                                const avgAttr = [uc.attr_centering, uc.attr_corners, uc.attr_edges, uc.attr_surface]
-                                    .map(v => Number(v ?? 7.0))
-                                    .reduce((a,b) => a+b, 0) / 4
-                                const quality = (avgAttr / 7.5).toFixed(2)
-                                const gradeM = uc.grade ? (1 + (uc.grade - 5) * 0.04).toFixed(2) : '—'
-                                const natureTier = (uc as any).nature_tier ?? 'regular'
-                                const natureM = NATURE_MULT_DISPLAY[natureTier] ?? 1
-                                return (
-                                    <span style={{ fontSize: '0.48rem', color: '#475569', fontFamily: 'monospace', lineHeight: 1.4 }}>
-                                        ${fmt(cardWorth)} × Lv{uc.card_level} × {w}w × {quality}q{uc.grade ? ` × ${gradeM}g` : ''}{natureTier !== 'regular' ? ` × ${natureM}n` : ''}
-                                    </span>
-                                )
-                            })()}
-                        </div>
 
                         {/* xp bar */}
                         <div style={{ padding: '6px 0' }}>
@@ -2226,7 +2172,18 @@ export function CardStats({
                             justifyContent: 'space-between',
                         }}
                     >
-                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+                            <span
+                                style={{
+                                    fontSize: '0.55rem',
+                                    color: '#facc15',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 700,
+                                }}
+                                title={`Battle Rating: ${thisBP.toLocaleString()}`}
+                            >
+                                {formatBR(thisBP)} BR
+                            </span>
                             <span
                                 style={{
                                     fontSize: '0.55rem',
@@ -2509,61 +2466,6 @@ export function CardStats({
                                                 </div>
                                             ),
                                         )}
-                                    {/* battle power row */}
-                                    <div
-                                        className="flex justify-between items-center"
-                                        style={{
-                                            borderBottom: `1px solid ${borderColor}`,
-                                            padding: '3px 0',
-                                        }}
-                                    >
-                                        <span
-                                            className="font-semibold uppercase tracking-widest text-gray-600"
-                                            style={{ fontSize: '0.48rem' }}
-                                        >
-                                            battle power
-                                        </span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                            <span
-                                                className="font-mono font-bold"
-                                                style={{ fontSize: '0.65rem', color: '#facc15' }}
-                                                title={`${thisBP.toLocaleString()} BR`}
-                                            >
-                                                {formatBR(thisBP)} BR
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: '0.45rem',
-                                                    fontWeight: 600,
-                                                    color: bpTier.color,
-                                                    background: `${bpTier.color}18`,
-                                                    border: `1px solid ${bpTier.color}40`,
-                                                    borderRadius: 3,
-                                                    padding: '1px 4px',
-                                                }}
-                                            >
-                                                {bpTier.label}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {/* bp formula */}
-                                    <div style={{ padding: '2px 0 3px', borderBottom: `1px solid ${borderColor}` }}>
-                                        {(() => {
-                                            const w = RARITY_WEIGHT_DISPLAY[rarity] ?? 1
-                                            const avgAttr = [uc.attr_centering, uc.attr_corners, uc.attr_edges, uc.attr_surface]
-                                                .map(v => Number(v ?? 7.0))
-                                                .reduce((a, b) => a + b, 0) / 4
-                                            const quality = (avgAttr / 7.5).toFixed(2)
-                                            const gradeM = uc.grade ? (1 + (uc.grade - 5) * 0.04).toFixed(2) : '—'
-                                            const natureTier = (uc as any).nature_tier ?? 'regular'
-                                            const natureM = NATURE_MULT_DISPLAY[natureTier] ?? 1
-                                            return (
-                                                <span style={{ fontSize: '0.44rem', color: '#475569', fontFamily: 'monospace', lineHeight: 1.4 }}>
-                                                    ${fmt(cardWorth)} × Lv{uc.card_level} × {w}w × {quality}q{uc.grade ? ` × ${gradeM}g` : ''}{natureTier !== 'regular' ? ` × ${natureM}n` : ''}
-                                                </span>
-                                            )
-                                        })()}
-                                    </div>
                                     {/* xp bar */}
                                     <div style={{ padding: '4px 0' }}>
                                         <div className="flex justify-between mb-0.5">
