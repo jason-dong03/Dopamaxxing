@@ -1761,10 +1761,10 @@ export default function PackOpening({
                                     {isMobile ? (
                                         /* ── Mobile: card only, name row on top ── */
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}>
-                                            {/* name + dex row */}
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 'min(300px, 72vw)' }}>
+                                            {/* name + dex row — same width as card */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 'min(300px, 72vw)' }}>
                                                 <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{currentCard.name}</span>
-                                                <span style={{ fontSize: '0.68rem', color: '#6b7280', fontFamily: 'monospace' }}>
+                                                <span style={{ fontSize: '0.68rem', color: '#6b7280', fontFamily: 'monospace', flexShrink: 0 }}>
                                                     #{String(currentCard.national_pokedex_number ?? 0).padStart(3, '0')}
                                                 </span>
                                             </div>
@@ -1803,10 +1803,10 @@ export default function PackOpening({
                                 {/* Mobile details overlay */}
                                 {isMobile && showDetails && (
                                     <div
-                                        style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+                                        style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0a0a12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         onClick={e => { if (e.target === e.currentTarget) setShowDetails(false) }}
                                     >
-                                        <div style={{ padding: '16px 16px 32px', maxWidth: 400, width: '100%', margin: '0 auto' }}>
+                                        <div style={{ padding: '16px 16px 32px', maxWidth: 400, width: '100%', overflowY: 'auto', maxHeight: '100vh' }}>
                                             <button
                                                 onClick={() => setShowDetails(false)}
                                                 style={{ display: 'block', marginLeft: 'auto', marginBottom: 12, background: 'none', border: 'none', color: '#6b7280', fontSize: '0.72rem', cursor: 'pointer' }}
