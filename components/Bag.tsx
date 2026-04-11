@@ -19,7 +19,7 @@ import { CardTile } from '@/components/bag/CardTile'
 import { CardStats } from '@/components/bag/CardStats'
 import { ITEM_MAP, type ItemId } from '@/lib/items'
 import { TYPE_COLOR } from '@/lib/pokemon-types'
-import { cardBR, getBRTier, formatBR } from '@/lib/battlePower'
+import { cardBR, formatBR } from '@/lib/battlePower'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const FILTERS = ['All', ...RARITY_ORDER]
@@ -421,7 +421,8 @@ export default function BagPage({
                                     style={{
                                         fontSize: '0.62rem',
                                         fontWeight: 700,
-                                        color: '#facc15',
+                                        color: 'rgba(255,255,255,0.92)',
+                                        textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
                                         whiteSpace: 'nowrap',
                                         flexShrink: 0,
                                     }}
