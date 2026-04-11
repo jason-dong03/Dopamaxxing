@@ -14,6 +14,8 @@ type Props = {
     setShowSettings: (v: boolean) => void
     setDoneIndex: React.Dispatch<React.SetStateAction<number>>
     autoReverse: boolean
+    isMobile?: boolean
+    onShowDetails?: () => void
 }
 
 export function CardActionButtons({
@@ -29,6 +31,8 @@ export function CardActionButtons({
     setShowSettings,
     setDoneIndex,
     autoReverse,
+    isMobile,
+    onShowDetails,
 }: Props) {
     return (
         <div
@@ -183,6 +187,22 @@ export function CardActionButtons({
                                 )
                             </span>
                         </button>
+                        {isMobile && onShowDetails && (
+                            <button
+                                onClick={onShowDetails}
+                                className="rounded-xl text-xs font-semibold"
+                                style={{
+                                    background: 'rgba(96,165,250,0.08)',
+                                    border: '1px solid rgba(96,165,250,0.25)',
+                                    color: '#93c5fd',
+                                    cursor: 'pointer',
+                                    padding: '8px 14px',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                details
+                            </button>
+                        )}
                         <button
                             onClick={() => handleAutocomplete(autoReverse)}
                             className="btn-autocomplete rounded-xl text-xs font-semibold"

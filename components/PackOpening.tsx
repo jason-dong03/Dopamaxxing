@@ -130,6 +130,7 @@ export default function PackOpening({
     const [levelUpClaiming, setLevelUpClaiming] = useState(false)
     const [levelUpClaimed, setLevelUpClaimed] = useState(false)
     const [fanningOut, setFanningOut] = useState(false)
+    const [showDetails, setShowDetails] = useState(false)
     const [bbTooltipPos, setBbTooltipPos] = useState<{
         x: number
         y: number
@@ -157,9 +158,10 @@ export default function PackOpening({
     >({})
     const isAutocompleting = useRef(false)
     const wasBatchOpen = useRef(false)
-    const idleDims = pack.aspect === 'box'
-        ? { height: 'min(270px, 60vw)', width: 'min(360px, 78vw)' }
-        : { height: 'min(420px, 68vw)', width: 'auto' }
+    const idleDims =
+        pack.aspect === 'box'
+            ? { height: 'min(270px, 60vw)', width: 'min(360px, 78vw)' }
+            : { height: 'min(420px, 68vw)', width: 'auto' }
 
     useEffect(() => {
         const session = loadSession()
@@ -1694,198 +1696,92 @@ export default function PackOpening({
                     remainingCards.length > 0 &&
                     currentCard &&
                     (() => {
+                        const cardNode = (
+                            <div
+                                className={`relative ${animatingIndex === doneIndex ? 'animate-fly-down' : ''}`}
+                                onAnimationEnd={handleAnimationEnd}
+                            >
+                                <img
+                                    src={currentCard.image_url}
+                                    alt={currentCard.name}
+                                    className={`rounded-xl${currentIsRainbow ? ' glow-rainbow' : ''}`}
+                                    style={{
+                                        height: isMobile ? 'min(300px, 72vw)' : '420px',
+                                        width: 'auto',
+                                        opacity: shattering ? 0 : 1,
+                                        boxShadow: currentIsRainbow ? undefined : `0 0 24px 6px rgba(${currentGlowRgb}, 0.6)`,
+                                        filter: currentCondFilter,
+                                        transform: currentCenterSkew,
+                                    }}
+                                />
+                                {/* Rarity + NEW tags */}
+                                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, padding: '2px 6px', lineHeight: 1.4, borderRadius: 9999, background: 'rgba(10,10,15,0.82)', border: '1px solid rgba(255,255,255,0.1)', color: `rgba(${rarityGlowRgb(currentCard.rarity)}, 1)`, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                                        {currentCard.rarity}
+                                    </span>
+                                    {currentCardIsNew && (
+                                        <span className="bg-green-950 text-green-400 border border-green-700/50 rounded-full" style={{ fontSize: '0.6rem', padding: '2px 7px', lineHeight: 1.4 }}>
+                                            NEW
+                                        </span>
+                                    )}
+                                </div>
+                                {shattering && <ShatterEffect rarity={currentCard.rarity} imageUrl={currentCard.image_url} />}
+                                <WearOverlay ucId={currentCard.id} overallCond={currentOverallCond} attrSurface={currentCard.attr_surface ?? null} />
+                                {currentCard.set_id?.endsWith('-1ed') && <FirstEditionBadge variant="detail" side="right" />}
+                            </div>
+                        )
+
+                        const statsPanel = (
+                            <CardStatsPanel
+                                currentCard={currentCard}
+                                isMobile={isMobile}
+                                condPanelTab={condPanelTab}
+                                setCondPanelTab={setCondPanelTab}
+                                bbTooltipPos={bbTooltipPos}
+                                setBbTooltipPos={setBbTooltipPos}
+                                bagCount={bagCount}
+                                bagCapacity={bagCapacity}
+                                currentCardIsNew={currentCardIsNew}
+                                animatingIndex={animatingIndex}
+                                shattering={shattering}
+                                isFetchingCopies={isFetchingCopies}
+                                handleAddToBag={handleAddToBag}
+                                handleAddToBagDuplicate={handleAddToBagDuplicate}
+                                handleFeedCard={handleFeedCard}
+                                handleBuyback={handleBuyback}
+                            />
+                        )
+
                         return (
                             <>
                                 <div
                                     className="flex flex-col items-center gap-4"
-                                    style={{
-                                        transform: isMobile
-                                            ? 'translateY(55px)'
-                                            : 'translateY(32px)',
-                                        padding: isMobile ? '0 10px' : 0,
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                    }}
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '0 16px' }}
                                 >
-                                    {/* top row: card + right panel */}
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'row',
-                                            alignItems: isMobile
-                                                ? 'center'
-                                                : 'flex-start',
-                                            justifyContent: 'center',
-                                            gap: isMobile ? 14 : 16,
-                                            width: '100%',
-                                        }}
-                                    >
-                                        {/* card column */}
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                gap: 8,
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            {/* card */}
-                                            <div
-                                                className={`relative ${animatingIndex === doneIndex ? 'animate-fly-down' : ''}`}
-                                                onAnimationEnd={
-                                                    handleAnimationEnd
-                                                }
-                                            >
-                                                <img
-                                                    src={currentCard.image_url}
-                                                    alt={currentCard.name}
-                                                    className={`rounded-xl${currentIsRainbow ? ' glow-rainbow' : ''}`}
-                                                    style={{
-                                                        height: isMobile
-                                                            ? 'min(280px, 68vw)'
-                                                            : '320px',
-                                                        width: 'auto',
-                                                        opacity: shattering
-                                                            ? 0
-                                                            : 1,
-                                                        boxShadow:
-                                                            currentIsRainbow
-                                                                ? undefined
-                                                                : `0 0 20px 4px rgba(${currentGlowRgb}, 0.6)`,
-                                                        filter: currentCondFilter,
-                                                        transform:
-                                                            currentCenterSkew,
-                                                    }}
-                                                />
-                                                {/* Rarity + NEW tags — top-right flex row */}
-                                                {currentCard && (
-                                                    <div
-                                                        style={{
-                                                            position:
-                                                                'absolute',
-                                                            top: 8,
-                                                            right: 8,
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                            gap: 4,
-                                                        }}
-                                                    >
-                                                        <span
-                                                            style={{
-                                                                fontSize:
-                                                                    '0.55rem',
-                                                                fontWeight: 700,
-                                                                padding:
-                                                                    '2px 6px',
-                                                                lineHeight: 1.4,
-                                                                borderRadius: 9999,
-                                                                background:
-                                                                    'rgba(10,10,15,0.82)',
-                                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                                color: `rgba(${rarityGlowRgb(currentCard.rarity)}, 1)`,
-                                                                letterSpacing:
-                                                                    '0.03em',
-                                                                textTransform:
-                                                                    'uppercase',
-                                                            }}
-                                                        >
-                                                            {currentCard.rarity}
-                                                        </span>
-                                                        {currentCardIsNew && (
-                                                            <span
-                                                                className="bg-green-950 text-green-400 border border-green-700/50 rounded-full"
-                                                                style={{
-                                                                    fontSize:
-                                                                        '0.6rem',
-                                                                    padding:
-                                                                        '2px 7px',
-                                                                    lineHeight: 1.4,
-                                                                }}
-                                                            >
-                                                                NEW
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {shattering && (
-                                                    <ShatterEffect
-                                                        rarity={
-                                                            currentCard.rarity
-                                                        }
-                                                        imageUrl={
-                                                            currentCard.image_url
-                                                        }
-                                                    />
-                                                )}
-                                                <WearOverlay
-                                                    ucId={currentCard.id}
-                                                    overallCond={
-                                                        currentOverallCond
-                                                    }
-                                                    attrSurface={
-                                                        currentCard.attr_surface ??
-                                                        null
-                                                    }
-                                                />
-                                                {/* 1st edition badge — bottom-right */}
-                                                {currentCard.set_id?.endsWith(
-                                                    '-1ed',
-                                                ) && (
-                                                    <FirstEditionBadge
-                                                        variant="detail"
-                                                        side="right"
-                                                    />
-                                                )}
+                                    {isMobile ? (
+                                        /* ── Mobile: card only, name row on top ── */
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}>
+                                            {/* name + dex row */}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 'min(300px, 72vw)' }}>
+                                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>{currentCard.name}</span>
+                                                <span style={{ fontSize: '0.68rem', color: '#6b7280', fontFamily: 'monospace' }}>
+                                                    #{String(currentCard.national_pokedex_number ?? 0).padStart(3, '0')}
+                                                </span>
+                                            </div>
+                                            {cardNode}
+                                        </div>
+                                    ) : (
+                                        /* ── Desktop/tablet: card + panel side by side, centered ── */
+                                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 24 }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                                {cardNode}
+                                            </div>
+                                            <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'visible' }}>
+                                                {statsPanel}
                                             </div>
                                         </div>
-                                        {/* end card column */}
+                                    )}
 
-                                        {/* right panel */}
-                                        <div
-                                            style={{
-                                                width: isMobile
-                                                    ? 'min(340px, 92vw)'
-                                                    : 200,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: 10,
-                                                overflow: 'visible',
-                                            }}
-                                        >
-                                            <CardStatsPanel
-                                                currentCard={currentCard}
-                                                isMobile={isMobile}
-                                                condPanelTab={condPanelTab}
-                                                setCondPanelTab={
-                                                    setCondPanelTab
-                                                }
-                                                bbTooltipPos={bbTooltipPos}
-                                                setBbTooltipPos={
-                                                    setBbTooltipPos
-                                                }
-                                                bagCount={bagCount}
-                                                bagCapacity={bagCapacity}
-                                                currentCardIsNew={
-                                                    currentCardIsNew
-                                                }
-                                                animatingIndex={animatingIndex}
-                                                shattering={shattering}
-                                                isFetchingCopies={
-                                                    isFetchingCopies
-                                                }
-                                                handleAddToBag={handleAddToBag}
-                                                handleAddToBagDuplicate={
-                                                    handleAddToBagDuplicate
-                                                }
-                                                handleFeedCard={handleFeedCard}
-                                                handleBuyback={handleBuyback}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* bottom nav — centered under full card+panel width */}
                                     <CardActionButtons
                                         doneIndex={doneIndex}
                                         remainingCards={remainingCards}
@@ -1894,15 +1790,33 @@ export default function PackOpening({
                                         doSellAll={doSellAll}
                                         setSellAllConfirm={setSellAllConfirm}
                                         handleAutocomplete={handleAutocomplete}
-                                        handleStopAutocomplete={
-                                            handleStopAutocomplete
-                                        }
+                                        handleStopAutocomplete={handleStopAutocomplete}
                                         autoRunning={autoRunning}
                                         setShowSettings={setShowSettings}
                                         setDoneIndex={setDoneIndex}
                                         autoReverse={prefs.autoReverse}
+                                        isMobile={isMobile}
+                                        onShowDetails={() => setShowDetails(true)}
                                     />
                                 </div>
+
+                                {/* Mobile details overlay */}
+                                {isMobile && showDetails && (
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+                                        onClick={e => { if (e.target === e.currentTarget) setShowDetails(false) }}
+                                    >
+                                        <div style={{ padding: '16px 16px 32px', maxWidth: 400, width: '100%', margin: '0 auto' }}>
+                                            <button
+                                                onClick={() => setShowDetails(false)}
+                                                style={{ display: 'block', marginLeft: 'auto', marginBottom: 12, background: 'none', border: 'none', color: '#6b7280', fontSize: '0.72rem', cursor: 'pointer' }}
+                                            >
+                                                ✕ close
+                                            </button>
+                                            {statsPanel}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )
                     })()}
