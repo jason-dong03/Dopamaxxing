@@ -186,6 +186,23 @@ export const PACKS: Pack[] = [
         card_count: 11,
     },
     {
+        id: 'sm9',
+        name: 'Team Up',
+        image: '/packs/teamup-pack.png',
+        description: 'Sun & Moon - Team Up',
+        aspect: 'pack',
+        cost: 102.92,
+        card_count: 10,
+    },
+    {
+        id: 'smp',
+        name: 'SM Black Star Promos',
+        image: '/packs/blackstar-promo.png',
+        description: 'Sun & Moon - Black Star Promos',
+        aspect: 'box',
+        cost: 500,
+    },
+    {
         id: 'xy7',
         name: 'Ancient Origins',
         image: '/packs/ancient-origins.png',

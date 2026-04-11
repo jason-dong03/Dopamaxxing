@@ -67,7 +67,7 @@ export default function BagPage({
     const [search, setSearch] = useState('')
     const [sort, setSort] = useState<
         'rarity' | 'level' | 'name' | 'price' | 'grade' | 'bp'
-    >('rarity')
+    >('level')
     const [selected, setSelected] = useState<UserCard | null>(null)
     const [selectedCol, setSelectedCol] = useState(0)
     const [isWide, setIsWide] = useState(false)
@@ -793,7 +793,7 @@ export default function BagPage({
                                 >
                                     {FILTERS.map((f) => (
                                         <option key={f} value={f}>
-                                            {f}
+                                            {f === 'All' ? 'All Rarities' : f}
                                         </option>
                                     ))}
                                 </select>
@@ -866,52 +866,30 @@ export default function BagPage({
 
                                 <div style={{ flex: 1 }} />
 
-                                {/* sort pills */}
-                                <div
-                                    className="flex gap-1 scrollbar-none"
+                                {/* sort dropdown */}
+                                <select
+                                    value={sort}
+                                    onChange={(e) => setSort(e.target.value as typeof sort)}
                                     style={{
-                                        overflowX: 'auto',
-                                        flexWrap: 'nowrap',
+                                        background: 'var(--input-bg)',
+                                        border: '1px solid var(--input-border)',
+                                        borderRadius: 8,
+                                        padding: '5px 8px',
+                                        fontSize: '0.65rem',
+                                        color: 'var(--app-text)',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        flexShrink: 0,
+                                        colorScheme: 'dark',
                                     }}
                                 >
-                                    {(
-                                        [
-                                            'rarity',
-                                            'level',
-                                            'name',
-                                            'price',
-                                            'grade',
-                                            'bp',
-                                        ] as const
-                                    ).map((s) => (
-                                        <button
-                                            key={s}
-                                            onClick={() => setSort(s)}
-                                            className="capitalize transition-all"
-                                            style={{
-                                                flexShrink: 0,
-                                                fontSize: '0.6rem',
-                                                padding: '4px 9px',
-                                                borderRadius: 6,
-                                                border:
-                                                    sort === s
-                                                        ? '1px solid var(--pill-active-border)'
-                                                        : '1px solid var(--pill-border)',
-                                                background:
-                                                    sort === s
-                                                        ? 'var(--pill-active-bg)'
-                                                        : 'transparent',
-                                                color:
-                                                    sort === s
-                                                        ? 'var(--app-text)'
-                                                        : 'var(--app-text-muted)',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
+                                    <option value="level">Level</option>
+                                    <option value="rarity">Rarity</option>
+                                    <option value="name">Name</option>
+                                    <option value="price">Price</option>
+                                    <option value="grade">Grade</option>
+                                    <option value="bp">BP</option>
+                                </select>
                             </div>
                         )}
 

@@ -132,6 +132,13 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                 onBack={() => {
                     setSelectedPack(null)
                     setSelectedCount(1)
+                    refreshStock()
+                }}
+                onPackOpened={(packId, countOpened) => {
+                    setStock((prev) => ({
+                        ...prev,
+                        [packId]: Math.max(0, (prev[packId] ?? 0) - countOpened),
+                    }))
                 }}
             />
         ) : (

@@ -191,6 +191,7 @@ export type BattleCard = {
     attackStage?: number // -6 to +6, affects outgoing damage (default 0)
     defenseStage?: number // -6 to +6, affects incoming damage (default 0)
     speedStage?: number // -6 to +6, affects turn order (default 0)
+    currentPp?: number[] // remaining PP per attack slot, server-tracked
 }
 
 export type BattleLogEntry = {
@@ -497,6 +498,7 @@ export const N_TEAM: TeamTemplate[] = [
 ]
 
 export function initBattleCard(template: TeamTemplate): BattleCard {
+    const attacks = template.attacks ?? []
     return {
         ...template,
         statusEffect: 'none',
@@ -505,6 +507,7 @@ export function initBattleCard(template: TeamTemplate): BattleCard {
         attackStage: 0,
         defenseStage: 0,
         speedStage: 0,
+        currentPp: attacks.map((a) => a.maxPp ?? 30),
     }
 }
 

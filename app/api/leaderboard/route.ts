@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 const VALID_METRICS = ['packs', 'br', 'level', 'coins'] as const
@@ -11,19 +11,29 @@ const METRIC_COLUMN: Record<Metric, string> = {
     coins:  'coins',
 }
 
+// Minimum value required to appear on each leaderboard
+const METRIC_MIN: Record<Metric, number> = {
+    packs:  100,      // opened at least 100 packs
+    br:     100000,   // at least 100,000 BR
+    level:  10,       // at least level 10
+    coins:  1000,     // at least $1,000 coins
+}
+
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const raw = searchParams.get('metric') ?? 'br'
     const metric = VALID_METRICS.includes(raw as Metric) ? (raw as Metric) : 'br'
     const col = METRIC_COLUMN[metric]
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
+
+    const min = METRIC_MIN[metric]
 
     const { data, error } = await supabase
         .from('profiles')
         .select(`id, username, profile_url, ${col}`)
         .not(col, 'is', null)
-        .gt(col, 0)
+        .gte(col, min)
         .order(col, { ascending: false })
         .limit(10)
 

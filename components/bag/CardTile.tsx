@@ -55,6 +55,7 @@ export function CardTile({
             onClick={onClick}
             className={`relative cursor-pointer${!graded ? ' rounded-lg overflow-hidden' : ''}${rainbow ? ' glow-rainbow' : ''}`}
             style={{
+                aspectRatio: '5 / 7',
                 transition: 'transform 110ms ease, box-shadow 110ms ease',
                 boxShadow: graded
                     ? undefined
@@ -105,7 +106,9 @@ export function CardTile({
                         className="block"
                         style={{
                             width: '100%',
-                            height: 'auto',
+                            height: '100%',
+                            objectFit: 'cover',
+                            objectPosition: 'center',
                             display: 'block',
                             filter: tileCondFilter,
                             transform: tileCenterSkew,

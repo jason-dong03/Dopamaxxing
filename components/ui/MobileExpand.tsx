@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { getTitleColor } from '@/lib/titleConfig'
 import LinkDiscord from '../LinkDiscord'
-import { formatBR, getBRTier } from '@/lib/battlePower'
+import { formatBR } from '@/lib/battlePower'
 
 export default function MobileExpand({
     loginStreak,
@@ -89,24 +89,21 @@ export default function MobileExpand({
                             {activeTitle}
                         </span>
                     )}
-                    {(battleRating ?? 0) > 0 && (() => {
-                        const tier = getBRTier(battleRating!)
-                        return (
-                            <span
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                    fontSize: '0.65rem',
-                                    fontWeight: 700,
-                                    color: tier.color,
-                                }}
-                            >
-                                {formatBR(battleRating!)} BR <span style={{ opacity: 0.7, fontWeight: 500 }}>{tier.label}</span>
-                            </span>
-                        )
-                    })()}
+                    {(battleRating ?? 0) > 0 && (
+                        <span
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                color: 'rgba(255,255,255,0.92)',
+                                textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
+                            }}
+                        >
+                            {formatBR(battleRating!)} BR
+                        </span>
+                    )}
                     {discordLinked && (
                         <span>
                             <LinkDiscord discordLinked={discordLinked} />

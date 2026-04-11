@@ -10,6 +10,7 @@ import { awardLevelUpRewards } from '@/lib/awardLevelUp'
 import { rollStats, rollNature } from '@/lib/pokemon-stats'
 import { fetchPokemonData } from '@/lib/pokemon-moves'
 import { recalcBattleRating } from '@/lib/battlePower'
+import { getOrRefreshStock } from '@/lib/packStock'
 
 const pityRarities = ['Legendary', 'Divine', 'Celestial', '???']
 const GOD_PACK_CHANCE = 0.003   // 0.3% — roughly 1 in 333
@@ -124,6 +125,23 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 402 },
             )
+        }
+
+        // ── stock check + decrement ───────────────────────────────────────────
+        if (!free) {
+            const { stock } = await getOrRefreshStock(supabase, user.id)
+            const available = stock[setId] ?? 0
+            if (available <= 0) {
+                return NextResponse.json(
+                    { error: 'insufficient_stock', available: 0 },
+                    { status: 409 },
+                )
+            }
+            await supabase
+                .from('pack_stock')
+                .update({ quantity: available - 1 })
+                .eq('user_id', user.id)
+                .eq('pack_id', setId)
         }
 
         if (allCards.length === 0) {

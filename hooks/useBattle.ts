@@ -130,7 +130,7 @@ export function useBattle(options?: { trainerId?: string; startPhase?: BattlePha
             setTrainerSprite(TRAINER_INFO[tid]?.sprite ?? '/trainers/N-masters.gif')
             const pp: Record<string, number[]> = {}
             for (const card of json.battle.user_cards) {
-                pp[card.id] = card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
+                pp[card.id] = card.currentPp ?? card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
             }
             setCardPp(pp)
             // Auto-show "What will X do?" without requiring a click
@@ -177,7 +177,7 @@ ${baseName(firstActiveCard.name).toUpperCase()} do?`)
             // Init client-side PP from each user card's maxPp
             const pp: Record<string, number[]> = {}
             for (const card of json.battle.user_cards) {
-                pp[card.id] = card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
+                pp[card.id] = card.currentPp ?? card.attacks.map((a: { maxPp?: number }) => a.maxPp ?? 30)
             }
             setCardPp(pp)
             // Load real item inventory
@@ -205,6 +205,16 @@ ${baseName(firstActiveCard.name).toUpperCase()} do?`)
         const prevUActive  = battle.user_cards[battle.user_active_index]
         const activeCardId = prevUActive.id
 
+        // ── Client-side PP guard ─────────────────────────────────────────────
+        const ppNow = (cardPp[activeCardId] ?? [])[attackIndex] ?? 0
+        if (ppNow <= 0) {
+            actingRef.current = false
+            setActing(false)
+            setBattleTextOverride("No PP left!\nChoose another move.")
+            setBattleMenu('fight')
+            return
+        }
+
         setCardPp(prev => {
             const pps = [...(prev[activeCardId] ?? [])]
             if (pps[attackIndex] !== undefined && pps[attackIndex] > 0) pps[attackIndex]--
@@ -212,14 +222,38 @@ ${baseName(firstActiveCard.name).toUpperCase()} do?`)
         })
 
         try {
-            const fetchPromise = fetch('/api/n-battle/action', {
+            const res = await fetch('/api/n-battle/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ battleId: battle.id, attackIndex }),
-            }).then(r => r.json())
+            })
 
-            const { battle: updated, coinsLost } = await fetchPromise
+            // Server-side PP rejection — revert optimistic decrement and re-open fight menu
+            if (res.status === 400) {
+                const errData = await res.json()
+                if (errData?.error === 'no_pp') {
+                    setCardPp(prev => {
+                        const pps = [...(prev[activeCardId] ?? [])]
+                        if (pps[attackIndex] !== undefined) pps[attackIndex]++
+                        return { ...prev, [activeCardId]: pps }
+                    })
+                    actingRef.current = false
+                    setActing(false)
+                    setBattleTextOverride("No PP left!\nChoose another move.")
+                    setBattleMenu('fight')
+                    return
+                }
+            }
+
+            const { battle: updated, coinsLost } = await res.json()
             if (!updated) return
+
+            // Sync PP from server response (source of truth)
+            const syncedPp: Record<string, number[]> = {}
+            for (const card of (updated.user_cards ?? [])) {
+                if (card.currentPp) syncedPp[card.id] = card.currentPp
+            }
+            if (Object.keys(syncedPp).length > 0) setCardPp(prev => ({ ...prev, ...syncedPp }))
 
             const log = updated.battle_log as BattleLogEntry[]
             const newTurn = updated.turn as number

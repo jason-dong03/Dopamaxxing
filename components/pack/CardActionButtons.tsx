@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useState } from 'react'
 
 type Props = {
     doneIndex: number
@@ -34,6 +34,10 @@ export function CardActionButtons({
     isMobile,
     onShowDetails,
 }: Props) {
+    const [showTooltip, setShowTooltip] = useState(false)
+    const totalCoins = remainingCards.reduce((s, c) => s + c.coins, 0)
+    const totalFormatted = `$${totalCoins.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
     return (
         <div
             className="flex flex-col items-center gap-2"
@@ -163,21 +167,69 @@ export function CardActionButtons({
                     </button>
                 ) : (
                     <>
-                        <button
-                            onClick={handleSellAll}
-                            className="rounded-xl text-xs font-semibold"
-                            title={`$${remainingCards.reduce((s, c) => s + c.coins, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            style={{
-                                background: 'rgba(239,68,68,0.08)',
-                                border: '1px solid rgba(239,68,68,0.25)',
-                                color: '#f87171',
-                                cursor: 'pointer',
-                                padding: '8px 14px',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            sell all
-                        </button>
+                        {isMobile ? (
+                            /* Mobile: tooltip on hover/tap */
+                            <div
+                                style={{ position: 'relative' }}
+                                onMouseEnter={() => setShowTooltip(true)}
+                                onMouseLeave={() => setShowTooltip(false)}
+                                onTouchStart={() => setShowTooltip(true)}
+                                onTouchEnd={() => setTimeout(() => setShowTooltip(false), 1500)}
+                            >
+                                <button
+                                    onClick={handleSellAll}
+                                    className="rounded-xl text-xs font-semibold"
+                                    style={{
+                                        background: 'rgba(239,68,68,0.08)',
+                                        border: '1px solid rgba(239,68,68,0.25)',
+                                        color: '#f87171',
+                                        cursor: 'pointer',
+                                        padding: '8px 14px',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    sell all
+                                </button>
+                                {showTooltip && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            bottom: 'calc(100% + 6px)',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            background: 'rgba(10,10,18,0.95)',
+                                            border: '1px solid rgba(239,68,68,0.3)',
+                                            color: '#f87171',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 600,
+                                            padding: '4px 10px',
+                                            borderRadius: 6,
+                                            whiteSpace: 'nowrap',
+                                            zIndex: 99,
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        {totalFormatted}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* Desktop/tablet: show amount inline */
+                            <button
+                                onClick={handleSellAll}
+                                className="rounded-xl text-xs font-semibold"
+                                style={{
+                                    background: 'rgba(239,68,68,0.08)',
+                                    border: '1px solid rgba(239,68,68,0.25)',
+                                    color: '#f87171',
+                                    cursor: 'pointer',
+                                    padding: '8px 14px',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                sell all {totalFormatted}
+                            </button>
+                        )}
                         {isMobile && onShowDetails && (
                             <button
                                 onClick={onShowDetails}

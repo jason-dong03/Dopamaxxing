@@ -183,12 +183,50 @@ export async function POST(request: NextRequest) {
     let uActive  = { ...userCards[uIdx] }
     let nCurrent = { ...nCards[nIdx] }
 
-    const precomputed = battle.n_next_move as { attackIndex: number } | null
+    // ── PP init (backfill for battles started before server-side PP was added) ──
+    if (!uActive.currentPp) uActive = { ...uActive, currentPp: uActive.attacks.map(a => a.maxPp ?? 30) }
+    if (!nCurrent.currentPp) nCurrent = { ...nCurrent, currentPp: nCurrent.attacks.map(a => a.maxPp ?? 30) }
+
+    // ── User PP gate ──────────────────────────────────────────────────────────
+    const uPpArr = [...(uActive.currentPp!)]
+    const uPpLeft = uPpArr[attackIndex] ?? 0
+    if (uPpLeft <= 0) {
+        // No PP left — force Struggle (recoil move, no type, never blocked)
+        // Rather than reject the request outright, we redirect to a Struggle-like result.
+        return NextResponse.json({ error: 'no_pp', message: 'No PP left for that move.' }, { status: 400 })
+    }
+    uPpArr[attackIndex] = uPpLeft - 1
+    uActive = { ...uActive, currentPp: uPpArr }
+    userCards[uIdx] = uActive
+
+    // ── N switch (type-based) ────────────────────────────────────────────────
+    const precomputed = battle.n_next_move as { attackIndex?: number; switch?: boolean; switchTo?: number } | null
+    if (precomputed?.switch && precomputed.switchTo !== undefined) {
+        const switchTo = precomputed.switchTo
+        if (switchTo >= 0 && switchTo < nCards.length && nCards[switchTo].hp > 0 && switchTo !== nIdx) {
+            nCards[nIdx] = nCurrent
+            nIdx = switchTo
+            nCurrent = { ...nCards[nIdx] }
+            if (!nCurrent.currentPp) nCurrent = { ...nCurrent, currentPp: nCurrent.attacks.map(a => a.maxPp ?? 30) }
+            nCards[nIdx] = nCurrent
+            log.push({ turn, actor: 'n', attackName: 'Status', damage: 0, effect: `N withdrew ${nCards[precomputed.switchTo === nIdx ? nIdx : (battle.n_active_index as number)].name}!\nN sent out ${nCurrent.name}!` })
+        }
+    }
+
+    // ── N PP decrement ────────────────────────────────────────────────────────
     const nAttackIdx  = precomputed?.attackIndex ?? 0
+    const nPpArr = [...(nCurrent.currentPp!)]
+    // Pick the effective move index — fall back if precomputed move has 0 PP
+    const effectiveNAttackIdx = (nPpArr[nAttackIdx] ?? 0) > 0
+        ? nAttackIdx
+        : (nPpArr.findIndex(pp => pp > 0) >= 0 ? nPpArr.findIndex(pp => pp > 0) : nAttackIdx)
+    if (nPpArr[effectiveNAttackIdx] !== undefined && nPpArr[effectiveNAttackIdx] > 0) nPpArr[effectiveNAttackIdx]--
+    nCurrent = { ...nCurrent, currentPp: nPpArr }
+    nCards[nIdx] = nCurrent
 
     // Determine turn order: move priority first → effective speed (base × stage mult) → user wins ties
     const uMoveForOrder = uActive.attacks[attackIndex] ?? uActive.attacks[0]
-    const nMoveForOrder = nCurrent.attacks[nAttackIdx] ?? nCurrent.attacks[0]
+    const nMoveForOrder = nCurrent.attacks[effectiveNAttackIdx] ?? nCurrent.attacks[0]
     const uPrio = uMoveForOrder?.priority ?? 0
     const nPrio = nMoveForOrder?.priority ?? 0
     const uEffectiveSpeed = (uActive.speed ?? 60) * statStageMult(uActive.speedStage ?? 0)
@@ -234,9 +272,9 @@ export async function POST(request: NextRequest) {
             if (nTick.woke) {
                 log.push({ turn, actor: 'n', attackName: 'Status', damage: 0, effect: `${nCurrent.name} woke up!` })
             }
-            const usedAttack = nCurrent.attacks[nAttackIdx] ?? nCurrent.attacks[0]
+            const usedAttack = nCurrent.attacks[effectiveNAttackIdx] ?? nCurrent.attacks[0]
             const { attacker: nAfter, defender: uAfterN, logEntry: nLog } =
-                applyAttack(nCurrent, uActive, nAttackIdx, turn, 'n')
+                applyAttack(nCurrent, uActive, effectiveNAttackIdx, turn, 'n')
             nCurrent = nAfter
             if (usedAttack.speedBoost && !nLog.missed) {
                 nCurrent = { ...nCurrent, speed: nCurrent.speed + usedAttack.speedBoost }

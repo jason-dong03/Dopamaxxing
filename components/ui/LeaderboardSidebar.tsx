@@ -21,6 +21,14 @@ function formatValue(metric: Metric, value: number): string {
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
+// Unique title + color for #1 on each leaderboard, refreshed every 24h
+const FIRST_PLACE_TITLE: Record<Metric, { label: string; color: string; glow: string }> = {
+    packs:  { label: 'Pack Maniac',     color: '#f97316', glow: 'rgba(249,115,22,0.4)' },
+    br:     { label: 'Apex Trainer',    color: '#a78bfa', glow: 'rgba(167,139,250,0.4)' },
+    level:  { label: 'Grand Master',    color: '#34d399', glow: 'rgba(52,211,153,0.4)'  },
+    coins:  { label: 'Coin Baron',      color: '#fbbf24', glow: 'rgba(251,191,36,0.4)'  },
+}
+
 export default function LeaderboardSidebar() {
     const [open, setOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<Metric>('br')
@@ -36,7 +44,9 @@ export default function LeaderboardSidebar() {
         setLoading(true)
         setRows([])
         try {
-            const res = await fetch(`/api/leaderboard?metric=${metric}`)
+            // Cache-bust once per 24h so titles rotate daily
+            const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24))
+            const res = await fetch(`/api/leaderboard?metric=${metric}&d=${day}`)
             const json = await res.json()
             cache.current[metric] = json.rows ?? []
             setRows(cache.current[metric]!)
@@ -164,15 +174,21 @@ export default function LeaderboardSidebar() {
                             no data
                         </div>
                     )}
-                    {!loading && rows.map(row => (
+                    {!loading && rows.map(row => {
+                        const isFirst = row.rank === 1
+                        const title = isFirst ? FIRST_PLACE_TITLE[activeTab] : null
+                        return (
                         <div
                             key={row.id}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 10,
-                                padding: '7px 16px',
+                                padding: isFirst ? '10px 16px' : '7px 16px',
                                 borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                background: isFirst
+                                    ? `linear-gradient(90deg, ${title!.glow} 0%, transparent 70%)`
+                                    : undefined,
                             }}
                         >
                             {/* Rank */}
@@ -193,42 +209,68 @@ export default function LeaderboardSidebar() {
                                 <Image
                                     src={row.profile_url}
                                     alt={row.username}
-                                    width={24}
-                                    height={24}
-                                    style={{ borderRadius: '50%', flexShrink: 0, opacity: 0.9 }}
+                                    width={isFirst ? 28 : 24}
+                                    height={isFirst ? 28 : 24}
+                                    style={{
+                                        borderRadius: '50%',
+                                        flexShrink: 0,
+                                        opacity: 0.9,
+                                        boxShadow: isFirst ? `0 0 8px 2px ${title!.glow}` : undefined,
+                                    }}
                                 />
                             ) : (
                                 <div style={{
-                                    width: 24, height: 24, borderRadius: '50%',
-                                    background: 'rgba(255,255,255,0.08)',
+                                    width: isFirst ? 28 : 24,
+                                    height: isFirst ? 28 : 24,
+                                    borderRadius: '50%',
+                                    background: isFirst ? title!.glow : 'rgba(255,255,255,0.08)',
                                     flexShrink: 0,
+                                    boxShadow: isFirst ? `0 0 8px 2px ${title!.glow}` : undefined,
                                 }} />
                             )}
 
-                            {/* Username */}
-                            <span style={{
-                                flex: 1,
-                                fontSize: '0.72rem',
-                                fontWeight: 500,
-                                color: '#cbd5e1',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}>
-                                {row.username}
-                            </span>
+                            {/* Username + title */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                {isFirst && (
+                                    <div style={{
+                                        fontSize: '0.55rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.1em',
+                                        textTransform: 'uppercase',
+                                        color: title!.color,
+                                        textShadow: `0 0 8px ${title!.glow}`,
+                                        marginBottom: 1,
+                                    }}>
+                                        {title!.label}
+                                    </div>
+                                )}
+                                <span style={{
+                                    fontSize: isFirst ? '0.76rem' : '0.72rem',
+                                    fontWeight: isFirst ? 700 : 500,
+                                    color: isFirst ? title!.color : '#cbd5e1',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    display: 'block',
+                                    textShadow: isFirst ? `0 0 12px ${title!.glow}` : undefined,
+                                }}>
+                                    {row.username}
+                                </span>
+                            </div>
 
                             {/* Value */}
                             <span style={{
                                 fontSize: '0.7rem',
                                 fontWeight: 700,
-                                color: '#94a3b8',
+                                color: isFirst ? title!.color : '#94a3b8',
                                 flexShrink: 0,
+                                textShadow: isFirst ? `0 0 8px ${title!.glow}` : undefined,
                             }}>
                                 {formatValue(activeTab, row.value)}
                             </span>
                         </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
 
