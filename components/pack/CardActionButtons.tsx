@@ -166,6 +166,7 @@ export function CardActionButtons({
                         <button
                             onClick={handleSellAll}
                             className="rounded-xl text-xs font-semibold"
+                            title={`$${remainingCards.reduce((s, c) => s + c.coins, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             style={{
                                 background: 'rgba(239,68,68,0.08)',
                                 border: '1px solid rgba(239,68,68,0.25)',
@@ -175,17 +176,7 @@ export function CardActionButtons({
                                 whiteSpace: 'nowrap',
                             }}
                         >
-                            sell all{' '}
-                            <span style={{ opacity: 0.7 }}>
-                                ($
-                                {remainingCards
-                                    .reduce((s, c) => s + c.coins, 0)
-                                    .toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                    })}
-                                )
-                            </span>
+                            sell all
                         </button>
                         {isMobile && onShowDetails && (
                             <button
