@@ -233,6 +233,7 @@ export default async function QuestsPage() {
         sold_highest_card: ((nqpData as any)?.sold_highest_count ?? 0) >= 1 ? 1 : 0,
         n_battle_won: (nBattleWonCount ?? 0) > 0 ? 1 : 0,
         has_prismatic_eeveelutions: hasPrismaticEeveelutions,
+        crate_keys_total: 0,
     }
 
     const ownedCards = (rarityRows ?? []).map((r: any) => ({
