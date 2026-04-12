@@ -57,7 +57,9 @@ export default function BRDisplay({ initialBP }: { initialBP: number }) {
             title={`Battle Rating: ${toRef.current.toLocaleString()}`}
             style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
         >
+            {/* Desktop/tablet: full number */}
             <span
+                className="hidden sm:inline"
                 style={{
                     fontSize: '0.82rem',
                     fontWeight: 700,
@@ -66,6 +68,23 @@ export default function BRDisplay({ initialBP }: { initialBP: number }) {
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
                     letterSpacing: '-0.01em',
+                }}
+            >
+                {formatBR(displayed, true)} BR
+            </span>
+            {/* Mobile: abbreviated, tap/hover shows full via title */}
+            <span
+                className="inline sm:hidden"
+                title={`${toRef.current.toLocaleString()} BR`}
+                style={{
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: 'rgba(255,255,255,0.92)',
+                    textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    letterSpacing: '-0.01em',
+                    cursor: 'help',
                 }}
             >
                 {formatBR(displayed)} BR

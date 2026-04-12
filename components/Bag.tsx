@@ -416,8 +416,9 @@ export default function BagPage({
                                 </div>
 
                                 {/* battle power total */}
+                                {/* Desktop/tablet: full number */}
                                 <span
-                                    title={`Battle Rating: ${battleRating.toLocaleString()}`}
+                                    className="hidden sm:inline"
                                     style={{
                                         fontSize: '0.62rem',
                                         fontWeight: 700,
@@ -425,6 +426,22 @@ export default function BagPage({
                                         textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
                                         whiteSpace: 'nowrap',
                                         flexShrink: 0,
+                                    }}
+                                >
+                                    {formatBR(battleRating, true)} BR
+                                </span>
+                                {/* Mobile: abbreviated + tap/hover tooltip */}
+                                <span
+                                    className="inline sm:hidden"
+                                    title={`${battleRating.toLocaleString()} BR`}
+                                    style={{
+                                        fontSize: '0.62rem',
+                                        fontWeight: 700,
+                                        color: 'rgba(255,255,255,0.92)',
+                                        textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
+                                        cursor: 'help',
                                     }}
                                 >
                                     {formatBR(battleRating)} BR

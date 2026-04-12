@@ -1930,8 +1930,9 @@ export default function ProfileView({
                                 )}
                                 {/* BR — flushed right in the name row */}
                                 <span style={{ flex: 1 }} />
+                                {/* Desktop/tablet: full number */}
                                 <span
-                                    title={`${(profile?.battle_power ?? 0).toLocaleString()} BR`}
+                                    className="hidden sm:inline"
                                     style={{
                                         fontSize: '0.72rem',
                                         fontWeight: 700,
@@ -1939,6 +1940,21 @@ export default function ProfileView({
                                         textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
                                         flexShrink: 0,
                                         cursor: 'default',
+                                    }}
+                                >
+                                    {formatBR(profile?.battle_power ?? 0, true)} BR
+                                </span>
+                                {/* Mobile: abbreviated + tap/hover tooltip */}
+                                <span
+                                    className="inline sm:hidden"
+                                    title={`${(profile?.battle_power ?? 0).toLocaleString()} BR`}
+                                    style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        color: 'rgba(255,255,255,0.92)',
+                                        textShadow: '0 0 8px rgba(255,255,255,0.5), 0 0 16px rgba(255,255,255,0.25)',
+                                        flexShrink: 0,
+                                        cursor: 'help',
                                     }}
                                 >
                                     {formatBR(profile?.battle_power ?? 0)} BR

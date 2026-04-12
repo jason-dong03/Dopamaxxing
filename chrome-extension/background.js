@@ -9,7 +9,7 @@ const STUDY_PATTERNS = [
   /docs\.google\.com\/(document|presentation|spreadsheets|forms)/,
   /\.pdf($|\?)/i,
   /\/pdf\b/i,
-  /instructure\.com/,         // Canvas LMS
+  /instructure\.com\/courses\/\d+\/(pages|quizzes|assignments|discussion_topics|modules|files|media_attachments)/,  // Canvas course content only (not dashboard/grades/inbox)
   /blackboard\.com/,
   /brightspace\.com/,
   /moodle\./,
@@ -29,6 +29,64 @@ const STUDY_PATTERNS = [
 function isStudyUrl(url) {
   if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) return false
   return STUDY_PATTERNS.some((p) => p.test(url))
+}
+
+// URLs where we can't fully trust the URL alone — need Grok to verify the
+// page is actually lecture/study content and not some random doc or PDF.
+const NEEDS_CONTENT_CHECK = [
+  /docs\.google\.com\/(document|presentation|spreadsheets)/,
+  /notion\.so/,
+  /\.pdf($|\?)/i,
+  /\/pdf\b/i,
+]
+
+function needsContentCheck(url) {
+  return url && NEEDS_CONTENT_CHECK.some((p) => p.test(url))
+}
+
+// ─── AI content classification (Groq) ────────────────────────────────────────
+// In-memory cache: url → { isLecture: bool, ts: timestamp }
+// Persists for the lifetime of the service worker (killed after ~30s of idle,
+// so storage.local is used for cross-wake persistence).
+const _classifyMemCache = {}
+const CLASSIFY_TTL_MS = 30 * 60 * 1000  // re-check after 30 min
+
+async function classifyContent(url, title, text) {
+  // 1. Check in-memory cache first (fastest path)
+  const mem = _classifyMemCache[url]
+  if (mem && Date.now() - mem.ts < CLASSIFY_TTL_MS) return mem.isLecture
+
+  // 2. Check storage.local (survives service worker restarts)
+  const { classifyCache } = await chrome.storage.local.get('classifyCache')
+  const stored = (classifyCache ?? {})[url]
+  if (stored && Date.now() - stored.ts < CLASSIFY_TTL_MS) {
+    _classifyMemCache[url] = stored
+    return stored.isLecture
+  }
+
+  // 3. Call the server — fails open (returns true) so a slow/down API
+  //    doesn't block legitimate study sessions
+  try {
+    const token = await refreshTokenIfNeeded()
+    if (!token) return true
+    const res = await fetch(`${APP_URL}/api/extension/classify-content`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url, title: title ?? '', text: text ?? '' }),
+    })
+    if (res.ok) {
+      const { is_lecture } = await res.json()
+      const entry = { isLecture: is_lecture, ts: Date.now() }
+      _classifyMemCache[url] = entry
+      // Merge into storage.local cache
+      const { classifyCache: existing } = await chrome.storage.local.get('classifyCache')
+      await chrome.storage.local.set({ classifyCache: { ...(existing ?? {}), [url]: entry } })
+      chrome.runtime.sendMessage({ type: 'classify-result', url, is_lecture }).catch(() => {})
+      return is_lecture
+    }
+  } catch { /* ignore */ }
+
+  return true  // fail open
 }
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -119,14 +177,33 @@ async function onAlarmTick() {
   const { tabActivity } = await chrome.storage.local.get('tabActivity')
   if (tabActivity) {
     const tabIdle = Date.now() - (tabActivity.lastActivity ?? 0)
-    if (!tabActivity.isActive || tabIdle > TAB_IDLE_MS) {
-      await chrome.storage.local.set({ is_studying: false, current_study_url: tab.url })
-      chrome.runtime.sendMessage({ type: 'study-update', is_studying: false }).catch(() => {})
+    const tooIdle    = !tabActivity.isActive || tabIdle > TAB_IDLE_MS
+    const rapidScroll = tabActivity.rapidScrolling === true
+    if (tooIdle || rapidScroll) {
+      const reason = rapidScroll ? 'rapid-scroll' : 'idle'
+      await chrome.storage.local.set({ is_studying: false, current_study_url: tab.url, study_stop_reason: reason })
+      chrome.runtime.sendMessage({ type: 'study-update', is_studying: false, reason }).catch(() => {})
       return
     }
   }
-  // No tabActivity means the content script hasn't loaded yet (e.g. a PDF viewer
-  // where the content script can't inject). Fall through and trust system-idle only.
+  // No tabActivity: content script not injected (e.g. PDF viewer). Trust system-idle only.
+
+  // For ambiguous URLs (Google Docs, PDFs, Notion) check Grok classification.
+  // The result is cached so this is fast on the 2nd+ minute of a session.
+  if (needsContentCheck(tab.url)) {
+    const mem = _classifyMemCache[tab.url]
+    const { classifyCache } = await chrome.storage.local.get('classifyCache')
+    const cached = mem ?? (classifyCache ?? {})[tab.url]
+    if (cached && !cached.isLecture) {
+      await chrome.storage.local.set({ is_studying: false, current_study_url: tab.url, study_stop_reason: 'not-lecture' })
+      chrome.runtime.sendMessage({ type: 'study-update', is_studying: false, reason: 'not-lecture' }).catch(() => {})
+      return
+    }
+    // No cached result yet → classify async for next minute, allow this minute through
+    if (!cached) {
+      classifyContent(tab.url, null, null)  // fire-and-forget
+    }
+  }
 
   await chrome.storage.local.set({ is_studying: true, current_study_url: tab.url })
   await sendHeartbeat(tab.url)
@@ -171,15 +248,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'activity-ping') {
-    // Persist the latest tab-level activity report from the content script.
     chrome.storage.local.set({
       tabActivity: {
         lastActivity: msg.lastActivity,
         isActive: msg.isActive,
+        rapidScrolling: msg.rapidScrolling ?? false,
         url: msg.url,
         receivedAt: Date.now(),
       },
     })
-    // No response needed
+    // When the content script sends page metadata (first load / URL change),
+    // kick off Grok classification in the background for ambiguous URLs.
+    if (msg.pageTitle !== undefined && needsContentCheck(msg.url)) {
+      classifyContent(msg.url, msg.pageTitle, msg.pageText ?? '')
+    }
   }
 })
