@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: '1.3.1',
+        date: '2026-04-12',
+        changes: [
+            'Added 3 new packs: Dark Explorer, Plasma Blast, Legendary Treasure',
+            'QoL and UI fixes / updates for better viewing experience',
+            'Added leveling gates to packs',
+            'Stocks feature added',
+            'Battle Rating feature added',
+            'Configured AI battle mechanics',
+        ],
+    },
+    {
         version: '1.3.0',
         date: '2026-04-09',
         changes: [
