@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
             !free && isCrate
                 ? supabase.from('crate_keys').update({ quantity: Math.max(0, crateKeyCount - 1) }).eq('user_id', user.id).eq('pack_id', setId)
                 : Promise.resolve(null),
-        ]) as [unknown, { data: unknown }, unknown])
+        ]) as [unknown, { data: { card_id: string }[] | null }, unknown])
 
         const newPacksOpened = (profile?.packs_opened ?? 0) + count
         const earned = await getEarnedAchievements(user.id)
