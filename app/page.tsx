@@ -86,7 +86,6 @@ export default function LandingPage() {
     const [loading, setLoading] = useState<'google' | 'discord' | null>(null)
     const [checking, setChecking] = useState(true)
     const [showAuthLoader, setShowAuthLoader] = useState(false)
-    const [loaderDone, setLoaderDone] = useState(false)
     const [progressValue, setProgressValue] = useState(0)
 
     const hasNavigatedRef = useRef(false)
@@ -114,13 +113,11 @@ export default function LandingPage() {
 
                 if (session) {
                     setProgressValue(MOBILE_LOAD_TOTAL)
-                    setLoaderDone(true)
-                    window.setTimeout(() => {
-                        if (!hasNavigatedRef.current) {
-                            hasNavigatedRef.current = true
-                            router.replace('/dashboard')
-                        }
-                    }, 320)
+                    if (!hasNavigatedRef.current) {
+                        hasNavigatedRef.current = true
+                        router.prefetch('/dashboard')
+                        router.replace('/dashboard')
+                    }
                 } else {
                     window.clearInterval(progressInterval)
                     setShowAuthLoader(false)
@@ -153,8 +150,6 @@ export default function LandingPage() {
                     position: 'relative',
                     overflow: 'hidden',
                     fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
-                    opacity: loaderDone ? 0 : 1,
-                    transition: 'opacity 320ms ease',
                 }}
             >
                 <div
