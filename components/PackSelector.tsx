@@ -4,9 +4,15 @@ import { createClient } from '@/lib/supabase/client'
 import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
 import CrateOpening from './CrateOpening'
-import { RARITY_ORDER, RARITY_COLOR, rarityTextStyle, rarityTextClass, rarityGlowClass, isRainbow } from '@/lib/rarityConfig'
+import {
+    RARITY_ORDER,
+    RARITY_COLOR,
+    rarityTextStyle,
+    rarityTextClass,
+    rarityGlowClass,
+    isRainbow,
+} from '@/lib/rarityConfig'
 
-// ─── main selector ────────────────────────────────────────────────────────────
 export default function PackSelector({ coins = 0 }: { coins?: number }) {
     const [selectedPack, setSelectedPack] = useState<Pack | null>(null)
     const [selectedCount, setSelectedCount] = useState<number>(1)
@@ -16,12 +22,15 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
     const [bagCapacity, setBagCapacity] = useState<number>(50)
     const [isAdmin, setIsAdmin] = useState(false)
     const [allPacks, setAllPacks] = useState<Pack[]>(PACKS)
+    const [userLevel, setUserLevel] = useState<number>(1)
 
     // Hydrate from DB — replaces static fallback once loaded
     useEffect(() => {
         fetch('/api/packs')
-            .then(r => r.ok ? r.json() : null)
-            .then(json => { if (json?.packs?.length) setAllPacks(json.packs) })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((json) => {
+                if (json?.packs?.length) setAllPacks(json.packs)
+            })
             .catch(() => {})
     }, [])
     const [activeTab, setActiveTab] = useState<
@@ -29,8 +38,12 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
     >('classic')
     const [stock, setStock] = useState<Record<string, number>>({})
     const [discounts, setDiscounts] = useState<Record<string, number>>({})
-    const [nextRefreshStandard, setNextRefreshStandard] = useState<string | null>(null)
-    const [nextRefreshSpecial, setNextRefreshSpecial] = useState<string | null>(null)
+    const [nextRefreshStandard, setNextRefreshStandard] = useState<
+        string | null
+    >(null)
+    const [nextRefreshSpecial, setNextRefreshSpecial] = useState<string | null>(
+        null,
+    )
     const [nextRefreshBox, setNextRefreshBox] = useState<string | null>(null)
 
     const refreshStock = useCallback(() => {
@@ -40,9 +53,12 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                 if (!json?.stock) return
                 setStock(json.stock)
                 if (json.discounts) setDiscounts(json.discounts)
-                if (json.next_refresh_standard) setNextRefreshStandard(json.next_refresh_standard)
-                if (json.next_refresh_special)  setNextRefreshSpecial(json.next_refresh_special)
-                if (json.next_refresh_box)       setNextRefreshBox(json.next_refresh_box)
+                if (json.next_refresh_standard)
+                    setNextRefreshStandard(json.next_refresh_standard)
+                if (json.next_refresh_special)
+                    setNextRefreshSpecial(json.next_refresh_special)
+                if (json.next_refresh_box)
+                    setNextRefreshBox(json.next_refresh_box)
             })
             .catch(() => {})
     }, [])
@@ -58,12 +74,13 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                     .eq('user_id', user.id),
                 supabase
                     .from('profiles')
-                    .select('bag_capacity, is_admin')
+                    .select('bag_capacity,level, is_admin')
                     .eq('id', user.id)
                     .single(),
             ]).then(([countRes, profileRes]) => {
                 setBagCount(countRes.count ?? 0)
                 setBagCapacity(profileRes.data?.bag_capacity ?? 50)
+                setUserLevel(profileRes.data?.level ?? 1)
                 const admin = !!(profileRes.data as any)?.is_admin
                 setIsAdmin(admin)
                 if (!admin) refreshStock()
@@ -74,9 +91,14 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
     // Independent auto-refresh timers per group
     useEffect(() => {
         if (!nextRefreshStandard) return
-        const diff = Math.max(0, new Date(nextRefreshStandard).getTime() - Date.now())
+        const diff = Math.max(
+            0,
+            new Date(nextRefreshStandard).getTime() - Date.now(),
+        )
         const id = setTimeout(() => {
-            setNextRefreshStandard(new Date(Date.now() + 5 * 60 * 1000).toISOString())
+            setNextRefreshStandard(
+                new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            )
             refreshStock()
         }, diff)
         return () => clearTimeout(id)
@@ -84,9 +106,14 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
 
     useEffect(() => {
         if (!nextRefreshSpecial) return
-        const diff = Math.max(0, new Date(nextRefreshSpecial).getTime() - Date.now())
+        const diff = Math.max(
+            0,
+            new Date(nextRefreshSpecial).getTime() - Date.now(),
+        )
         const id = setTimeout(() => {
-            setNextRefreshSpecial(new Date(Date.now() + 8 * 60 * 1000).toISOString())
+            setNextRefreshSpecial(
+                new Date(Date.now() + 8 * 60 * 1000).toISOString(),
+            )
             refreshStock()
         }, diff)
         return () => clearTimeout(id)
@@ -94,9 +121,14 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
 
     useEffect(() => {
         if (!nextRefreshBox) return
-        const diff = Math.max(0, new Date(nextRefreshBox).getTime() - Date.now())
+        const diff = Math.max(
+            0,
+            new Date(nextRefreshBox).getTime() - Date.now(),
+        )
         const id = setTimeout(() => {
-            setNextRefreshBox(new Date(Date.now() + 15 * 60 * 1000).toISOString())
+            setNextRefreshBox(
+                new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            )
             refreshStock()
         }, diff)
         return () => clearTimeout(id)
@@ -121,7 +153,10 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                 onPackOpened={(packId, countOpened) => {
                     setStock((prev) => ({
                         ...prev,
-                        [packId]: Math.max(0, (prev[packId] ?? 0) - countOpened),
+                        [packId]: Math.max(
+                            0,
+                            (prev[packId] ?? 0) - countOpened,
+                        ),
                     }))
                 }}
             />
@@ -212,11 +247,15 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         stock={stock}
                         discounts={discounts}
                         isAdmin={isAdmin}
+                        userLevel={userLevel}
                         nextRefreshAt={isAdmin ? null : nextRefreshStandard}
                         onStockExpired={refreshStock}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
-                        onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
+                        onSelect={(p) => {
+                            setSelectedCount(1)
+                            setSelectedPack(p)
+                        }}
                         onPreview={setPreviewPack}
                     />
                 )}
@@ -231,11 +270,15 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         stock={stock}
                         discounts={discounts}
                         isAdmin={isAdmin}
+                        userLevel={userLevel}
                         nextRefreshAt={isAdmin ? null : nextRefreshSpecial}
                         onStockExpired={refreshStock}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
-                        onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
+                        onSelect={(p) => {
+                            setSelectedCount(1)
+                            setSelectedPack(p)
+                        }}
                         onPreview={setPreviewPack}
                     />
                 )}
@@ -250,11 +293,15 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                         stock={stock}
                         discounts={discounts}
                         isAdmin={isAdmin}
+                        userLevel={userLevel}
                         nextRefreshAt={isAdmin ? null : nextRefreshBox}
                         onStockExpired={refreshStock}
                         hoveredId={hoveredId}
                         onHover={setHoveredId}
-                        onSelect={(p) => { setSelectedCount(1); setSelectedPack(p) }}
+                        onSelect={(p) => {
+                            setSelectedCount(1)
+                            setSelectedPack(p)
+                        }}
                         onPreview={setPreviewPack}
                     />
                 )}
@@ -361,6 +408,7 @@ function PackShopList({
     stock,
     discounts,
     isAdmin,
+    userLevel,
     nextRefreshAt,
     onStockExpired,
     hoveredId,
@@ -377,6 +425,7 @@ function PackShopList({
     stock: Record<string, number>
     discounts: Record<string, number>
     isAdmin?: boolean
+    userLevel: number
     nextRefreshAt: string | null
     onStockExpired?: () => void
     hoveredId: string | null
@@ -456,7 +505,10 @@ function PackShopList({
                         onMouseLeave={() => onHover(null)}
                     >
                         {nextRefreshAt && (
-                            <StockCountdown nextRefreshAt={nextRefreshAt} onExpired={onStockExpired} />
+                            <StockCountdown
+                                nextRefreshAt={nextRefreshAt}
+                                onExpired={onStockExpired}
+                            />
                         )}
                         {packs.map((pack) => (
                             <ShopPackRow
@@ -469,6 +521,7 @@ function PackShopList({
                                 stock={stock[pack.id] ?? 0}
                                 discount={discounts[pack.id] ?? 0}
                                 isAdmin={isAdmin}
+                                userLevel={userLevel}
                                 onHover={onHover}
                                 onSelect={() => onSelect(pack)}
                                 onPreview={onPreview}
@@ -481,163 +534,13 @@ function PackShopList({
     )
 }
 
-function CountPickerModal({
-    pack,
-    coins,
-    stock,
-    onConfirm,
-    onClose,
+function StockCountdown({
+    nextRefreshAt,
+    onExpired,
 }: {
-    pack: Pack
-    coins: number
-    stock: number
-    onConfirm: (count: number) => void
-    onClose: () => void
+    nextRefreshAt: string
+    onExpired?: () => void
 }) {
-    return (
-        <div
-            style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 200,
-                background: 'rgba(0,0,0,0.65)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backdropFilter: 'blur(3px)',
-            }}
-            onClick={onClose}
-        >
-            <div
-                style={{
-                    background: 'var(--app-bg)',
-                    border: '1px solid var(--app-border)',
-                    borderRadius: 20,
-                    padding: '28px 32px',
-                    maxWidth: 340,
-                    width: '90%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 20,
-                    boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <img
-                        src={pack.image}
-                        alt={pack.name}
-                        style={{
-                            width: 52,
-                            height: 'auto',
-                            objectFit: 'contain',
-                        }}
-                    />
-                    <div>
-                        <div
-                            style={{
-                                fontSize: '0.88rem',
-                                fontWeight: 700,
-                                color: 'var(--app-text)',
-                            }}
-                        >
-                            {pack.name}
-                        </div>
-                        <div
-                            style={{
-                                fontSize: '0.62rem',
-                                color: 'var(--app-text-muted)',
-                                marginTop: 2,
-                            }}
-                        >
-                            ${Number(pack.cost).toFixed(2)} each · x{stock} in
-                            stock
-                        </div>
-                    </div>
-                </div>
-                <div
-                    style={{
-                        fontSize: '0.68rem',
-                        color: 'var(--app-text-muted)',
-                        textAlign: 'center',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                    }}
-                >
-                    How many to open?
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                    {([1, 10, 100] as const).map((count) => {
-                        const cost = pack.cost * count
-                        const canAfford = coins >= cost
-                        const enoughStock = stock >= count
-                        const ok = canAfford && enoughStock
-                        return (
-                            <button
-                                key={count}
-                                onClick={() => ok && onConfirm(count)}
-                                disabled={!ok}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 4px',
-                                    borderRadius: 12,
-                                    border: `1px solid ${ok ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`,
-                                    background: ok
-                                        ? 'rgba(255,255,255,0.07)'
-                                        : 'rgba(255,255,255,0.02)',
-                                    color: ok
-                                        ? 'var(--app-text)'
-                                        : 'rgba(255,255,255,0.2)',
-                                    cursor: ok ? 'pointer' : 'not-allowed',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    transition: 'all 150ms',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: '1rem',
-                                        fontWeight: 800,
-                                    }}
-                                >
-                                    ×{count}
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: '0.58rem',
-                                        color: ok
-                                            ? '#4ade80'
-                                            : 'rgba(255,255,255,0.2)',
-                                    }}
-                                >
-                                    ${cost.toFixed(2)}
-                                </span>
-                            </button>
-                        )
-                    })}
-                </div>
-                <button
-                    onClick={onClose}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--app-text-muted)',
-                        fontSize: '0.68rem',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                    }}
-                >
-                    Cancel
-                </button>
-            </div>
-        </div>
-    )
-}
-
-function StockCountdown({ nextRefreshAt, onExpired }: { nextRefreshAt: string; onExpired?: () => void }) {
     const [remaining, setRemaining] = useState('')
     const [refreshing, setRefreshing] = useState(false)
 
@@ -704,6 +607,7 @@ function ShopPackRow({
     stock,
     discount,
     isAdmin,
+    userLevel,
     onHover,
     onSelect,
     onPreview,
@@ -716,6 +620,7 @@ function ShopPackRow({
     stock: number
     discount: number
     isAdmin?: boolean
+    userLevel: number
     onHover: (id: string | null) => void
     onSelect: () => void
     onPreview: (pack: Pack) => void
@@ -728,6 +633,8 @@ function ShopPackRow({
     const hoverBorderColor = gold
         ? 'rgba(234,179,8,0.42)'
         : 'rgba(255,255,255,0.16)'
+    const isLevelGated =
+        !!pack.level_required && userLevel < pack.level_required
 
     return (
         <div
@@ -845,7 +752,15 @@ function ShopPackRow({
                         {pack.description}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 4, flexWrap: 'wrap' }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 7,
+                            marginTop: 4,
+                            flexWrap: 'wrap',
+                        }}
+                    >
                         {discount > 0 && (
                             <span
                                 style={{
@@ -887,7 +802,6 @@ function ShopPackRow({
                         )}
                     </div>
                 </div>
-
                 {/* stock count — bottom right */}
                 {!isAdmin && (
                     <div
@@ -900,7 +814,11 @@ function ShopPackRow({
                             color: stock > 0 ? '#ffffff' : '#ef4444',
                         }}
                     >
-                        {stock > 0 ? `x${stock}` : 'out of stock'}
+                        {isLevelGated
+                            ? `Unlocks at level ${pack.level_required}`
+                            : stock > 0
+                              ? `x${stock}`
+                              : 'out of stock'}
                     </div>
                 )}
             </div>
@@ -1859,17 +1777,27 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
                                             }}
                                         >
                                             <div
-                                                className={rarityGlowClass(rarity)}
+                                                className={rarityGlowClass(
+                                                    rarity,
+                                                )}
                                                 style={{
                                                     width: 8,
                                                     height: 8,
                                                     borderRadius: '50%',
-                                                    background: isRainbow(rarity) ? '#fff' : (RARITY_COLOR[rarity] ?? '#9ca3af'),
+                                                    background: isRainbow(
+                                                        rarity,
+                                                    )
+                                                        ? '#fff'
+                                                        : (RARITY_COLOR[
+                                                              rarity
+                                                          ] ?? '#9ca3af'),
                                                     flexShrink: 0,
                                                 }}
                                             />
                                             <span
-                                                className={rarityTextClass(rarity)}
+                                                className={rarityTextClass(
+                                                    rarity,
+                                                )}
                                                 style={{
                                                     fontSize: '0.6rem',
                                                     fontWeight: 700,
@@ -1885,7 +1813,11 @@ function CardListModal({ pack, onClose }: { pack: Pack; onClose: () => void }) {
                                                 style={{
                                                     flex: 1,
                                                     height: 1,
-                                                    background: isRainbow(rarity) ? 'rgba(255,255,255,0.15)' : `${RARITY_COLOR[rarity] ?? '#374151'}30`,
+                                                    background: isRainbow(
+                                                        rarity,
+                                                    )
+                                                        ? 'rgba(255,255,255,0.15)'
+                                                        : `${RARITY_COLOR[rarity] ?? '#374151'}30`,
                                                 }}
                                             />
                                         </div>
