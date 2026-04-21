@@ -2112,6 +2112,24 @@ export default function ProfileView({
                                     onClick={() => setShowRequests(true)}
                                 />
                             )}
+                            {isOwnProfile && (
+                                <a
+                                    href="/dashboard/trades"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                        padding: '2px 8px', borderRadius: 6,
+                                        background: 'rgba(96,165,250,0.07)',
+                                        border: '1px solid rgba(96,165,250,0.2)',
+                                        color: '#60a5fa', fontSize: '0.58rem', fontWeight: 600,
+                                        textDecoration: 'none', whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>
+                                    </svg>
+                                    trades
+                                </a>
+                            )}
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
                             {friends.map((friend) => (

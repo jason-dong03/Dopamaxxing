@@ -31,8 +31,9 @@ import { ShatterEffect } from './card/ShatterEffect'
 import { useIsMobile } from '@/lib/useIsMobile'
 import WearOverlay from '@/components/card/WearOverlay'
 import { conditionFilter, centeringSkew } from '@/lib/cardAttributes'
-import { getPackAura, RARITY_TIERS } from './pack/utils'
+import { RARITY_TIERS } from './pack/utils'
 import type { Card, UserCopy } from './pack/utils'
+import { PackCutscene } from './pack/CutsceneOverlay'
 import { RarityBackgroundEffects } from './pack/RarityBackgroundEffects'
 import { CardStatsPanel } from './pack/CardStatsPanel'
 import { CardActionButtons } from './pack/CardActionButtons'
@@ -68,9 +69,14 @@ export default function PackOpening({
     const supabase = createClient()
     const effectiveCost = parseFloat((pack.cost * (1 - discount)).toFixed(2))
     const [userCoins, setUserCoins] = useState<number | null>(null)
-    const [shaking, setShaking] = useState(false)
-    const [tearing, setTearing] = useState(false)
-    const [opening, setOpening] = useState(false)
+    const [spinning, setSpinning] = useState(false)
+    const [dramaticPulse, setDramaticPulse] = useState(false)
+    const [catchShimmer, setCatchShimmer] = useState<'legendary'|'divine'|'celestial'|'mystery'|null>(null)
+    const [slowShake, setSlowShake] = useState(false)
+    const [cutsceneTier, setCutsceneTier] = useState<'legendary'|'divine'|'celestial'|'mystery'|null>(null)
+    const cutsceneResolveRef = useRef<(() => void) | null>(null)
+
+    const [exiting, setExiting] = useState(false)
     const [phase, setPhase] = useState<
         'idle' | 'revealing' | 'multi-revealing' | 'done'
     >('idle')
@@ -98,6 +104,7 @@ export default function PackOpening({
     const [addedCardIds, setAddedCardIds] = useState<Set<string>>(new Set())
     const [showRarity, setShowRarity] = useState(false)
     const [rarityCard, setRarityCard] = useState<Card | null>(null)
+    const [screenFlash, setScreenFlash] = useState(false)
 
     const remainingCards = cards.filter((_, i) => !addedIndices.has(i))
     const remainingCardsRef = useRef<Card[]>([])
@@ -129,8 +136,6 @@ export default function PackOpening({
 
     // XP / level-up
     const [userLevel, setUserLevel] = useState<number>(1)
-    const isLevelGated =
-        !free && !!pack.level_required && userLevel < pack.level_required
     const [xpGainPerPack, setXpGainPerPack] = useState<number | null>(null)
     const [levelUpInfo, setLevelUpInfo] = useState<{
         oldLevel: number
@@ -171,6 +176,10 @@ export default function PackOpening({
     >({})
     const isAutocompleting = useRef(false)
     const wasBatchOpen = useRef(false)
+    const prefetchRef = useRef<{
+        promise: Promise<Response>
+        key: string
+    } | null>(null)
     const idleDims =
         pack.aspect === 'box'
             ? { height: 'min(270px, 60vw)', width: 'min(360px, 78vw)' }
@@ -266,49 +275,87 @@ export default function PackOpening({
         setResumeSession(null)
     }
 
-    async function handleClick(batchCount?: number) {
-        if (shaking || opening) return
+    function startPackFetch(batchCount?: number): Promise<Response> {
+        const isMulti = (batchCount ?? openCount) > 1
+        const effectiveCount = batchCount ?? openCount
+        const setId = pack.setId ?? pack.id
+        return isMulti
+            ? fetch('/api/open-pack-batch', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ setId, count: effectiveCount, free }),
+              })
+            : fetch('/api/open-pack', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ setId, free }),
+              })
+    }
+
+    function prefetchKey(batchCount?: number) {
+        const c = batchCount ?? openCount
+        return c > 1 ? `multi-${c}` : 'single'
+    }
+
+    function prefetchPack(batchCount?: number) {
+        if (spinning || exiting) return
         if (!free && !isAdmin && stock <= 0) return
-        if (isLevelGated) return
+        const key = prefetchKey(batchCount)
+        if (prefetchRef.current?.key === key) return
+        prefetchRef.current = { key, promise: startPackFetch(batchCount) }
+    }
+
+    async function handleClick(batchCount?: number) {
+        if (spinning || exiting) return
+        if (!free && !isAdmin && stock <= 0) return
         setCoinError(null)
         if (batchCount && batchCount > 1) {
             setOpenCount(batchCount)
             wasBatchOpen.current = true
         }
-        setShaking(true)
+
+        setSpinning(true)
+        const shakeStart = Date.now()
+        const MIN_SHAKE_MS = 560 // at least 2 cycles
+        // Safety cap only — shake runs API-long; this only fires on a hung request
+        const shakeTimer = setTimeout(() => setSpinning(false), 3000)
+
         const isMulti = (batchCount ?? openCount) > 1
         const effectiveCount = batchCount ?? openCount
-
         let openedCards: Card[] = []
 
+        // ── fetch (use prefetched request if available) ────────────────────
+        const key = prefetchKey(batchCount)
+        let resPromise: Promise<Response>
+        if (prefetchRef.current?.key === key) {
+            resPromise = prefetchRef.current.promise
+            prefetchRef.current = null
+        } else {
+            prefetchRef.current = null
+            resPromise = startPackFetch(batchCount)
+        }
+        const res = await resPromise
+        if (res.status === 409) {
+            clearTimeout(shakeTimer)
+            setSpinning(false)
+            setCoinError({ cost: 0, coins: -1 })
+            return
+        }
+        if (res.status === 402) {
+            const d = await res.json()
+            clearTimeout(shakeTimer)
+            setSpinning(false)
+            setCoinError({ cost: d.cost, coins: d.coins })
+            return
+        }
+        const data = await res.json()
+        if (!Array.isArray(data.cards) || data.cards.length === 0) {
+            clearTimeout(shakeTimer)
+            setSpinning(false)
+            return
+        }
+        openedCards = data.cards
         if (isMulti) {
-            // Batch route — single round-trip for all packs
-            const res = await fetch('/api/open-pack-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    setId: pack.id,
-                    count: effectiveCount,
-                    free,
-                }),
-            })
-            if (res.status === 409) {
-                setShaking(false)
-                setCoinError({ cost: 0, coins: -1 })
-                return
-            }
-            if (res.status === 402) {
-                const data = await res.json()
-                setShaking(false)
-                setCoinError({ cost: data.cost, coins: data.coins })
-                return
-            }
-            const data = await res.json()
-            if (!Array.isArray(data.cards) || data.cards.length === 0) {
-                setShaking(false)
-                return
-            }
-            openedCards = data.cards
             if (data.leveledUp) {
                 setLevelUpInfo({
                     oldLevel: data.oldLevel,
@@ -321,13 +368,12 @@ export default function PackOpening({
                 setLevelUpClaimed(false)
             }
             if (data.xpGainPerPack) setXpGainPerPack(data.xpGainPerPack)
-            if (data.newBR) {
+            if (data.newBR)
                 window.dispatchEvent(
                     new CustomEvent('br-updated', {
                         detail: { newBR: data.newBR },
                     }),
                 )
-            }
             const actualOpened = data.openedCount ?? effectiveCount
             setOpenCount(actualOpened)
             if (!free && effectiveCost > 0) {
@@ -338,28 +384,6 @@ export default function PackOpening({
             }
             onPackOpened?.(pack.id, actualOpened)
         } else {
-            const res = await fetch('/api/open-pack', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ setId: pack.id, free }),
-            })
-            if (res.status === 409) {
-                setShaking(false)
-                setCoinError({ cost: 0, coins: -1 })
-                return
-            }
-            if (res.status === 402) {
-                const data = await res.json()
-                setShaking(false)
-                setCoinError({ cost: data.cost, coins: data.coins })
-                return
-            }
-            const data = await res.json()
-            if (!Array.isArray(data.cards) || data.cards.length === 0) {
-                setShaking(false)
-                return
-            }
-            openedCards = data.cards
             if (data.godPack) setGodPack(true)
             if (data.leveledUp) {
                 setLevelUpInfo({
@@ -373,23 +397,17 @@ export default function PackOpening({
                 setLevelUpClaimed(false)
             }
             if (data.xpGain) setXpGainPerPack(data.xpGain)
-            if (data.newBR) {
+            if (data.newBR)
                 window.dispatchEvent(
                     new CustomEvent('br-updated', {
                         detail: { newBR: data.newBR },
                     }),
                 )
-            }
             if (!free && effectiveCost > 0) {
                 setUserCoins((prev) => (prev ?? 0) - effectiveCost)
                 triggerCoinFlash(effectiveCost, false)
             }
             onPackOpened?.(pack.id, 1)
-
-            if (openedCards.length === 0) {
-                setShaking(false)
-                return
-            }
             saveSession({
                 cards: openedCards,
                 addedIndices: [],
@@ -398,7 +416,90 @@ export default function PackOpening({
             })
         }
 
-        // For multi-open: sort within each pack group (lowest rarity first, best at the back)
+        // ── ensure minimum 2 shake cycles even if API was instant ────────
+        const elapsed = Date.now() - shakeStart
+        if (elapsed < MIN_SHAKE_MS)
+            await new Promise((r) => setTimeout(r, MIN_SHAKE_MS - elapsed))
+        clearTimeout(shakeTimer)
+        setSpinning(false)
+
+        // ── pokéball-catch sequence for Legendary+ pulls ──────────────────
+        const RARITY_SHAKE_COUNT: Record<string, number> = {
+            Legendary: 1, Divine: 2, Celestial: 3, '???': 4,
+        }
+        const RARITY_SPARK_COLORS: Record<string, string[]> = {
+            Legendary: ['#facc15','#fbbf24','#f59e0b','#fde68a','#fff8'],
+            Divine:    ['#a78bfa','#818cf8','#c4b5fd','#7c3aed','#ddd6fe'],
+            Celestial: ['#f0f9ff','#bae6fd','#e0f2fe','#ffffff','#7dd3fc'],
+            '???':     ['#f472b6','#818cf8','#34d399','#facc15','#60a5fa','#fb923c','#fff'],
+        }
+        const presentRarities = new Set(openedCards.map((c) => c.rarity))
+        const topRarity = ['???','Celestial','Divine','Legendary'].find(r => presentRarities.has(r)) ?? null
+        const shakeCount = topRarity ? RARITY_SHAKE_COUNT[topRarity] : 0
+        const isSlow = topRarity === '???' || topRarity === 'Celestial'
+        const shakeDuration = isSlow ? 450 : 270
+        const pauseBetween = isSlow ? 500 : 350
+
+        const shimmerTier = topRarity === '???' ? 'mystery'
+            : topRarity === 'Celestial' ? 'celestial'
+            : topRarity === 'Divine' ? 'divine'
+            : topRarity === 'Legendary' ? 'legendary' : null
+
+        // cutscene + gleam start together before the shake
+        if (shimmerTier) {
+            setCutsceneTier(shimmerTier)
+            await new Promise<void>((resolve) => { cutsceneResolveRef.current = resolve })
+            setCutsceneTier(null)
+            setCatchShimmer(shimmerTier)
+            setSlowShake(isSlow)
+        }
+
+        function fireShakeSparks(shakeIndex: number) {
+            const rect = packImgRef.current?.getBoundingClientRect()
+            if (!rect) return
+            const count = 8 + shakeIndex * 6   // 8, 14, 20, 26
+            const colors = topRarity ? RARITY_SPARK_COLORS[topRarity] : ['#fff']
+            const isRainbow = topRarity === '???'
+            const newSparks = Array.from({ length: count }, (_, i) => {
+                // origin: random point along left or right edge of the pack
+                const side = i % 2 === 0 ? 'left' : 'right'
+                const ox = side === 'left'
+                    ? rect.left + rect.width * 0.08
+                    : rect.right - rect.width * 0.08
+                const oy = rect.top + Math.random() * rect.height
+                // flare outward from the side it came from
+                const baseAngle = side === 'left' ? Math.PI : 0
+                const spread = (Math.random() - 0.5) * Math.PI * 1.1
+                const angle = baseAngle + spread
+                const dist = 150 + Math.random() * 220
+                return {
+                    id: Date.now() + i,
+                    originX: ox,
+                    originY: oy,
+                    ex: `${Math.cos(angle) * dist}px`,
+                    ey: `${Math.sin(angle) * dist}px`,
+                    cx: `${Math.cos(angle) * dist * 0.35}px`,
+                    sd: `${0.65 + Math.random() * 0.5}s`,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rainbow: isRainbow,
+                }
+            })
+            setSparks((prev) => [...prev, ...newSparks])
+            setTimeout(() => setSparks((prev) => prev.filter((s) => !newSparks.some((n) => n.id === s.id))), 1300)
+        }
+
+        if (shakeCount > 0 && topRarity) {
+            for (let i = 0; i < shakeCount; i++) {
+                fireShakeSparks(i)
+                setDramaticPulse(true)
+                await new Promise((r) => setTimeout(r, shakeDuration))
+                setDramaticPulse(false)
+                if (i < shakeCount - 1) await new Promise((r) => setTimeout(r, pauseBetween))
+            }
+            await new Promise((r) => setTimeout(r, 120))
+        }
+
+        // ── sort multi-pack groups ─────────────────────────────────────────
         if (isMulti) {
             const perPack = Math.round(openedCards.length / effectiveCount)
             for (let p = 0; p < effectiveCount; p++) {
@@ -417,91 +518,19 @@ export default function PackOpening({
         setMultiPackIndex(0)
         setPackRevealedCount(0)
         setPackTransitioning(false)
-        const { cls: aura, rarity: auraRarity } = getPackAura(openedCards)
-
         router.refresh()
 
-        // spark tiers: Legendary=1, Divine=2, Celestial=3, ???=4
-        const SPARK_TIERS: Record<string, number> = {
-            'pack-aura-legendary': 1,
-            'pack-aura-divine': 2,
-            'pack-aura-celestial': 3,
-            'pack-aura-mystery': 4,
-        }
-        const sparkCount = aura ? (SPARK_TIERS[aura] ?? 0) : 0
-
-        if (sparkCount > 0) {
-            // pack goes still — stop shaking, fire sparks, then tear
-            setShaking(false)
-
-            const rgb = auraRarity ? rarityGlowRgb(auraRarity) : '234,179,8'
-
-            // angle spreads from vertical, by count
-            const ANGLE_SETS: Record<number, number[]> = {
-                1: [0],
-                2: [-38, 38],
-                3: [-55, 0, 55],
-                4: [-65, -22, 22, 65],
-            }
-            const angles = ANGLE_SETS[sparkCount] ?? [0]
-            const dist = 90 + Math.random() * 40
-
-            const rect = packImgRef.current?.getBoundingClientRect()
-            const originX = rect
-                ? rect.left + rect.width / 2
-                : window.innerWidth / 2
-            const originY = rect ? rect.top + 8 : window.innerHeight * 0.28 // top edge of pack
-
-            setSparks(
-                angles.map((deg, i) => {
-                    const jitter = (Math.random() - 0.5) * 12
-                    const rad = ((deg + jitter) * Math.PI) / 180
-                    const ex = Math.sin(rad) * dist
-                    const ey = -Math.cos(rad) * dist
-                    // cx is a lateral curve offset — pulls the arc outward at midpoint
-                    const cx =
-                        Math.sign(deg || (Math.random() > 0.5 ? 1 : -1)) *
-                        (12 + Math.random() * 14)
-                    return {
-                        id: Date.now() + i,
-                        originX,
-                        originY,
-
-                        sd: `${1100 + Math.random() * 500}ms`,
-                        color: `rgba(${rgb}, ${0.85 + Math.random() * 0.15})`,
-                        rainbow: aura === 'pack-aura-mystery',
-                        ex: `${ex}px`,
-                        ey: `${ey}px`,
-                        cx: `${cx}px`,
-                    }
-                }),
-            )
-            setTimeout(() => setSparks([]), 2000)
-
+        function doExit() {
+            setExiting(true)
             setTimeout(() => {
-                setTearing(true)
-                setTimeout(() => {
-                    setTearing(false)
-                    setOpening(true)
-                    setTimeout(
-                        () =>
-                            setPhase(isMulti ? 'multi-revealing' : 'revealing'),
-                        600,
-                    )
-                }, 400)
-            }, 1400)
-        } else {
-            setShaking(false)
-            setTearing(true)
-            setTimeout(() => {
-                setTearing(false)
-                setOpening(true)
-                setTimeout(
-                    () => setPhase(isMulti ? 'multi-revealing' : 'revealing'),
-                    600,
-                )
-            }, 400)
+                setExiting(false)
+                setCatchShimmer(null)
+                setSlowShake(false)
+                setPhase(isMulti ? 'multi-revealing' : 'revealing')
+            }, 260)
         }
+
+        doExit()
     }
 
     function handleReveal() {
@@ -593,7 +622,7 @@ export default function PackOpening({
             setRevealedCount(0)
             setAddedIndices(new Set())
             setDoneIndex(0)
-            setOpening(false)
+            setExiting(false)
         } else {
             const newDoneIndex = Math.min(doneIndex, newRemaining.length - 1)
             setDoneIndex(newDoneIndex)
@@ -672,7 +701,7 @@ export default function PackOpening({
         setRevealedCount(0)
         setAddedIndices(new Set())
         setDoneIndex(0)
-        setOpening(false)
+        setExiting(false)
         router.refresh()
     }
 
@@ -863,7 +892,7 @@ export default function PackOpening({
             setRevealedCount(0)
             setAddedIndices(new Set())
             setDoneIndex(0)
-            setOpening(false)
+            setExiting(false)
         } else {
             const newDoneIndex = Math.min(removedIndex, newRemaining.length - 1)
             setDoneIndex(newDoneIndex)
@@ -991,6 +1020,16 @@ export default function PackOpening({
 
     return (
         <>
+            {screenFlash && <div className="screen-flash-overlay" />}
+            {cutsceneTier && (
+                <PackCutscene
+                    tier={cutsceneTier}
+                    onComplete={() => {
+                        cutsceneResolveRef.current?.()
+                        cutsceneResolveRef.current = null
+                    }}
+                />
+            )}
             <div
                 className="flex flex-col items-center justify-center"
                 style={{
@@ -1107,35 +1146,32 @@ export default function PackOpening({
                             )}
                         <div
                             ref={packImgRef}
-                            className={`${isLevelGated || (!isAdmin && !free && stock <= 0) ? 'cursor-not-allowed' : 'cursor-pointer animate-subtle-pulse hover:scale-105'} ${shaking ? 'animate-shake' : ''} ${opening ? 'animate-fade-out' : ''}${!shaking && !tearing && !opening && pack.idle_aura ? ` ${pack.idle_aura}` : ''}`}
+                            className={`${!isAdmin && !free && stock <= 0 ? 'cursor-not-allowed' : 'cursor-pointer animate-subtle-pulse hover:scale-105'} ${spinning ? 'animate-subtle-shake' : ''} ${dramaticPulse ? (slowShake ? 'animate-dramatic-pulse-slow' : 'animate-dramatic-pulse') : ''} ${exiting ? 'animate-pack-exit' : ''}${!spinning && !dramaticPulse && !exiting && pack.idle_aura ? ` ${pack.idle_aura}` : ''}`}
                             style={{
-                                ...(!pack.idle_aura ||
-                                shaking ||
-                                tearing ||
-                                opening
+                                ...(!pack.idle_aura || spinning || exiting
                                     ? {
                                           filter:
-                                              isLevelGated ||
-                                              (!isAdmin && !free && stock <= 0)
+                                              !isAdmin && !free && stock <= 0
                                                   ? 'grayscale(1) opacity(0.4)'
                                                   : 'drop-shadow(0 0 20px rgba(228,228,228,0.99))',
                                       }
                                     : {}),
-                                transform: tearing
-                                    ? 'scale(1.12) rotate(2deg)'
-                                    : undefined,
-                                transition: tearing
-                                    ? 'transform 300ms ease-in-out'
-                                    : undefined,
                                 position: 'relative',
                             }}
                         >
                             <img
                                 src={pack.image}
                                 alt={pack.name}
+                                onPointerDown={() => {
+                                    if (!free && !isAdmin && stock <= 0) return
+                                    if (isAdmin && adminBatchCount > 1)
+                                        prefetchPack(adminBatchCount)
+                                    else if (batchMode && !isAdmin)
+                                        prefetchPack(stock)
+                                    else prefetchPack()
+                                }}
                                 onClick={() => {
                                     if (!free && !isAdmin && stock <= 0) return
-                                    if (isLevelGated) return
                                     if (isAdmin && adminBatchCount > 1)
                                         handleClick(adminBatchCount)
                                     else if (batchMode && !isAdmin)
@@ -1143,8 +1179,7 @@ export default function PackOpening({
                                     else handleClick()
                                 }}
                                 className={
-                                    isLevelGated ||
-                                    (!isAdmin && !free && stock <= 0)
+                                    !isAdmin && !free && stock <= 0
                                         ? 'cursor-not-allowed'
                                         : 'cursor-pointer'
                                 }
@@ -1154,6 +1189,11 @@ export default function PackOpening({
                                     display: 'block',
                                 }}
                             />
+                            {catchShimmer && (
+                                <div className="pack-gleam-clip">
+                                    <div className={`pack-gleam-streak ${catchShimmer}`} />
+                                </div>
+                            )}
                             {pack.idle_aura &&
                                 [
                                     'pack-aura-legendary',
@@ -1165,122 +1205,104 @@ export default function PackOpening({
                                 )}
                         </div>
                         <div className="flex flex-col items-center gap-2 mt-8">
-                            {isLevelGated && (
+                            {!isAdmin && !free && stock <= 0 && (
                                 <div
                                     style={{
                                         fontSize: '0.82rem',
                                         fontWeight: 700,
-                                        color: '#a78bfa',
+                                        color: '#ef4444',
                                     }}
                                 >
-                                    Level {pack.level_required} required
+                                    Out of Stock
                                 </div>
                             )}
-                            {!isAdmin &&
-                                !isLevelGated &&
-                                !free &&
-                                stock <= 0 && (
-                                    <div
-                                        style={{
-                                            fontSize: '0.82rem',
-                                            fontWeight: 700,
-                                            color: '#ef4444',
-                                        }}
-                                    >
-                                        Out of Stock
-                                    </div>
-                                )}
-                            {!isLevelGated &&
-                                !free &&
-                                (isAdmin || stock > 0) && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 8,
-                                        }}
-                                    >
-                                        {discount > 0 && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.55rem',
-                                                    fontWeight: 800,
-                                                    background: '#22c55e',
-                                                    color: '#000',
-                                                    borderRadius: 4,
-                                                    padding: '1px 5px',
-                                                    letterSpacing: '0.04em',
-                                                }}
-                                            >
-                                                -{Math.round(discount * 100)}%
-                                                OFF
-                                            </span>
-                                        )}
+                            {!free && (isAdmin || stock > 0) && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                    }}
+                                >
+                                    {discount > 0 && (
                                         <span
                                             style={{
-                                                fontSize: '0.82rem',
-                                                fontWeight: 600,
-                                                color:
-                                                    userCoins !== null
-                                                        ? userCoins >=
-                                                          (batchMode
-                                                              ? effectiveCost *
-                                                                stock
-                                                              : effectiveCost)
-                                                            ? '#4ade80'
-                                                            : '#f87171'
-                                                        : '#6b7280',
-                                                letterSpacing: '-0.01em',
-                                                transition: 'color 0.15s',
+                                                fontSize: '0.55rem',
+                                                fontWeight: 800,
+                                                background: '#22c55e',
+                                                color: '#000',
+                                                borderRadius: 4,
+                                                padding: '1px 5px',
+                                                letterSpacing: '0.04em',
                                             }}
                                         >
-                                            {batchMode && !isAdmin
-                                                ? `$ ${(effectiveCost * stock).toFixed(2)}`
-                                                : `$ ${effectiveCost.toFixed(2)}`}
+                                            -{Math.round(discount * 100)}% OFF
                                         </span>
-                                        {discount > 0 && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.62rem',
-                                                    color: '#475569',
-                                                    textDecoration:
-                                                        'line-through',
-                                                    letterSpacing: '-0.01em',
-                                                }}
-                                            >
-                                                ${pack.cost.toFixed(2)}
-                                            </span>
-                                        )}
-                                        {batchMode && !isAdmin && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.62rem',
-                                                    color: '#475569',
-                                                    letterSpacing: '-0.01em',
-                                                }}
-                                            >
-                                                ({stock} × $
-                                                {effectiveCost.toFixed(2)})
-                                            </span>
-                                        )}
-                                        {xpGainPerPack !== null && (
-                                            <span
-                                                style={{
-                                                    fontSize: '0.65rem',
-                                                    color: '#6b7280',
-                                                    letterSpacing: '0.04em',
-                                                }}
-                                            >
-                                                +
-                                                {xpGainPerPack *
-                                                    (batchMode && !isAdmin
-                                                        ? stock
-                                                        : 1)}{' '}
-                                                XP
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
+                                    )}
+                                    <span
+                                        style={{
+                                            fontSize: '0.82rem',
+                                            fontWeight: 600,
+                                            color:
+                                                userCoins !== null
+                                                    ? userCoins >=
+                                                      (batchMode
+                                                          ? effectiveCost *
+                                                            stock
+                                                          : effectiveCost)
+                                                        ? '#4ade80'
+                                                        : '#f87171'
+                                                    : '#6b7280',
+                                            letterSpacing: '-0.01em',
+                                            transition: 'color 0.15s',
+                                        }}
+                                    >
+                                        {batchMode && !isAdmin
+                                            ? `$ ${(effectiveCost * stock).toFixed(2)}`
+                                            : `$ ${effectiveCost.toFixed(2)}`}
+                                    </span>
+                                    {discount > 0 && (
+                                        <span
+                                            style={{
+                                                fontSize: '0.62rem',
+                                                color: '#475569',
+                                                textDecoration: 'line-through',
+                                                letterSpacing: '-0.01em',
+                                            }}
+                                        >
+                                            ${pack.cost.toFixed(2)}
+                                        </span>
+                                    )}
+                                    {batchMode && !isAdmin && (
+                                        <span
+                                            style={{
+                                                fontSize: '0.62rem',
+                                                color: '#475569',
+                                                letterSpacing: '-0.01em',
+                                            }}
+                                        >
+                                            ({stock} × $
+                                            {effectiveCost.toFixed(2)})
+                                        </span>
+                                    )}
+                                    {xpGainPerPack !== null && (
+                                        <span
+                                            style={{
+                                                fontSize: '0.65rem',
+                                                color: '#6b7280',
+                                                letterSpacing: '0.04em',
+                                            }}
+                                        >
+                                            +
+                                            {xpGainPerPack *
+                                                (batchMode && !isAdmin
+                                                    ? stock
+                                                    : 1)}{' '}
+                                            XP
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                             {free && xpGainPerPack !== null && (
                                 <div
                                     style={{
@@ -1304,7 +1326,7 @@ export default function PackOpening({
                                 {!isAdmin && stock > 1 && (
                                     <button
                                         onClick={() => setBatchMode((v) => !v)}
-                                        disabled={shaking || opening}
+                                        disabled={spinning || exiting}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1350,7 +1372,7 @@ export default function PackOpening({
                                                     v === n ? 1 : n,
                                                 )
                                             }
-                                            disabled={shaking || opening}
+                                            disabled={spinning || exiting}
                                             style={{
                                                 background:
                                                     adminBatchCount === n
@@ -1472,6 +1494,7 @@ export default function PackOpening({
                 {/* ↓ vertical position: adjust translateY below (mobile / desktop) */}
                 {phase === 'revealing' && (
                     <div
+                        className="animate-cards-slide-up"
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -1556,6 +1579,27 @@ export default function PackOpening({
                                                     ? () => {
                                                           setShowRarity(true)
                                                           setRarityCard(card)
+                                                          if (
+                                                              [
+                                                                  'Legendary',
+                                                                  'Divine',
+                                                                  'Celestial',
+                                                                  '???',
+                                                              ].includes(
+                                                                  card.rarity,
+                                                              )
+                                                          ) {
+                                                              setScreenFlash(
+                                                                  true,
+                                                              )
+                                                              setTimeout(
+                                                                  () =>
+                                                                      setScreenFlash(
+                                                                          false,
+                                                                      ),
+                                                                  450,
+                                                              )
+                                                          }
                                                       }
                                                     : () => {}
                                             }
@@ -1586,15 +1630,32 @@ export default function PackOpening({
                                 flip all
                             </button>
                             {showRarity && rarityCard && (
-                                <p
-                                    className="text-xs tracking-widest uppercase"
+                                <div
+                                    className="rarity-badge-reveal"
                                     style={{
-                                        color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: 2,
+                                        padding: '5px 18px',
+                                        borderRadius: 99,
+                                        background: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.12)`,
+                                        border: `1px solid rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.45)`,
+                                        boxShadow: `0 0 18px rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.3)`,
                                     }}
                                 >
-                                    {rarityCard.rarity} ·{' '}
-                                    {rarityToOdds(rarityCard.rarity)}
-                                </p>
+                                    <span
+                                        style={{
+                                            fontSize: '0.55rem',
+                                            fontWeight: 800,
+                                            letterSpacing: '0.22em',
+                                            textTransform: 'uppercase',
+                                            color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
+                                        }}
+                                    >
+                                        {rarityCard.rarity}
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -1613,6 +1674,11 @@ export default function PackOpening({
                         const isLastPack = multiPackIndex >= openCount - 1
                         return (
                             <div
+                                className={
+                                    multiPackIndex === 0
+                                        ? 'animate-cards-slide-up'
+                                        : undefined
+                                }
                                 style={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1929,6 +1995,27 @@ export default function PackOpening({
                                                                           setRarityCard(
                                                                               card,
                                                                           )
+                                                                          if (
+                                                                              [
+                                                                                  'Legendary',
+                                                                                  'Divine',
+                                                                                  'Celestial',
+                                                                                  '???',
+                                                                              ].includes(
+                                                                                  card.rarity,
+                                                                              )
+                                                                          ) {
+                                                                              setScreenFlash(
+                                                                                  true,
+                                                                              )
+                                                                              setTimeout(
+                                                                                  () =>
+                                                                                      setScreenFlash(
+                                                                                          false,
+                                                                                      ),
+                                                                                  450,
+                                                                              )
+                                                                          }
                                                                       }
                                                                     : () => {}
                                                             }
@@ -1994,17 +2081,33 @@ export default function PackOpening({
                                             </button>
                                         )}
                                         {showRarity && rarityCard && (
-                                            <p
-                                                className="text-xs tracking-widest uppercase"
+                                            <div
+                                                className="rarity-badge-reveal"
                                                 style={{
-                                                    color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    gap: 2,
+                                                    padding: '5px 18px',
+                                                    borderRadius: 99,
+                                                    background: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.12)`,
+                                                    border: `1px solid rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.45)`,
+                                                    boxShadow: `0 0 18px rgba(${rarityGlowRgb(rarityCard.rarity)}, 0.3)`,
                                                 }}
                                             >
-                                                {rarityCard.rarity} ·{' '}
-                                                {rarityToOdds(
-                                                    rarityCard.rarity,
-                                                )}
-                                            </p>
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.55rem',
+                                                        fontWeight: 800,
+                                                        letterSpacing: '0.22em',
+                                                        textTransform:
+                                                            'uppercase',
+                                                        color: `rgba(${rarityGlowRgb(rarityCard.rarity)}, 1)`,
+                                                    }}
+                                                >
+                                                    {rarityCard.rarity}
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

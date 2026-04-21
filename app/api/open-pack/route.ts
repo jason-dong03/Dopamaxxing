@@ -117,6 +117,40 @@ export async function POST(request: NextRequest) {
 
         const { setId, free = false } = await request.json()
 
+        // ── Admin test pack — fully hardcoded, no DB reads or writes ────────
+        if (setId === 'admin-test') {
+            const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+            if (!prof?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            const DUDS = [
+                { id: 'test-dud-1', name: 'Caterpie', image_url: 'https://images.pokemontcg.io/sv08/1/high.webp', national_pokedex_number: 10 },
+                { id: 'test-dud-2', name: 'Weedle',   image_url: 'https://images.pokemontcg.io/sv08/2/high.webp', national_pokedex_number: 13 },
+                { id: 'test-dud-3', name: 'Pidgey',   image_url: 'https://images.pokemontcg.io/sv08/3/high.webp', national_pokedex_number: 16 },
+                { id: 'test-dud-4', name: 'Rattata',  image_url: 'https://images.pokemontcg.io/sv08/4/high.webp', national_pokedex_number: 19 },
+            ]
+            const makeCard = (base: object, rarity: string, worth: number) => ({
+                ...base,
+                rarity,
+                set_id: 'sv08',
+                market_price_usd: worth,
+                isNew: true,
+                worth,
+                storedWorth: 0,
+                coins: 0,
+                isHot: false,
+                card_level: 1,
+                ...generateAttributes(rarity),
+            })
+            const cards = [
+                makeCard(
+                    { id: 'test-mystery', name: 'Poncho Pikachu', image_url: 'https://images.pokemontcg.io/xy-p/XY189/high.webp', national_pokedex_number: 25 },
+                    '???',
+                    9999,
+                ),
+                ...DUDS.map((d) => makeCard(d, 'Common', 0.05)),
+            ]
+            return NextResponse.json({ cards, godPack: false, luckyFree: false })
+        }
+
         // look up pack cost from catalog (DB overrides static defaults)
         const mergedPacks = await getMergedPacks(supabase)
         const packDef = mergedPacks.find((p) => p.id === setId)

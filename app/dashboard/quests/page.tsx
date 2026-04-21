@@ -34,7 +34,7 @@ export default async function QuestsPage() {
             .order('sort_order', { ascending: true, nullsFirst: false }),
         supabase
             .from('profiles')
-            .select('packs_opened, cards_fed, cards_sold, coins, xp, level, daily_packs_today, daily_cards_fed_today, daily_reset_date, login_streak, last_login_date, discord_id, discord_linked, tutorial_completed')
+            .select('packs_opened, cards_fed, cards_sold, coins, xp, level, daily_packs_today, daily_cards_fed_today, daily_reset_date, login_streak, last_login_date, discord_id, discord_linked, tutorial_completed, trades_completed')
             .eq('id', user!.id)
             .maybeSingle(),
         supabase
@@ -234,6 +234,8 @@ export default async function QuestsPage() {
         n_battle_won: (nBattleWonCount ?? 0) > 0 ? 1 : 0,
         has_prismatic_eeveelutions: hasPrismaticEeveelutions,
         crate_keys_total: 0,
+        trade_completed: (nqpData as any)?.trade_completed ? 1 : 0,
+        trades_completed: Number(profile?.trades_completed ?? 0),
     }
 
     const ownedCards = (rarityRows ?? []).map((r: any) => ({

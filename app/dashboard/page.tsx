@@ -34,7 +34,7 @@ export default async function Dashboard() {
     const xpPct = Math.min((xp / xpNeeded) * 100, 100)
 
     return (
-        <div className="min-h-screen">
+        <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <PassiveCoins />
             <LeaderboardSidebar />
             {/* ── profile island ── */}
@@ -47,6 +47,7 @@ export default async function Dashboard() {
                     top: 0,
                     zIndex: 40,
                     overflow: 'visible',
+                    flexShrink: 0,
                 }}
             >
                 {/* main row */}
@@ -383,9 +384,13 @@ export default async function Dashboard() {
             </div>
 
             {/* daily event banner */}
-            <EventBanner events={await getActiveEvents()} />
+            <div style={{ flexShrink: 0 }}>
+                <EventBanner events={await getActiveEvents()} />
+            </div>
 
-            <PackSelector coins={profile?.coins ?? 0} />
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <PackSelector coins={profile?.coins ?? 0} />
+            </div>
         </div>
     )
 }

@@ -99,11 +99,15 @@
     --font-mono: var(--font-geist-mono);
 }
 
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     background: var(--app-bg);
     color: var(--app-text);
     font-family: Arial, Helvetica, sans-serif;
-    overflow-x: hidden;
 }
 
 /* navbar theming */
@@ -203,6 +207,91 @@ body {
 .animate-shake {
     animation: shake 0.4s ease-in-out infinite;
 }
+@keyframes subtleShake {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25%       { transform: rotate(-1.2deg) scale(1.02); }
+    75%       { transform: rotate(1.2deg) scale(1.02); }
+}
+.animate-subtle-shake {
+    animation: subtleShake 0.28s ease-in-out infinite;
+}
+@keyframes pokeballCatch {
+    0%   { transform: rotate(0deg)   scale(1);    }
+    20%  { transform: rotate(-9deg)  scale(1.03); }
+    45%  { transform: rotate(7deg)   scale(1.03); }
+    65%  { transform: rotate(-4deg)  scale(1.01); }
+    82%  { transform: rotate(2deg)   scale(1.01); }
+    100% { transform: rotate(0deg)   scale(1);    }
+}
+.animate-dramatic-pulse {
+    animation: pokeballCatch 420ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.animate-dramatic-pulse-slow {
+    animation: pokeballCatch 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ── pack cutscene ───────────────────────────────────────────────────────────── */
+@keyframes cutsceneRainbow {
+    0%   { color: hsl(0,100%,80%);   text-shadow: 0 0 28px hsl(0,100%,55%),   0 0 56px hsl(0,100%,40%); }
+    25%  { color: hsl(90,100%,80%);  text-shadow: 0 0 28px hsl(90,100%,55%),  0 0 56px hsl(90,100%,40%); }
+    50%  { color: hsl(200,100%,80%); text-shadow: 0 0 28px hsl(200,100%,55%), 0 0 56px hsl(200,100%,40%); }
+    75%  { color: hsl(290,100%,80%); text-shadow: 0 0 28px hsl(290,100%,55%), 0 0 56px hsl(290,100%,40%); }
+    100% { color: hsl(360,100%,80%); text-shadow: 0 0 28px hsl(360,100%,55%), 0 0 56px hsl(360,100%,40%); }
+}
+.cutscene-rainbow-text {
+    animation: cutsceneRainbow 2.8s linear infinite;
+}
+
+@keyframes cursorBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.cutscene-cursor {
+    animation: cursorBlink 0.7s step-start infinite;
+    margin-left: 1px;
+}
+
+/* ── pack catch gleam streak ─────────────────────────────────────────────────── */
+@keyframes packGleamSweep {
+    0%   { transform: translateX(-200%) skewX(-15deg); }
+    100% { transform: translateX(350%) skewX(-15deg); }
+}
+@keyframes packGleamSweepRainbow {
+    0%   { transform: translateX(-200%) skewX(-15deg); filter: hue-rotate(0deg); }
+    100% { transform: translateX(350%) skewX(-15deg); filter: hue-rotate(360deg); }
+}
+.pack-gleam-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 5;
+    border-radius: 8px;
+}
+.pack-gleam-streak {
+    position: absolute;
+    top: -10%;
+    left: 0;
+    width: 35%;
+    height: 120%;
+    mix-blend-mode: screen;
+}
+.pack-gleam-streak.legendary {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,220,80,0.85) 50%, transparent 100%);
+    animation: packGleamSweep 1.3s ease-in-out infinite;
+}
+.pack-gleam-streak.divine {
+    background: linear-gradient(90deg, transparent 0%, rgba(180,140,255,0.85) 50%, transparent 100%);
+    animation: packGleamSweep 1.3s ease-in-out infinite;
+}
+.pack-gleam-streak.celestial {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 50%, transparent 100%);
+    animation: packGleamSweep 1.2s ease-in-out infinite;
+}
+.pack-gleam-streak.mystery {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,100,200,0.7) 25%, rgba(100,200,255,0.7) 50%, rgba(180,255,100,0.6) 75%, transparent 100%);
+    animation: packGleamSweepRainbow 1.5s ease-in-out infinite;
+}
 @keyframes fadeOut {
     from {
         opacity: 1;
@@ -224,7 +313,23 @@ body {
 }
 
 .animate-fade-out {
-    animation: fadeOut 500ms ease-in-out forwards;
+    animation: fadeOut 220ms ease-in forwards;
+}
+@keyframes packScaleOut {
+    0%   { transform: scale(1);    opacity: 1; }
+    18%  { transform: scale(1.09); opacity: 1; }
+    100% { transform: scale(1.06); opacity: 0; }
+}
+.animate-pack-exit {
+    animation: packScaleOut 260ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+    pointer-events: none;
+}
+@keyframes cardsSlideUp {
+    0%   { opacity: 0; transform: translateY(48px); }
+    100% { opacity: 1; transform: translateY(0);    }
+}
+.animate-cards-slide-up {
+    animation: cardsSlideUp 320ms cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
 }
 @keyframes slideUp {
     from {
@@ -659,8 +764,8 @@ body {
     }
 }
 @keyframes auraMysteryGlow {
-    0%, 100% { filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.7)) drop-shadow(0 0 8px rgba(88, 28, 135, 0.5)); }
-    50%       { filter: drop-shadow(0 0 40px rgba(168, 85, 247, 1.0)) drop-shadow(0 0 20px rgba(139, 92, 246, 0.7)); }
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.35)) drop-shadow(0 0 3px rgba(88, 28, 135, 0.25)); }
+    50%       { filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.55)) drop-shadow(0 0 8px rgba(139, 92, 246, 0.35)); }
 }
 
 .pack-aura-rare      { animation: auraRareGlow       2s   ease-in-out infinite; }
@@ -823,11 +928,11 @@ body {
     100% { transform: translateY(-108vh)  rotate(20deg);  opacity: 0;    }
 }
 @keyframes mysteryGlitch {
-    0%,  88%, 100% { opacity: 0; }
-    90%  { opacity: 1; clip-path: inset(22% 0 58% 0); transform: translateX(-10px); filter: hue-rotate(80deg)  brightness(1.6); }
-    91%  { opacity: 0; }
-    93%  { opacity: 1; clip-path: inset(62% 0 18% 0); transform: translateX(7px);  filter: hue-rotate(-60deg) brightness(1.4); }
-    95%  { opacity: 0; }
+    0%,  92%, 100% { opacity: 0; }
+    93%  { opacity: 0.4; clip-path: inset(28% 0 55% 0); transform: translateX(-6px); filter: hue-rotate(60deg)  brightness(1.2); }
+    94%  { opacity: 0; }
+    96%  { opacity: 0.3; clip-path: inset(58% 0 24% 0); transform: translateX(4px);  filter: hue-rotate(-40deg) brightness(1.1); }
+    97%  { opacity: 0; }
 }
 .pack-bg-mystery {
     background:
@@ -1009,6 +1114,33 @@ body {
 .text-secondary { color: var(--app-text-secondary); }
 .text-faint { color: var(--app-text-faint); }
 
+/* ── holographic shimmer for Mythical+ cards ─────────────────────────────── */
+@keyframes cardHoloShimmer {
+    0%   { background-position: 0% 0%; }
+    50%  { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+}
+.card-holo-shimmer {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    pointer-events: none;
+    z-index: 4;
+    background: linear-gradient(
+        125deg,
+        transparent       18%,
+        rgba(255,180,255, 0.18) 28%,
+        rgba(130,210,255, 0.18) 38%,
+        rgba(130,255,200, 0.18) 48%,
+        rgba(255,255,130, 0.18) 58%,
+        rgba(255,140,190, 0.18) 68%,
+        transparent       78%
+    );
+    background-size: 300% 300%;
+    animation: cardHoloShimmer 4s ease-in-out infinite;
+    mix-blend-mode: screen;
+}
+
 @keyframes brFloat {
     0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
     60%  { opacity: 1; transform: translateX(-50%) translateY(-22px); }
@@ -1016,4 +1148,66 @@ body {
 }
 .br-float {
     animation: brFloat 1.5s ease-out forwards;
+}
+
+/* ── rarity badge reveal ──────────────────────────────────────────────────── */
+@keyframes rarityBadgeIn {
+    0%   { opacity: 0; transform: translateY(10px) scale(0.82); }
+    65%  { transform: translateY(-3px) scale(1.04); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.rarity-badge-reveal {
+    animation: rarityBadgeIn 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── screen flash on legendary+ reveal ───────────────────────────────────── */
+@keyframes screenFlashOut {
+    0%   { opacity: 0.55; }
+    100% { opacity: 0; }
+}
+.screen-flash-overlay {
+    animation: screenFlashOut 0.42s ease-out forwards;
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: #fff;
+}
+
+/* ── pack spin-zoom on open ───────────────────────────────────────────────── */
+@keyframes packSpinZoom {
+    0%   { transform: rotate(0deg)   scale(1);    }
+    100% { transform: rotate(900deg) scale(1.38); }
+}
+.animate-pack-spin {
+    animation: packSpinZoom 0.78s cubic-bezier(0.4, 0, 0.55, 1) forwards;
+}
+
+/* ── aura flash overlays (legendary+) ────────────────────────────────────── */
+@keyframes auraFlashBuild {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+}
+.aura-flash-legendary {
+    animation: auraFlashBuild 0.52s ease-in forwards;
+    background: radial-gradient(ellipse at center, rgba(234,179,8,0.55) 0%, rgba(180,100,0,0.25) 50%, transparent 75%);
+}
+.aura-flash-divine {
+    animation: auraFlashBuild 0.52s ease-in forwards;
+    background: radial-gradient(ellipse at center, rgba(139,92,246,0.6) 0%, rgba(67,20,180,0.3) 50%, transparent 75%);
+}
+.aura-flash-celestial {
+    animation: auraFlashBuild 0.52s ease-in forwards;
+    background: radial-gradient(ellipse at center, rgba(34,211,238,0.6) 0%, rgba(6,100,160,0.3) 50%, transparent 75%);
+}
+@keyframes auraFlashRGB {
+    0%   { opacity: 0;    background: radial-gradient(ellipse at center, rgba(255,0,80,0.65)   0%, transparent 70%); }
+    20%  { opacity: 0.7;  background: radial-gradient(ellipse at center, rgba(0,255,100,0.65)  0%, transparent 70%); }
+    40%  { opacity: 0.85; background: radial-gradient(ellipse at center, rgba(0,120,255,0.65)  0%, transparent 70%); }
+    60%  { opacity: 0.9;  background: radial-gradient(ellipse at center, rgba(255,200,0,0.65)  0%, transparent 70%); }
+    80%  { opacity: 1;    background: radial-gradient(ellipse at center, rgba(200,0,255,0.65)  0%, transparent 70%); }
+    100% { opacity: 1;    background: radial-gradient(ellipse at center, rgba(0,255,255,0.7)   0%, transparent 70%); }
+}
+.aura-flash-mystery {
+    animation: auraFlashRGB 0.52s linear forwards;
 }

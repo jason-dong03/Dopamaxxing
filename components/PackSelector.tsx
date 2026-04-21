@@ -1,9 +1,10 @@
 'use client'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
 import CrateOpening from './CrateOpening'
+import BlackMarket from './BlackMarket'
 import {
     RARITY_ORDER,
     RARITY_COLOR,
@@ -13,9 +14,25 @@ import {
     isRainbow,
 } from '@/lib/rarityConfig'
 
-export default function PackSelector({ coins = 0 }: { coins?: number }) {
+export default function PackSelector({ coins: initialCoins = 0 }: { coins?: number }) {
+    const [coins, setCoins] = useState(initialCoins)
+    // sync when parent re-renders with a new value
+    useEffect(() => { setCoins(initialCoins) }, [initialCoins])
     const [selectedPack, setSelectedPack] = useState<Pack | null>(null)
     const [selectedCount, setSelectedCount] = useState<number>(1)
+    const savedScrollY = useRef(0)
+    const pendingScrollRestore = useRef(false)
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (selectedPack !== null || !pendingScrollRestore.current) return
+        pendingScrollRestore.current = false
+        const y = savedScrollY.current
+        const id = setTimeout(() => {
+            if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = y
+        }, 120)
+        return () => clearTimeout(id)
+    }, [selectedPack])
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [previewPack, setPreviewPack] = useState<Pack | null>(null)
     const [bagCount, setBagCount] = useState<number | null>(null)
@@ -24,17 +41,20 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
     const [allPacks, setAllPacks] = useState<Pack[]>(PACKS)
     const [userLevel, setUserLevel] = useState<number>(1)
 
-    // Hydrate from DB — replaces static fallback once loaded
+    // Hydrate from DB — replaces static fallback once loaded; re-append test packs
     useEffect(() => {
         fetch('/api/packs')
             .then((r) => (r.ok ? r.json() : null))
             .then((json) => {
-                if (json?.packs?.length) setAllPacks(json.packs)
+                if (json?.packs?.length) {
+                    const testPacks = PACKS.filter((p) => p.test)
+                    setAllPacks([...json.packs, ...testPacks])
+                }
             })
             .catch(() => {})
     }, [])
     const [activeTab, setActiveTab] = useState<
-        'classic' | 'special' | 'crates'
+        'classic' | 'special' | 'crates' | 'test'
     >('classic')
     const [stock, setStock] = useState<Record<string, number>>({})
     const [discounts, setDiscounts] = useState<Record<string, number>>({})
@@ -139,75 +159,75 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
             selectedPack.aspect === 'pack' || !!selectedPack.theme_pokedex_ids
 
         return usePackOpening ? (
-            <PackOpening
-                pack={selectedPack}
-                count={selectedCount}
-                stock={isAdmin ? 999 : (stock[selectedPack.id] ?? 1)}
-                discount={discounts[selectedPack.id] ?? 0}
-                isAdmin={isAdmin}
-                onBack={() => {
-                    setSelectedPack(null)
-                    setSelectedCount(1)
-                    refreshStock()
-                }}
-                onPackOpened={(packId, countOpened) => {
-                    setStock((prev) => ({
-                        ...prev,
-                        [packId]: Math.max(
-                            0,
-                            (prev[packId] ?? 0) - countOpened,
-                        ),
-                    }))
-                }}
-            />
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <PackOpening
+                    pack={selectedPack}
+                    count={selectedCount}
+                    stock={isAdmin ? 999 : (stock[selectedPack.id] ?? 1)}
+                    discount={discounts[selectedPack.id] ?? 0}
+                    isAdmin={isAdmin}
+                    free={!!(isAdmin && selectedPack.test)}
+                    onBack={() => {
+                        setSelectedPack(null)
+                        setSelectedCount(1)
+                        refreshStock()
+                    }}
+                    onPackOpened={(packId, countOpened) => {
+                        setStock((prev) => ({
+                            ...prev,
+                            [packId]: Math.max(
+                                0,
+                                (prev[packId] ?? 0) - countOpened,
+                            ),
+                        }))
+                    }}
+                />
+            </div>
         ) : (
-            <CrateOpening
-                pack={selectedPack}
-                isAdmin={isAdmin}
-                onBack={() => {
-                    setSelectedPack(null)
-                    setSelectedCount(1)
-                    if (!isAdmin) refreshStock()
-                }}
-            />
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <CrateOpening
+                    pack={selectedPack}
+                    isAdmin={isAdmin}
+                    onBack={() => {
+                        setSelectedPack(null)
+                        setSelectedCount(1)
+                        if (!isAdmin) refreshStock()
+                    }}
+                />
+            </div>
         )
     }
 
     const isDev = process.env.NODE_ENV === 'development'
+    const showTest = isDev || isAdmin
     const packs = allPacks.filter(
         (p) =>
             p.aspect === 'pack' &&
             !p.theme_pokedex_ids &&
             !p.special &&
-            (isDev || !p.test),
+            (showTest || !p.test),
     )
     const specialPacks = allPacks.filter(
         (p) =>
             p.aspect === 'pack' &&
             (!!p.theme_pokedex_ids || !!p.special) &&
-            (isDev || !p.test),
+            (showTest || !p.test),
     )
     const boxes = allPacks.filter(
-        (p) => p.aspect === 'box' && (isDev || !p.test),
+        (p) => p.aspect === 'box' && (showTest || !p.test),
     )
 
     const bagFull = bagCount !== null && bagCount >= bagCapacity
 
     return (
-        <>
-            <div
-                style={{
-                    width: '100%',
-                    maxWidth: 700,
-                    margin: '0 auto',
-                    padding: '28px 16px 0',
-                }}
-            >
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {/* ── fixed header: bag warning + black market + tabs ── */}
+            <div style={{ flexShrink: 0, width: '100%', maxWidth: 700, margin: '0 auto', padding: '14px 16px 0' }}>
                 {bagFull && (
                     <div
                         style={{
-                            marginBottom: 28,
-                            padding: '12px 18px',
+                            marginBottom: 12,
+                            padding: '10px 16px',
                             borderRadius: 10,
                             background: 'rgba(239,68,68,0.08)',
                             border: '1px solid rgba(239,68,68,0.35)',
@@ -227,84 +247,127 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                     </div>
                 )}
 
+                <BlackMarket
+                    coins={coins}
+                    onCoinsChange={(delta) => setCoins(prev => prev + delta)}
+                />
+
                 <PackTabs
                     activeTab={activeTab}
                     onChange={setActiveTab}
+                    isAdmin={isAdmin}
                     counts={{
-                        classic: packs.length,
-                        special: specialPacks.length,
-                        crates: boxes.length,
+                        classic: packs.filter(p => !p.level_required || userLevel >= p.level_required).length,
+                        special: specialPacks.filter(p => !p.level_required || userLevel >= p.level_required).length,
+                        crates: boxes.filter(p => !p.level_required || userLevel >= p.level_required).length,
                     }}
                 />
+            </div>
 
-                {activeTab === 'classic' && packs.length > 0 && (
-                    <PackShopList
-                        data-tutorial="packs"
-                        title="classic packs"
-                        packs={packs}
-                        coins={coins}
-                        bagFull={bagFull}
-                        stock={stock}
-                        discounts={discounts}
-                        isAdmin={isAdmin}
-                        userLevel={userLevel}
-                        nextRefreshAt={isAdmin ? null : nextRefreshStandard}
-                        onStockExpired={refreshStock}
-                        hoveredId={hoveredId}
-                        onHover={setHoveredId}
-                        onSelect={(p) => {
-                            setSelectedCount(1)
-                            setSelectedPack(p)
-                        }}
-                        onPreview={setPreviewPack}
-                    />
-                )}
+            {/* ── scrollable pack list ── */}
+            <div
+                ref={scrollContainerRef}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px 24px' }}
+            >
+                <div style={{ width: '100%', maxWidth: 700, margin: '0 auto' }}>
+                    {activeTab === 'classic' && packs.length > 0 && (
+                        <PackShopList
+                            data-tutorial="packs"
+                            title="classic packs"
+                            packs={packs}
+                            coins={coins}
+                            bagFull={bagFull}
+                            stock={stock}
+                            discounts={discounts}
+                            isAdmin={isAdmin}
+                            userLevel={userLevel}
+                            nextRefreshAt={isAdmin ? null : nextRefreshStandard}
+                            onStockExpired={refreshStock}
+                            hoveredId={hoveredId}
+                            onHover={setHoveredId}
+                            onSelect={(p) => {
+                                savedScrollY.current = scrollContainerRef.current?.scrollTop ?? 0
+                                pendingScrollRestore.current = true
+                                setSelectedCount(1)
+                                setSelectedPack(p)
+                            }}
+                            onPreview={setPreviewPack}
+                        />
+                    )}
 
-                {activeTab === 'special' && specialPacks.length > 0 && (
-                    <PackShopList
-                        title="special packs"
-                        gold
-                        packs={specialPacks}
-                        coins={coins}
-                        bagFull={bagFull}
-                        stock={stock}
-                        discounts={discounts}
-                        isAdmin={isAdmin}
-                        userLevel={userLevel}
-                        nextRefreshAt={isAdmin ? null : nextRefreshSpecial}
-                        onStockExpired={refreshStock}
-                        hoveredId={hoveredId}
-                        onHover={setHoveredId}
-                        onSelect={(p) => {
-                            setSelectedCount(1)
-                            setSelectedPack(p)
-                        }}
-                        onPreview={setPreviewPack}
-                    />
-                )}
+                    {activeTab === 'special' && specialPacks.length > 0 && (
+                        <PackShopList
+                            title="special packs"
+                            gold
+                            packs={specialPacks}
+                            coins={coins}
+                            bagFull={bagFull}
+                            stock={stock}
+                            discounts={discounts}
+                            isAdmin={isAdmin}
+                            userLevel={userLevel}
+                            nextRefreshAt={isAdmin ? null : nextRefreshSpecial}
+                            onStockExpired={refreshStock}
+                            hoveredId={hoveredId}
+                            onHover={setHoveredId}
+                            onSelect={(p) => {
+                                savedScrollY.current = scrollContainerRef.current?.scrollTop ?? 0
+                                pendingScrollRestore.current = true
+                                setSelectedCount(1)
+                                setSelectedPack(p)
+                            }}
+                            onPreview={setPreviewPack}
+                        />
+                    )}
 
-                {activeTab === 'crates' && boxes.length > 0 && (
-                    <PackShopList
-                        title="crates"
-                        gold
-                        packs={boxes}
-                        coins={coins}
-                        bagFull={bagFull}
-                        stock={stock}
-                        discounts={discounts}
-                        isAdmin={isAdmin}
-                        userLevel={userLevel}
-                        nextRefreshAt={isAdmin ? null : nextRefreshBox}
-                        onStockExpired={refreshStock}
-                        hoveredId={hoveredId}
-                        onHover={setHoveredId}
-                        onSelect={(p) => {
-                            setSelectedCount(1)
-                            setSelectedPack(p)
-                        }}
-                        onPreview={setPreviewPack}
-                    />
-                )}
+                    {activeTab === 'crates' && boxes.length > 0 && (
+                        <PackShopList
+                            title="crates"
+                            gold
+                            packs={boxes}
+                            coins={coins}
+                            bagFull={bagFull}
+                            stock={stock}
+                            discounts={discounts}
+                            isAdmin={isAdmin}
+                            userLevel={userLevel}
+                            nextRefreshAt={isAdmin ? null : nextRefreshBox}
+                            onStockExpired={refreshStock}
+                            hoveredId={hoveredId}
+                            onHover={setHoveredId}
+                            onSelect={(p) => {
+                                savedScrollY.current = scrollContainerRef.current?.scrollTop ?? 0
+                                pendingScrollRestore.current = true
+                                setSelectedCount(1)
+                                setSelectedPack(p)
+                            }}
+                            onPreview={setPreviewPack}
+                        />
+                    )}
+
+                    {activeTab === 'test' && isAdmin && (
+                        <PackShopList
+                            title="admin test packs"
+                            packs={PACKS.filter(p => p.test)}
+                            coins={coins}
+                            bagFull={false}
+                            stock={{}}
+                            discounts={{}}
+                            isAdmin={isAdmin}
+                            userLevel={userLevel}
+                            nextRefreshAt={null}
+                            hoveredId={hoveredId}
+                            onHover={setHoveredId}
+                            onSelect={(p) => {
+                                savedScrollY.current = scrollContainerRef.current?.scrollTop ?? 0
+                                pendingScrollRestore.current = true
+                                setSelectedCount(1)
+                                setSelectedPack(p)
+                            }}
+                            onPreview={setPreviewPack}
+                        />
+                    )}
+                </div>
             </div>
 
             {previewPack && (
@@ -313,31 +376,26 @@ export default function PackSelector({ coins = 0 }: { coins?: number }) {
                     onClose={() => setPreviewPack(null)}
                 />
             )}
-        </>
+        </div>
     )
 }
 
 function PackTabs({
     activeTab,
     onChange,
+    isAdmin,
     counts,
 }: {
-    activeTab: 'classic' | 'special' | 'crates'
-    onChange: (tab: 'classic' | 'special' | 'crates') => void
+    activeTab: 'classic' | 'special' | 'crates' | 'test'
+    onChange: (tab: 'classic' | 'special' | 'crates' | 'test') => void
+    isAdmin?: boolean
     counts: { classic: number; special: number; crates: number }
 }) {
-    const tabs = [
-        {
-            id: 'classic' as const,
-            label: 'classic packs',
-            count: counts.classic,
-        },
-        {
-            id: 'special' as const,
-            label: 'special packs',
-            count: counts.special,
-        },
-        { id: 'crates' as const, label: 'crates', count: counts.crates },
+    const tabs: { id: 'classic' | 'special' | 'crates' | 'test'; label: string; count: number; adminOnly?: boolean }[] = [
+        { id: 'classic', label: 'classic packs', count: counts.classic },
+        { id: 'special', label: 'special packs', count: counts.special },
+        { id: 'crates', label: 'crates', count: counts.crates },
+        ...(isAdmin ? [{ id: 'test' as const, label: '✦ test', count: 0, adminOnly: true }] : []),
     ]
 
     return (
@@ -364,22 +422,23 @@ function PackTabs({
             >
                 {tabs.map((tab) => {
                     const active = activeTab === tab.id
+                    const isTest = tab.id === 'test'
                     return (
                         <button
                             key={tab.id}
                             onClick={() => onChange(tab.id)}
                             style={{
-                                border: 'none',
+                                border: isTest ? '1px solid rgba(168,85,247,0.35)' : 'none',
                                 cursor: 'pointer',
                                 borderRadius: 12,
                                 padding:
                                     'clamp(6px, 1.6vw, 10px) clamp(8px, 2vw, 14px)',
                                 background: active
-                                    ? 'rgba(255,255,255,0.08)'
-                                    : 'transparent',
+                                    ? isTest ? 'rgba(168,85,247,0.18)' : 'rgba(255,255,255,0.08)'
+                                    : isTest ? 'rgba(168,85,247,0.06)' : 'transparent',
                                 color: active
-                                    ? 'var(--app-text)'
-                                    : 'var(--app-text-secondary)',
+                                    ? isTest ? '#d8b4fe' : 'var(--app-text)'
+                                    : isTest ? '#a855f7' : 'var(--app-text-secondary)',
                                 fontWeight: active ? 700 : 600,
                                 fontSize: 'clamp(0.58rem, 1.8vw, 0.72rem)',
                                 letterSpacing: '0.06em',
@@ -391,6 +450,20 @@ function PackTabs({
                             }}
                         >
                             <span>{tab.label}</span>
+                            {tab.count > 0 && (
+                                <span style={{
+                                    fontSize: '0.55rem',
+                                    fontWeight: 700,
+                                    background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                                    color: active ? 'var(--app-text)' : 'var(--app-text-muted)',
+                                    borderRadius: 8,
+                                    padding: '1px 6px',
+                                    minWidth: 18,
+                                    textAlign: 'center',
+                                }}>
+                                    {tab.count}
+                                </span>
+                            )}
                         </button>
                     )
                 })}
@@ -628,13 +701,12 @@ function ShopPackRow({
     const discountedCost = parseFloat((pack.cost * (1 - discount)).toFixed(2))
     const canAfford = isAdmin || coins >= discountedCost
     const hasStock = isAdmin || stock > 0
-    const disabled = bagFull || !canAfford || !hasStock
+    const isLevelGated = !!pack.level_required && userLevel < pack.level_required
+    const disabled = bagFull || !canAfford || !hasStock || isLevelGated
     const borderColor = gold ? 'rgba(234,179,8,0.22)' : 'rgba(255,255,255,0.08)'
     const hoverBorderColor = gold
         ? 'rgba(234,179,8,0.42)'
         : 'rgba(255,255,255,0.16)'
-    const isLevelGated =
-        !!pack.level_required && userLevel < pack.level_required
 
     return (
         <div
@@ -809,13 +881,13 @@ function ShopPackRow({
                             position: 'absolute',
                             bottom: 10,
                             right: 14,
-                            fontSize: '0.9rem',
+                            fontSize: isLevelGated ? '0.7rem' : '0.9rem',
                             fontWeight: 700,
-                            color: stock > 0 ? '#ffffff' : '#ef4444',
+                            color: isLevelGated ? '#ef4444' : stock > 0 ? '#ffffff' : '#ef4444',
                         }}
                     >
                         {isLevelGated
-                            ? `Unlocks at level ${pack.level_required}`
+                            ? `🔒 Unlocks at level ${pack.level_required}`
                             : stock > 0
                               ? `x${stock}`
                               : 'out of stock'}

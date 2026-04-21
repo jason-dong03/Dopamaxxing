@@ -430,7 +430,7 @@ export default function CrateOpening({
                             gap: GAP,
                             transform: `translateX(${targetX}px)`,
                             transition: spinning
-                                ? 'transform 7s cubic-bezier(0.04, 0, 0.12, 1)'
+                                ? 'transform 11s cubic-bezier(0.22, 0, 0.08, 1)'
                                 : 'none',
                             willChange: 'transform',
                         }}

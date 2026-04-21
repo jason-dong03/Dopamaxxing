@@ -17,6 +17,8 @@ export type Pack = {
     level_required?: number
     /** Dev-only: skip all DB calls and use mock cards */
     test?: boolean
+    /** When set, the API uses this pack's card pool instead of `id` */
+    setId?: string
 }
 
 export const LEGENDARY_DEX_IDS: number[] = [
@@ -279,15 +281,14 @@ export const PACKS: Pack[] = [
         cost: 4250.3,
         idle_aura: 'pack-aura-celestial',
     },
-    /* ── DEV TEST PACK — no DB calls ──────────────────────────────────────────────
+    // ── Admin test pack ──────────────────────────────────────────────────────────
     {
-        id: 'test-rarity',
-        name: '✦ Rarity Test',
+        id: 'admin-test',
+        name: '✦ Admin Test Pack',
         image: '/packs/charizard-pack.png',
-        description: 'Dev — cycles Legendary → Divine → Celestial → ???',
+        description: 'Admin only — test pack reveals, effects, and animations.',
         aspect: 'pack',
         cost: 0,
-        idle_aura: 'pack-aura-mystery',
         test: true,
-    },*/
+    },
 ]

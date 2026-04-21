@@ -8,6 +8,7 @@ import PacksTab from '@/components/admin/PacksTab'
 import UsersTab from '@/components/admin/UsersTab'
 import RepriceTab from '@/components/admin/RepriceTab'
 import BackfillBattlePowerTab from '@/components/admin/BackfillBattlePowerTab'
+import BlackMarketTab from '@/components/admin/BlackMarketTab'
 const TABS = [
     'Users',
     'Achievements',
@@ -16,6 +17,7 @@ const TABS = [
     'Packs',
     'Reprice',
     'BackfillBP',
+    'BlackMarket',
 ] as const
 type Tab = (typeof TABS)[number]
 
@@ -81,6 +83,7 @@ export default function AdminPage() {
             {tab === 'Packs' && <PacksTab />}
             {tab === 'Reprice' && <RepriceTab />}
             {tab === 'BackfillBP' && <BackfillBattlePowerTab />}
+            {tab === 'BlackMarket' && <BlackMarketTab />}
         </div>
     )
 }

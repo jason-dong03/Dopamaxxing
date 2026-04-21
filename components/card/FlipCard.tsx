@@ -33,6 +33,8 @@ const SPECIAL_RARITIES = [
     '???',
 ]
 
+const HOLO_RARITIES = ['Mythical', 'Legendary', 'Divine', 'Celestial', '???']
+
 export default function FlipCard({
     card,
     onReveal,
@@ -52,6 +54,7 @@ export default function FlipCard({
     const glowRgb = rarityGlowRgb(card.rarity)
     const cardIsRainbow = isRainbow(card.rarity)
     const isSpecial = SPECIAL_RARITIES.includes(card.rarity)
+    const isHolo = HOLO_RARITIES.includes(card.rarity)
 
     const overallCond = (() => {
         const vals = [card.attr_centering, card.attr_corners, card.attr_edges, card.attr_surface]
@@ -121,8 +124,8 @@ export default function FlipCard({
                                 ? 'none'
                                 : flipped
                                   ? isSpecial
-                                      ? 'transform 1200ms cubic-bezier(0.4, 0, 0.2, 1)'
-                                      : 'transform 600ms ease-in-out'
+                                      ? 'transform 1100ms cubic-bezier(0.4, 0, 0.2, 1)'
+                                      : 'transform 500ms ease-in-out'
                                   : undefined,
                         transform: flipped
                             ? 'rotateY(180deg)'
@@ -178,6 +181,9 @@ export default function FlipCard({
                             className="w-full h-full object-cover rounded-xl"
                             style={{ filter: flipped ? condFilterVal : undefined }}
                         />
+                        {isHolo && flipped && (
+                            <div className="card-holo-shimmer" />
+                        )}
                         {isSpecial && flipped && (
                             <div
                                 className="absolute inset-0 rounded-xl animate-shine pointer-events-none"
