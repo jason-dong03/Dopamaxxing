@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/lib/userStore'
 import { PACKS, type Pack } from '@/lib/packs'
 import PackOpening from './PackOpening'
 import CrateOpening from './CrateOpening'
@@ -14,10 +15,14 @@ import {
     isRainbow,
 } from '@/lib/rarityConfig'
 
-export default function PackSelector({ coins: initialCoins = 0 }: { coins?: number }) {
-    const [coins, setCoins] = useState(initialCoins)
-    // sync when parent re-renders with a new value
-    useEffect(() => { setCoins(initialCoins) }, [initialCoins])
+export default function PackSelector({ coins: initialCoins }: { coins?: number }) {
+    const { profile } = useProfile()
+    const [coins, setCoins] = useState(initialCoins ?? profile?.coins ?? 0)
+    // sync from userStore once profile loads (or when prop is explicitly provided)
+    useEffect(() => {
+        if (initialCoins !== undefined) { setCoins(initialCoins); return }
+        if (profile?.coins !== undefined) setCoins(profile.coins)
+    }, [initialCoins, profile?.coins])
     const [selectedPack, setSelectedPack] = useState<Pack | null>(null)
     const [selectedCount, setSelectedCount] = useState<number>(1)
     const savedScrollY = useRef(0)
