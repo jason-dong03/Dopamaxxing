@@ -13,6 +13,17 @@ export default function BRDisplay({ initialBP }: { initialBP: number }) {
     const toRef = useRef<number>(initialBP)
     const displayedRef = useRef<number>(initialBP)
 
+    // initialBP comes from a client-loaded profile (useProfile) so it starts at 0
+    // and arrives later — sync into display state when it first becomes non-zero.
+    useEffect(() => {
+        if (initialBP > 0 && toRef.current === 0) {
+            fromRef.current = initialBP
+            toRef.current = initialBP
+            displayedRef.current = initialBP
+            setDisplayed(initialBP)
+        }
+    }, [initialBP])
+
     function setDisplayedSync(v: number) {
         displayedRef.current = v
         setDisplayed(v)

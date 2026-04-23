@@ -19,6 +19,7 @@ export type Card = {
     preview_stats?: CardStats
     preview_nature?: string | null
     nature_tier?: string | null
+    preview_moves?: { name: string; learnedAt: number }[]
 }
 
 export type CardStats = {

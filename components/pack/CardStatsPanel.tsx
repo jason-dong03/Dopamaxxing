@@ -13,8 +13,8 @@ import { fmt } from '@/lib/utils'
 type Props = {
     currentCard: Card
     isMobile: boolean
-    condPanelTab: 'condition' | 'stats'
-    setCondPanelTab: (tab: 'condition' | 'stats') => void
+    condPanelTab: 'condition' | 'stats' | 'moves'
+    setCondPanelTab: (tab: 'condition' | 'stats' | 'moves') => void
     bbTooltipPos: { x: number; y: number } | null
     setBbTooltipPos: (pos: { x: number; y: number } | null) => void
     // action button props
@@ -29,6 +29,9 @@ type Props = {
     handleFeedCard: () => void
     handleBuyback: () => void
     onAction?: () => void
+    hideActions?: boolean
+    showMoves?: boolean
+    mode?: 'sidebar' | 'overlay'
 }
 
 export function CardStatsPanel({
@@ -49,6 +52,9 @@ export function CardStatsPanel({
     handleFeedCard,
     handleBuyback,
     onAction,
+    hideActions,
+    showMoves,
+    mode,
 }: Props) {
     const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
     const [statsTooltipPos, setStatsTooltipPos] = useState<{
@@ -82,6 +88,239 @@ export function CardStatsPanel({
     const bagLeft = bagCount !== null ? bagCapacity - bagCount : null
     const bagFull = bagCount !== null && bagCount >= bagCapacity
     const actDisabled = animatingIndex !== null || shattering
+
+    // ── Overlay mode: full redesign for mobile details sheet ────────────────
+    if (mode === 'overlay') {
+        function rarityColor(r: string) {
+            if (r === '???') return '#f9fafb'
+            if (r === 'Celestial') return '#c084fc'
+            if (r === 'Divine') return '#60a5fa'
+            if (r === 'Legendary') return '#fbbf24'
+            if (r === 'Mythical') return '#f472b6'
+            if (r === 'Epic') return '#a78bfa'
+            if (['Rare Ultra','Rare Holo VMAX','Rare Holo V','Rare Holo','Rare'].includes(r)) return '#818cf8'
+            return '#6b7280'
+        }
+        const rc = rarityColor(currentCard.rarity)
+        const tabs = (['condition', 'stats', 'moves'] as const)
+        const nat = currentCard.preview_nature ? NATURE_BY_NAME[currentCard.preview_nature] : null
+        const natColor = nat ? NATURE_TIER_COLOR[nat.tier] : '#94a3b8'
+        const ps = currentCard.preview_stats
+        const statRows = ps ? [
+            { l: 'ATK',    v: ps.stat_atk,    c: '#f87171' },
+            { l: 'DEF',    v: ps.stat_def,    c: '#60a5fa' },
+            { l: 'SP.ATK', v: ps.stat_spatk,  c: '#c084fc' },
+            { l: 'SP.DEF', v: ps.stat_spdef,  c: '#818cf8' },
+            { l: 'SPD',    v: ps.stat_spd,    c: '#4ade80' },
+        ] : []
+        const maxSt = Math.max(1, ...statRows.map(s => s.v), 160)
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* ── Header ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                            {currentCard.name}
+                        </span>
+                        {currentCard.card_level != null && (
+                            <span style={{
+                                fontSize: '0.6rem', fontWeight: 700, color: '#60a5fa',
+                                background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.25)',
+                                borderRadius: 6, padding: '3px 8px', fontFamily: 'monospace',
+                                whiteSpace: 'nowrap', flexShrink: 0, marginTop: 2,
+                            }}>
+                                Lv.{currentCard.card_level}
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.65rem', color: '#374151', fontFamily: 'monospace' }}>
+                            #{String(currentCard.national_pokedex_number ?? 0).padStart(3, '0')}
+                        </span>
+                        <span style={{
+                            fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.04em',
+                            color: rc, background: `${rc}14`, border: `1px solid ${rc}30`,
+                            borderRadius: 5, padding: '2px 7px',
+                        }}>
+                            {currentCard.rarity}
+                        </span>
+                        {currentCard.set_id?.endsWith('-1ed') && (
+                            <span style={{
+                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.05em',
+                                color: '#fbbf24', background: 'rgba(251,191,36,0.1)',
+                                border: '1px solid rgba(251,191,36,0.25)', borderRadius: 5, padding: '2px 7px',
+                            }}>1ST ED</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Metrics strip ── */}
+                <div style={{
+                    display: 'flex', background: 'rgba(255,255,255,0.025)',
+                    border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden',
+                }}>
+                    {[
+                        { label: 'market', value: `$${fmt(Number(currentCard.worth))}`, color: '#4ade80' },
+                        { label: 'condition', value: overall != null ? overall.toFixed(1) : '—', color: overall != null ? attrColor(overall) : '#6b7280' },
+                        { label: 'buyback', value: `$${fmt(Number(buyback.amount))}`, color: currentCard.isHot ? '#fb923c' : '#4ade80' },
+                    ].map((m, i) => (
+                        <React.Fragment key={m.label}>
+                            {i > 0 && <div style={{ width: 1, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 8px' }}>
+                                <span style={{ fontSize: '0.44rem', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+                                    {m.label}
+                                </span>
+                                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: m.color, fontFamily: 'monospace' }}>
+                                    {m.value}
+                                </span>
+                            </div>
+                        </React.Fragment>
+                    ))}
+                </div>
+
+                {/* ── Tab bar ── */}
+                <div style={{
+                    display: 'flex', gap: 3, background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, padding: 4,
+                }}>
+                    {tabs.map(t => (
+                        <button
+                            key={t}
+                            onClick={() => setCondPanelTab(t)}
+                            style={{
+                                flex: 1, padding: '7px 0', borderRadius: 7, cursor: 'pointer',
+                                background: condPanelTab === t ? 'rgba(255,255,255,0.07)' : 'transparent',
+                                border: condPanelTab === t ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent',
+                                color: condPanelTab === t ? '#e2e8f0' : '#374151',
+                                fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', transition: 'all 120ms',
+                            }}
+                        >{t}</button>
+                    ))}
+                </div>
+
+                {/* ── Tab content ── */}
+                <div style={{ minHeight: 160 }}>
+                    {/* Condition */}
+                    {condPanelTab === 'condition' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            {overall != null && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '0.6rem', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                                        overall
+                                    </span>
+                                    <span style={{
+                                        fontSize: '1.4rem', fontWeight: 900, fontFamily: 'monospace',
+                                        color: attrColor(overall), textShadow: `0 0 16px ${attrColor(overall)}50`,
+                                        lineHeight: 1,
+                                    }}>
+                                        {overall.toFixed(1)}
+                                    </span>
+                                </div>
+                            )}
+                            {hasAttrs ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {attrs.map(({ label, value }) => (
+                                        <div key={label}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                                                <span style={{ fontSize: '0.62rem', color: '#6b7280', letterSpacing: '0.03em' }}>{label}</span>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: attrColor(value) }}>
+                                                    {value.toFixed(1)}
+                                                </span>
+                                            </div>
+                                            <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    height: '100%', width: `${(value / 10) * 100}%`,
+                                                    background: attrColor(value), borderRadius: 3,
+                                                    transition: 'width 500ms ease',
+                                                }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <span style={{ fontSize: '0.65rem', color: '#374151' }}>No condition data.</span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Stats */}
+                    {condPanelTab === 'stats' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            {nat && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                                    padding: '8px 12px', borderRadius: 9,
+                                    background: `${natColor}0d`, border: `1px solid ${natColor}25`,
+                                }}>
+                                    <span style={{ fontSize: '0.48rem', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Nature</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: natColor, textShadow: `0 0 8px ${natColor}50` }}>
+                                        {nat.name}
+                                    </span>
+                                    {nat.tier !== 'regular' && (
+                                        <span style={{
+                                            fontSize: '0.42rem', fontWeight: 700, padding: '1px 6px',
+                                            borderRadius: 4, background: `${natColor}18`, border: `1px solid ${natColor}40`,
+                                            color: natColor, letterSpacing: '0.06em', textTransform: 'uppercase',
+                                        }}>{nat.tier}</span>
+                                    )}
+                                    {nat.effect && (
+                                        <span style={{ fontSize: '0.5rem', color: '#4b5563', marginLeft: 'auto' }}>{nat.effect}</span>
+                                    )}
+                                </div>
+                            )}
+                            {statRows.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {statRows.map(({ l, v, c }) => (
+                                        <div key={l}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                                                <span style={{ fontSize: '0.58rem', color: '#4b5563', letterSpacing: '0.04em' }}>{l}</span>
+                                                <span style={{ fontSize: '0.7rem', fontWeight: 700, fontFamily: 'monospace', color: c }}>{v}</span>
+                                            </div>
+                                            <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    height: '100%', width: `${(v / maxSt) * 100}%`,
+                                                    background: c, borderRadius: 3, transition: 'width 500ms ease',
+                                                }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                !nat && <span style={{ fontSize: '0.65rem', color: '#374151' }}>No stats available.</span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Moves */}
+                    {condPanelTab === 'moves' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {(currentCard.preview_moves ?? []).length === 0 ? (
+                                <span style={{ fontSize: '0.65rem', color: '#374151' }}>No moves data yet.</span>
+                            ) : (
+                                (currentCard.preview_moves ?? []).map((mv, i) => (
+                                    <div key={i} style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '10px 12px', borderRadius: 9,
+                                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                                    }}>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#d1d5db', textTransform: 'capitalize' }}>
+                                            {mv.name.replace(/-/g, ' ')}
+                                        </span>
+                                        <span style={{
+                                            fontSize: '0.52rem', fontWeight: 700, color: '#60a5fa',
+                                            background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)',
+                                            borderRadius: 5, padding: '2px 7px', fontFamily: 'monospace',
+                                        }}>Lv.{mv.learnedAt}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )
+    }
 
     const iconBtnStyle = (color: string): React.CSSProperties => (
         isMobile
@@ -471,10 +710,13 @@ export function CardStatsPanel({
                         paddingBottom: 8,
                     }}
                 >
-                    {(['condition', 'stats'] as const).map((t) => (
+                    {(showMoves
+                        ? (['condition', 'stats', 'moves'] as const)
+                        : (['condition', 'stats'] as const)
+                    ).map((t) => (
                         <button
                             key={t}
-                            onClick={() => setCondPanelTab(t)}
+                            onClick={() => setCondPanelTab(t as 'condition' | 'stats' | 'moves')}
                             style={{
                                 fontSize: '0.55rem',
                                 fontWeight: 700,
@@ -1063,11 +1305,52 @@ export function CardStatsPanel({
                             </div>
                         </>
                     )}
+                    {/* Moves tab */}
+                    {condPanelTab === 'moves' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {(currentCard.preview_moves ?? []).length === 0 ? (
+                                <div style={{ fontSize: '0.62rem', color: '#4b5563', padding: '8px 0' }}>
+                                    No moves data yet.
+                                </div>
+                            ) : (
+                                (currentCard.preview_moves ?? []).map((mv, i) => (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(255,255,255,0.07)',
+                                            borderRadius: 6,
+                                            padding: '5px 8px',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#e2e8f0', textTransform: 'capitalize' }}>
+                                            {mv.name.replace(/-/g, ' ')}
+                                        </span>
+                                        <span style={{
+                                            fontSize: '0.5rem',
+                                            fontWeight: 700,
+                                            color: '#60a5fa',
+                                            background: 'rgba(96,165,250,0.1)',
+                                            border: '1px solid rgba(96,165,250,0.2)',
+                                            borderRadius: 4,
+                                            padding: '1px 5px',
+                                            fontFamily: 'monospace',
+                                        }}>
+                                            Lv.{mv.learnedAt}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
                 </div>
                 {/* end tab content */}
 
                 {/* Action icon buttons */}
-                <div
+                {!hideActions && <div
                     style={{
                         display: 'flex',
                         gap: 8,
@@ -1246,7 +1529,7 @@ export function CardStatsPanel({
                             </div>
                         )}
                     </div>
-                </div>
+                </div>}
             </div>
         </>
     )

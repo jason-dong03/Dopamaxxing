@@ -15,14 +15,18 @@ import {
     isRainbow,
 } from '@/lib/rarityConfig'
 
-export default function PackSelector({ coins: initialCoins }: { coins?: number }) {
+export default function PackSelector({ coins: _unusedCoins }: { coins?: number }) {
     const { profile } = useProfile()
-    const [coins, setCoins] = useState(initialCoins ?? profile?.coins ?? 0)
-    // sync from userStore once profile loads (or when prop is explicitly provided)
+    // null = not yet initialized. Once profile loads we set it once and own it locally.
+    const [coins, setCoins] = useState<number | null>(null)
+    const coinsSeeded = useRef(false)
     useEffect(() => {
-        if (initialCoins !== undefined) { setCoins(initialCoins); return }
-        if (profile?.coins !== undefined) setCoins(profile.coins)
-    }, [initialCoins, profile?.coins])
+        if (!coinsSeeded.current && profile?.coins != null) {
+            setCoins(profile.coins)
+            coinsSeeded.current = true
+        }
+    }, [profile?.coins])
+    const effectiveCoins = coins ?? 0
     const [selectedPack, setSelectedPack] = useState<Pack | null>(null)
     const [selectedCount, setSelectedCount] = useState<number>(1)
     const savedScrollY = useRef(0)
@@ -253,8 +257,8 @@ export default function PackSelector({ coins: initialCoins }: { coins?: number }
                 )}
 
                 <BlackMarket
-                    coins={coins}
-                    onCoinsChange={(delta) => setCoins(prev => prev + delta)}
+                    coins={effectiveCoins}
+                    onCoinsChange={(delta) => setCoins(prev => (prev ?? 0) + delta)}
                 />
 
                 <PackTabs
@@ -280,7 +284,7 @@ export default function PackSelector({ coins: initialCoins }: { coins?: number }
                             data-tutorial="packs"
                             title="classic packs"
                             packs={packs}
-                            coins={coins}
+                            coins={effectiveCoins}
                             bagFull={bagFull}
                             stock={stock}
                             discounts={discounts}
@@ -305,7 +309,7 @@ export default function PackSelector({ coins: initialCoins }: { coins?: number }
                             title="special packs"
                             gold
                             packs={specialPacks}
-                            coins={coins}
+                            coins={effectiveCoins}
                             bagFull={bagFull}
                             stock={stock}
                             discounts={discounts}
@@ -330,7 +334,7 @@ export default function PackSelector({ coins: initialCoins }: { coins?: number }
                             title="crates"
                             gold
                             packs={boxes}
-                            coins={coins}
+                            coins={effectiveCoins}
                             bagFull={bagFull}
                             stock={stock}
                             discounts={discounts}
@@ -354,7 +358,7 @@ export default function PackSelector({ coins: initialCoins }: { coins?: number }
                         <PackShopList
                             title="admin test packs"
                             packs={PACKS.filter(p => p.test)}
-                            coins={coins}
+                            coins={effectiveCoins}
                             bagFull={false}
                             stock={{}}
                             discounts={{}}
@@ -704,7 +708,7 @@ function ShopPackRow({
     onPreview: (pack: Pack) => void
 }) {
     const discountedCost = parseFloat((pack.cost * (1 - discount)).toFixed(2))
-    const canAfford = isAdmin || coins >= discountedCost
+    const canAfford = isAdmin || (coins ?? 0) >= discountedCost
     const hasStock = isAdmin || stock > 0
     const isLevelGated = !isAdmin && !!pack.level_required && userLevel < pack.level_required
     const disabled = bagFull || !canAfford || !hasStock || isLevelGated

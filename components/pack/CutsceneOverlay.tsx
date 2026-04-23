@@ -81,34 +81,34 @@ export function PackCutscene({ tier, onComplete }: { tier: Tier; onComplete: () 
 
     const cfg = TIER_CONFIG[tier]
 
-    const { displayed: text1, done: done1 } = useTypewriter(cfg.line1, 0, 55, line1Active)
-    const { displayed: text2 } = useTypewriter(cfg.line2, 0, 38, line2Active)
+    const { displayed: text1, done: done1 } = useTypewriter(cfg.line1, 0, 35, line1Active)
+    const { displayed: text2 } = useTypewriter(cfg.line2, 0, 25, line2Active)
 
     // line 1 done → show divider
     useEffect(() => {
         if (!done1) return
-        const t = setTimeout(() => setShowDivider(true), 180)
+        const t = setTimeout(() => setShowDivider(true), 120)
         return () => clearTimeout(t)
     }, [done1])
 
     // divider shown → start line 2
     useEffect(() => {
         if (!showDivider) return
-        const t = setTimeout(() => setLine2Active(true), 500)
+        const t = setTimeout(() => setLine2Active(true), 300)
         return () => clearTimeout(t)
     }, [showDivider])
 
     // total duration timing
     useEffect(() => {
-        const line1StartMs = 300
-        const line1Duration = cfg.line1.length * 55
-        const dividerDelay = 180
-        const dividerDuration = 500
-        const line2Duration = cfg.line2.length * 38
-        const holdMs = 700
+        const line1StartMs = 150
+        const line1Duration = cfg.line1.length * 35
+        const dividerDelay = 120
+        const dividerDuration = 300
+        const line2Duration = cfg.line2.length * 25
+        const holdMs = 300
 
         const exitAt = line1StartMs + line1Duration + dividerDelay + dividerDuration + line2Duration + holdMs
-        const doneAt = exitAt + 500
+        const doneAt = exitAt + 250
 
         const timers = [
             setTimeout(() => setShow(true), 10),
@@ -133,7 +133,7 @@ export function PackCutscene({ tier, onComplete }: { tier: Tier; onComplete: () 
                 justifyContent: 'center',
                 background: `radial-gradient(ellipse 75% 55% at 50% 50%, ${cfg.bgTint}, rgba(0,0,0,0.97) 60%)`,
                 opacity: show && !exiting ? 1 : 0,
-                transition: exiting ? 'opacity 500ms ease-out' : 'opacity 300ms ease-out',
+                transition: exiting ? 'opacity 250ms ease-out' : 'opacity 180ms ease-out',
                 pointerEvents: 'none',
             }}
         >
@@ -177,7 +177,7 @@ export function PackCutscene({ tier, onComplete }: { tier: Tier; onComplete: () 
                     transformOrigin: 'center',
                     transform: showDivider ? 'scaleX(1)' : 'scaleX(0)',
                     opacity: showDivider ? 1 : 0,
-                    transition: 'transform 500ms cubic-bezier(0.22,1,0.36,1), opacity 250ms ease-out',
+                    transition: 'transform 300ms cubic-bezier(0.22,1,0.36,1), opacity 180ms ease-out',
                 }} />
 
                 {/* line 2 — typewriter, hype */}

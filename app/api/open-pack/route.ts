@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
                 supabase
                     .from('profiles')
                     .select(
-                        'pity_counter, pity_threshold, coins, xp, level, bag_capacity, daily_packs_today, daily_reset_date, packs_opened, is_admin',
+                        'pity_counter, pity_threshold, coins, xp, level, bag_capacity, daily_packs_today, daily_reset_date, packs_opened, is_admin, battle_power',
                     )
                     .eq('id', user.id)
                     .single(),
@@ -437,7 +437,7 @@ export async function POST(request: NextRequest) {
         // update pity + coins + xp/level, increment user_metric_quest.packs_opened, and check ownership — in parallel
         const today = new Date().toISOString().slice(0, 10)
         const needsReset = profile?.daily_reset_date !== today
-        const [, , { data: owned }] = await Promise.all([
+        const [, , { data: owned }, earned] = await Promise.all([
             supabase
                 .from('profiles')
                 .update({
@@ -465,12 +465,10 @@ export async function POST(request: NextRequest) {
                 .select('card_id')
                 .eq('user_id', user.id)
                 .in('card_id', cardIds),
+            getEarnedAchievements(user.id),
         ])
 
         const newPacksOpened = (profile?.packs_opened ?? 0) + 1
-
-        // Award pack-related achievements
-        const earned = await getEarnedAchievements(user.id)
         const toAward: string[] = []
         if (!earned.has('pack_addict') && newPacksOpened >= 10)
             toAward.push('pack_addict')
@@ -547,6 +545,9 @@ export async function POST(request: NextRequest) {
                 ...buybackResult,
                 preview_stats: previewStats,
                 preview_nature: previewNature,
+                preview_moves: (pokeData?.levelMoves ?? [])
+                    .filter((m) => m.learnedAt <= cardLevel)
+                    .slice(-4),
             }
         })
 
@@ -566,7 +567,16 @@ export async function POST(request: NextRequest) {
             })()
         }
 
-        const newBR = await recalcBattleRating(supabase, user.id)
+        // BR estimate: only the level-baseline portion changes at pack-open time
+        // (picked cards aren't in user_cards until the bag is flushed). Full
+        // recalc runs fire-and-forget so we don't block the response on an
+        // O(N-cards) query.
+        const estimatedNewBR =
+            (profile?.battle_power ?? 0) + (newLevel - oldLevel) * 1000
+        void recalcBattleRating(supabase, user.id).catch((e) =>
+            console.error('[open-pack] recalcBR failed:', e),
+        )
+        const newBR = estimatedNewBR
         const xpGained = packXpGain(oldLevel)
         return NextResponse.json({
             cards: cardsWithMeta,

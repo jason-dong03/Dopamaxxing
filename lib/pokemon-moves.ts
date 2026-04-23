@@ -105,11 +105,26 @@ export type PokemonData = {
     primaryType: string
 }
 
+// Module-level cache for parsed Pokemon data. Pack opening fetches the same dex
+// numbers repeatedly in short bursts — caching the parsed result (not just the
+// raw network response) avoids redoing the move-list parsing on every pull.
+const pokemonDataCache = new Map<number, Promise<PokemonData | null>>()
+
 /**
  * Fetch a pokemon's base stats AND level-up moves in one API call.
  * Returns null if the request fails or times out.
  */
 export async function fetchPokemonData(dexNumber: number): Promise<PokemonData | null> {
+    const cached = pokemonDataCache.get(dexNumber)
+    if (cached) return cached
+    const p = fetchPokemonDataUncached(dexNumber)
+    pokemonDataCache.set(dexNumber, p)
+    // If the fetch fails, drop the failed promise so the next call can retry
+    p.then(v => { if (v === null) pokemonDataCache.delete(dexNumber) }).catch(() => pokemonDataCache.delete(dexNumber))
+    return p
+}
+
+async function fetchPokemonDataUncached(dexNumber: number): Promise<PokemonData | null> {
     const data = await safeFetch(`${POKEAPI}/pokemon/${dexNumber}`) as any
     if (!data) return null
 

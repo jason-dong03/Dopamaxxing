@@ -61,8 +61,8 @@ export async function getOrGenerateMarket(supabase: SupabaseClient): Promise<Bla
     }
 
     // Generate a new market
-    const durationMs  = (45 + Math.floor(Math.random() * 46)) * 60_000   // 45-90 min
-    const cooldownMs  = (60 + Math.floor(Math.random() * 121)) * 60_000  // 60-180 min after close
+    const durationMs  = 5 * 60_000                                         // 5 min
+    const cooldownMs  = (60 + Math.floor(Math.random() * 121)) * 60_000   // 60-180 min after close
     const activeUntil  = new Date(Date.now() + durationMs)
     const nextMarketAt = new Date(Date.now() + durationMs + cooldownMs)
 

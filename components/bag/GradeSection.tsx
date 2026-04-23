@@ -109,7 +109,7 @@ export function GradeSection({
             <button
                 onClick={handleGradeClick}
                 disabled={grading}
-                className="block w-1/2 mx-auto py-1.5 rounded-lg font-semibold transition-all active:scale-95"
+                className="block w-full py-1.5 rounded-lg font-semibold transition-all active:scale-95"
                 style={{
                     fontSize: '0.62rem',
                     letterSpacing: '0.04em',

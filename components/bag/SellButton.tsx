@@ -61,19 +61,19 @@ export function SellButton({
                 disabled={selling}
                 onMouseEnter={() => setShowTooltip(true)}
                 onMouseLeave={() => setShowTooltip(false)}
-                className="relative block w-1/2 mx-auto py-1 rounded-lg font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                className="relative block w-full py-1 rounded-lg font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5"
                 style={{
                     fontSize: '0.62rem',
                     letterSpacing: '0.06em',
                     opacity: selling ? 0.7 : 1,
                     cursor: selling ? 'not-allowed' : 'pointer',
                     background: selling
-                        ? 'rgba(255,255,255,0.04)'
-                        : 'rgba(255,255,255,0.05)',
+                        ? 'rgba(239,68,68,0.06)'
+                        : 'rgba(239,68,68,0.09)',
                     border: selling
-                        ? '1px solid rgba(255,255,255,0.1)'
-                        : '1px solid rgba(255,255,255,0.14)',
-                    color: selling ? '#6b7280' : '#d1d5db',
+                        ? '1px solid rgba(239,68,68,0.2)'
+                        : '1px solid rgba(239,68,68,0.3)',
+                    color: selling ? '#9ca3af' : '#f87171',
                 }}
             >
                 {selling ? (
@@ -107,10 +107,7 @@ export function SellButton({
                     </>
                 ) : (
                     <>
-                        {uc.is_hot ? '🔥 ' : ''}sell ·{' '}
-                        <span style={{ color: '#4ade80' }}>
-                            ${fmt(sellAmount)}
-                        </span>
+                        {uc.is_hot ? '🔥 ' : ''}sell · ${fmt(sellAmount)}
                     </>
                 )}
             </button>

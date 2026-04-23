@@ -74,7 +74,7 @@ export default function CrateOpening({
     const [bagCapacity, setBagCapacity] = useState<number>(50)
     const [adminBatchCount, setAdminBatchCount] = useState<1 | 10>(1)
 
-    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats'>(
+    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats' | 'moves'>(
         'condition',
     )
     const [bbTooltipPos, setBbTooltipPos] = useState<{

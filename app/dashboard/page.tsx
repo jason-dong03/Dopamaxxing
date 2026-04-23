@@ -16,7 +16,7 @@ export default function Dashboard() {
                 <EventBannerLoader />
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <PackSelector coins={0} />
+                <PackSelector />
             </div>
         </div>
     )

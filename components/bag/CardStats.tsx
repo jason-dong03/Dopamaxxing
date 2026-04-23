@@ -147,9 +147,7 @@ export function CardStats({
     const glowRgb = rarityGlowRgb(rarity)
     const xpNeeded = xpToNextLevel(rarity, uc.card_level)
     const xpPct = Math.min(100, (uc.card_xp / xpNeeded) * 100)
-    const borderColor = rainbow
-        ? 'rgba(168,85,247,0.2)'
-        : `rgba(${glowRgb}, 0.18)`
+    const borderColor = 'rgba(255,255,255,0.06)'
     const barBg = rainbow
         ? 'linear-gradient(90deg,#f87171,#facc15,#4ade80,#60a5fa,#a855f7)'
         : `rgba(${glowRgb}, 0.9)`
@@ -209,13 +207,22 @@ export function CardStats({
             value: `#${String(uc.cards.national_pokedex_number).padStart(3, '0')}`,
             color: '#9ca3af',
             isLevel: false,
+            isBR: false,
         },
-        { label: 'hp', value: uc.cards.hp, color: '#f87171', isLevel: false },
+        { label: 'hp', value: uc.cards.hp, color: '#f87171', isLevel: false, isBR: false },
         {
             label: 'level',
             value: uc.card_level,
             color: '#60a5fa',
             isLevel: true,
+            isBR: false,
+        },
+        {
+            label: 'br',
+            value: formatBR(thisBP),
+            color: '#ffffff',
+            isLevel: false,
+            isBR: true,
         },
     ]
 
@@ -478,66 +485,62 @@ export function CardStats({
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 10,
+                            gap: 8,
                             flexWrap: 'wrap',
                         }}
                     >
+                        {uc.cards.pokemon_type && (
+                            <span
+                                style={{
+                                    fontSize: '0.48rem',
+                                    fontWeight: 700,
+                                    textTransform: 'capitalize',
+                                    color: '#fff',
+                                    background: TYPE_COLOR[uc.cards.pokemon_type] ?? '#6b7280',
+                                    borderRadius: 4,
+                                    padding: '1px 5px',
+                                    letterSpacing: '0.03em',
+                                }}
+                            >
+                                {uc.cards.pokemon_type}
+                            </span>
+                        )}
+                        {natureObj && (
+                            <span
+                                style={{
+                                    fontSize: '0.48rem',
+                                    fontWeight: 700,
+                                    color: natureTierColor,
+                                    background: `${natureTierColor}14`,
+                                    border: `1px solid ${natureTierColor}30`,
+                                    borderRadius: 4,
+                                    padding: '1px 5px',
+                                }}
+                            >
+                                {natureObj.name}
+                            </span>
+                        )}
+                        <span style={{ fontSize: '0.5rem', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>raw</span>
                         <span
                             style={{
                                 fontSize: '0.56rem',
-                                color: '#9ca3af',
-                                fontFamily: 'monospace',
-                            }}
-                        >
-                            #
-                            {String(
-                                uc.cards.national_pokedex_number ?? 0,
-                            ).padStart(3, '0')}
-                        </span>
-
-                        <span
-                            style={{
-                                fontSize: '0.56rem',
-                                color: '#60a5fa',
+                                color: '#4ade80',
                                 fontFamily: 'monospace',
                                 fontWeight: 700,
-                            }}
-                        >
-                            Lv. {uc.card_level}
-                        </span>
-
-                        <span
-                            style={{
-                                fontSize: '0.56rem',
-                                color: '#eab308',
-                                fontFamily: 'monospace',
                             }}
                         >
                             ${Number(uc.cards.market_price_usd ?? 0).toFixed(2)}
                         </span>
-
-                        {uc.grade != null && (
-                            <span
-                                style={{
-                                    fontSize: '0.56rem',
-                                    color: '#f87171',
-                                    fontFamily: 'monospace',
-                                    fontWeight: 700,
-                                }}
-                            >
-                                PSA {uc.grade}
-                            </span>
-                        )}
+                        <span style={{ fontSize: '0.5rem', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>worth</span>
                         <span
                             style={{
                                 fontSize: '0.56rem',
-                                color: '#facc15',
+                                color: worthDelta > 0 ? '#4ade80' : '#de4a4a',
                                 fontFamily: 'monospace',
                                 fontWeight: 700,
                             }}
-                            title={`Battle Rating: ${thisBP.toLocaleString()}`}
                         >
-                            {formatBR(thisBP)} BR
+                            {worthDisplay}
                         </span>
                     </div>
                 </div>
@@ -560,6 +563,27 @@ export function CardStats({
             className="flex flex-col flex-1 min-w-0 overflow-y-auto"
             style={{ minHeight: 320 }}
         >
+            {/* Favorite + showcase — always visible */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <button
+                    onClick={onToggleFavorite}
+                    className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+                    style={{ cursor: 'pointer' }}
+                    title={uc.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                    <span style={{
+                        fontSize: '0.95rem', color: '#facc15', lineHeight: 1,
+                        filter: uc.is_favorited ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))' : 'none',
+                        transition: 'filter 0.15s ease',
+                    }}>
+                        {uc.is_favorited ? '★' : '☆'}
+                    </span>
+                    <span style={{ fontSize: '0.58rem', color: uc.is_favorited ? '#facc15' : '#6b7280' }}>
+                        {uc.is_favorited ? 'favorited' : 'favorite'}
+                    </span>
+                </button>
+                <ShowcaseButton uc={uc} />
+            </div>
             {summaryBlock}
             {/* tab switcher */}
             <div
@@ -618,50 +642,10 @@ export function CardStats({
 
             {detailTab === 'overview' && (
                 <>
-                    {/* name + rarity */}
+                    {/* name + rarity — shown when summary is collapsed */}
                     {!summaryOpen && (
                         <div className="mb-4">
-                            <div className="flex items-center gap-3 mb-2">
-                                {/* favorites toggle */}
-                                <button
-                                    onClick={onToggleFavorite}
-                                    className="flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
-                                    style={{ cursor: 'pointer' }}
-                                    title={
-                                        uc.is_favorited
-                                            ? 'Remove from favorites'
-                                            : 'Add to favorites'
-                                    }
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: '1rem',
-                                            color: '#facc15',
-                                            lineHeight: 1,
-                                            filter: uc.is_favorited
-                                                ? 'drop-shadow(0 0 6px rgba(250,204,21,0.9))'
-                                                : 'none',
-                                            transition: 'filter 0.15s ease',
-                                        }}
-                                    >
-                                        {uc.is_favorited ? '★' : '☆'}
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: '0.58rem',
-                                            color: uc.is_favorited
-                                                ? '#facc15'
-                                                : '#6b7280',
-                                        }}
-                                    >
-                                        {uc.is_favorited
-                                            ? 'favorited'
-                                            : 'favorite'}
-                                    </span>
-                                </button>
-                                {/* showcase toggle (1 per user) */}
-                                <ShowcaseButton uc={uc} />
-                            </div>
+                            <div>
                             {uc.is_hot && (
                                 <span
                                     className="block mb-1"
@@ -794,6 +778,7 @@ export function CardStats({
                                 >
                                     {worthDisplay}
                                 </span>
+                            </div>
                             </div>
                         </div>
                     )}
@@ -956,15 +941,19 @@ export function CardStats({
                             </div>
                         </div>
 
-                        {/* grade */}
-                        <GradeSection uc={uc} onGraded={onGraded} />
-
-                        {/* sell button */}
-                        <SellButton
-                            uc={uc}
-                            sellAmount={computedSellAmount}
-                            onSell={handleSellWithAnimation}
-                        />
+                        {/* grade + sell side by side */}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                                <GradeSection uc={uc} onGraded={onGraded} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <SellButton
+                                    uc={uc}
+                                    sellAmount={computedSellAmount}
+                                    onSell={handleSellWithAnimation}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </>
             )}
@@ -2505,14 +2494,19 @@ export function CardStats({
                                     </div>
                                 </div>
 
-                                {/* grade */}
-                                <GradeSection uc={uc} onGraded={onGraded} />
-
-                                <SellButton
-                                    uc={uc}
-                                    sellAmount={computedSellAmount}
-                                    onSell={handleSellWithAnimation}
-                                />
+                                {/* grade + sell side by side */}
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <GradeSection uc={uc} onGraded={onGraded} />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <SellButton
+                                            uc={uc}
+                                            sellAmount={computedSellAmount}
+                                            onSell={handleSellWithAnimation}
+                                        />
+                                    </div>
+                                </div>
 
                                 {/* favorite + showcase inline */}
                                 <div

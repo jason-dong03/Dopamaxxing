@@ -11,6 +11,16 @@ export default function CoinDisplay({
     const [coins, setCoins] = useState(initialCoins)
     const [flashes, setFlashes] = useState<Flash[]>([])
     const [isMobile, setIsMobile] = useState(false)
+    const initializedRef = useRef(false)
+
+    // Profile loads async, so initialCoins starts at 0. Sync once when the real
+    // value arrives (prop changes from 0 → actual balance after prefetch).
+    useEffect(() => {
+        if (!initializedRef.current && initialCoins > 0) {
+            setCoins(initialCoins)
+            initializedRef.current = true
+        }
+    }, [initialCoins])
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 640)

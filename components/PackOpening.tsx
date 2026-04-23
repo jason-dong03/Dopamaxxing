@@ -11,6 +11,7 @@ import {
     rarityTextClass,
     rarityTextStyle,
     rarityToOdds,
+    calculateBuyback,
 } from '@/lib/rarityConfig'
 import { useRouter } from 'next/navigation'
 import AutoCompleteSettings from './AutoCompleteSettings'
@@ -73,6 +74,7 @@ export default function PackOpening({
     const [userCoins, setUserCoins] = useState<number | null>(null)
     const [spinning, setSpinning] = useState(false)
     const [dramaticPulse, setDramaticPulse] = useState(false)
+    const [epicMythicPulse, setEpicMythicPulse] = useState<'epic'|'mythic'|null>(null)
     const [catchShimmer, setCatchShimmer] = useState<'legendary'|'divine'|'celestial'|'mystery'|null>(null)
     const [slowShake, setSlowShake] = useState(false)
     const [cutsceneTier, setCutsceneTier] = useState<'legendary'|'divine'|'celestial'|'mystery'|null>(null)
@@ -96,7 +98,10 @@ export default function PackOpening({
     const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set())
     const [animatingIndex, setAnimatingIndex] = useState<number | null>(null)
     const [doneIndex, setDoneIndex] = useState(0)
-    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats'>(
+    const [condPanelTab, setCondPanelTab] = useState<'condition' | 'stats' | 'moves'>(
+        'condition',
+    )
+    const [detailsCondPanelTab, setDetailsCondPanelTab] = useState<'condition' | 'stats' | 'moves'>(
         'condition',
     )
     const [openCount, setOpenCount] = useState(count)
@@ -169,6 +174,7 @@ export default function PackOpening({
         }[]
     >([])
     const packImgRef = useRef<HTMLDivElement>(null)
+    const topCardRef = useRef<HTMLDivElement>(null)
     const [bagCount, setBagCount] = useState<number | null>(null)
     const [bagCapacity, setBagCapacity] = useState<number>(50)
 
@@ -318,7 +324,6 @@ export default function PackOpening({
 
         setSpinning(true)
         const shakeStart = Date.now()
-        const MIN_SHAKE_MS = 560 // at least 2 cycles
         // Safety cap only — shake runs API-long; this only fires on a hung request
         const shakeTimer = setTimeout(() => setSpinning(false), 3000)
 
@@ -418,16 +423,9 @@ export default function PackOpening({
             })
         }
 
-        // ── ensure minimum 2 shake cycles even if API was instant ────────
-        const elapsed = Date.now() - shakeStart
-        if (elapsed < MIN_SHAKE_MS)
-            await new Promise((r) => setTimeout(r, MIN_SHAKE_MS - elapsed))
-        clearTimeout(shakeTimer)
-        setSpinning(false)
-
-        // ── pokéball-catch sequence for Legendary+ pulls ──────────────────
+        // ── determine top rarity (feeds both min-shake length + catch seq) ──
         const RARITY_SHAKE_COUNT: Record<string, number> = {
-            Legendary: 1, Divine: 2, Celestial: 3, '???': 4,
+            Legendary: 1, Divine: 1, Celestial: 2, '???': 3,
         }
         const RARITY_SPARK_COLORS: Record<string, string[]> = {
             Legendary: ['#facc15','#fbbf24','#f59e0b','#fde68a','#fff8'],
@@ -437,10 +435,30 @@ export default function PackOpening({
         }
         const presentRarities = new Set(openedCards.map((c) => c.rarity))
         const topRarity = ['???','Celestial','Divine','Legendary'].find(r => presentRarities.has(r)) ?? null
+        const hasEpicPlus = presentRarities.has('Epic') || presentRarities.has('Mythical')
+
+        // ── ensure a minimum shake window even if API was instant ────────
+        // Rarer pulls deserve more anticipation; commons just get a token shake.
+        const MIN_SHAKE_MS = topRarity ? 350 : hasEpicPlus ? 280 : 200
+        const elapsed = Date.now() - shakeStart
+        if (elapsed < MIN_SHAKE_MS)
+            await new Promise((r) => setTimeout(r, MIN_SHAKE_MS - elapsed))
+        clearTimeout(shakeTimer)
+        setSpinning(false)
+
+        // Epic/Mythic get a single aura pulse instead of the full Legendary+ cutscene.
+        // Fires after the shake so it reads as a "something's special" beat before exit.
+        if (!topRarity && hasEpicPlus) {
+            const tier = presentRarities.has('Mythical') ? 'mythic' : 'epic'
+            setEpicMythicPulse(tier)
+            await new Promise((r) => setTimeout(r, tier === 'mythic' ? 500 : 450))
+        }
+
+        // ── pokéball-catch sequence for Legendary+ pulls ──────────────────
         const shakeCount = topRarity ? RARITY_SHAKE_COUNT[topRarity] : 0
         const isSlow = topRarity === '???' || topRarity === 'Celestial'
         const shakeDuration = isSlow ? 450 : 270
-        const pauseBetween = isSlow ? 500 : 350
+        const pauseBetween = isSlow ? 300 : 200
 
         const shimmerTier = topRarity === '???' ? 'mystery'
             : topRarity === 'Celestial' ? 'celestial'
@@ -528,6 +546,7 @@ export default function PackOpening({
                 setExiting(false)
                 setCatchShimmer(null)
                 setSlowShake(false)
+                setEpicMythicPulse(null)
                 setPhase(isMulti ? 'multi-revealing' : 'revealing')
             }, 260)
         }
@@ -539,7 +558,7 @@ export default function PackOpening({
         const next = revealedCount + 1
         setRevealedCount(next)
         if (next === cards.length) {
-            setTimeout(() => setPhase('done'), 700)
+            setTimeout(() => setPhase('done'), 200)
         }
     }
 
@@ -986,7 +1005,9 @@ export default function PackOpening({
             if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') {
                 e.preventDefault()
                 if (phase === 'revealing') {
-                    handleReveal()
+                    // Simulate a click on the top card so FlipCard's two-step flow
+                    // (flip → confirm) runs correctly instead of skipping the animation.
+                    topCardRef.current?.click()
                 } else {
                     const allFlipped = packRevealedCount >= cardsPerPack
                     if (allFlipped) {
@@ -1171,9 +1192,11 @@ export default function PackOpening({
                             )}
                         <div
                             ref={packImgRef}
-                            className={`${!isAdmin && !free && stock <= 0 ? 'cursor-not-allowed' : 'cursor-pointer animate-subtle-pulse hover:scale-105'} ${spinning ? 'animate-subtle-shake' : ''} ${dramaticPulse ? (slowShake ? 'animate-dramatic-pulse-slow' : 'animate-dramatic-pulse') : ''} ${exiting ? 'animate-pack-exit' : ''}${!spinning && !dramaticPulse && !exiting && pack.idle_aura ? ` ${pack.idle_aura}` : ''}`}
+                            className={`${!isAdmin && !free && stock <= 0 ? 'cursor-not-allowed' : 'cursor-pointer animate-subtle-pulse hover:scale-105'} ${spinning ? 'animate-subtle-shake' : ''} ${dramaticPulse ? (slowShake ? 'animate-dramatic-pulse-slow' : 'animate-dramatic-pulse') : ''} ${epicMythicPulse === 'mythic' ? 'pack-pulse-mythic' : epicMythicPulse === 'epic' ? 'pack-pulse-epic' : ''} ${exiting ? 'animate-pack-exit' : ''}${!spinning && !dramaticPulse && !epicMythicPulse && !exiting && pack.idle_aura ? ` ${pack.idle_aura}` : ''}`}
                             style={{
-                                ...(!pack.idle_aura || spinning || exiting
+                                ...(epicMythicPulse
+                                    ? {} // let .pack-pulse-* keyframes own the filter
+                                    : !pack.idle_aura || spinning || exiting
                                     ? {
                                           filter:
                                               !isAdmin && !free && stock <= 0
@@ -1573,6 +1596,7 @@ export default function PackOpening({
                                 return (
                                     <div
                                         key={`${card.id}-${index}`}
+                                        ref={isTop ? topCardRef : undefined}
                                         className={`absolute${fanVisible ? ' card-fan-fly' : ''}`}
                                         style={
                                             fanVisible
@@ -2173,6 +2197,16 @@ export default function PackOpening({
                                         transform: currentCenterSkew,
                                     }}
                                 />
+                                {!shattering &&
+                                    (currentCard.rarity === 'Legendary' ||
+                                        currentCard.rarity === 'Divine' ||
+                                        currentCard.rarity === 'Celestial') && (
+                                        <div className="card-gleam-clip">
+                                            <div
+                                                className={`card-gleam-streak ${currentCard.rarity.toLowerCase()}`}
+                                            />
+                                        </div>
+                                    )}
                                 {/* Rarity + NEW tags */}
                                 <div
                                     style={{
@@ -2268,6 +2302,46 @@ export default function PackOpening({
                                 handleBuyback={handleBuyback}
                                 onAction={() => setShowDetails(false)}
                             />
+                        )
+
+                        const detailsPanel = (
+                            <CardStatsPanel
+                                currentCard={currentCard}
+                                isMobile={isMobile}
+                                condPanelTab={detailsCondPanelTab}
+                                setCondPanelTab={setDetailsCondPanelTab}
+                                bbTooltipPos={bbTooltipPos}
+                                setBbTooltipPos={setBbTooltipPos}
+                                bagCount={bagCount}
+                                bagCapacity={bagCapacity}
+                                currentCardIsNew={currentCardIsNew}
+                                animatingIndex={animatingIndex}
+                                shattering={shattering}
+                                isFetchingCopies={isFetchingCopies}
+                                handleAddToBag={handleAddToBag}
+                                handleAddToBagDuplicate={handleAddToBagDuplicate}
+                                handleFeedCard={handleFeedCard}
+                                handleBuyback={handleBuyback}
+                                onAction={() => setShowDetails(false)}
+                                hideActions
+                                showMoves
+                                mode="overlay"
+                            />
+                        )
+
+                        const mobileAttrs = [
+                            currentCard.attr_centering,
+                            currentCard.attr_corners,
+                            currentCard.attr_edges,
+                            currentCard.attr_surface,
+                        ].filter((v): v is number => v != null)
+                        const mobileOverall = mobileAttrs.length
+                            ? Math.round((mobileAttrs.reduce((s, v) => s + v, 0) / mobileAttrs.length) * 10) / 10
+                            : null
+                        const mobileBuyback = calculateBuyback(
+                            currentCard.rarity,
+                            Number(currentCard.worth) || 0,
+                            (currentCard.set_id as string | undefined)?.endsWith('-1ed') ?? false,
                         )
 
                         return (
@@ -2380,9 +2454,21 @@ export default function PackOpening({
                                         setDoneIndex={setDoneIndex}
                                         autoReverse={prefs.autoReverse}
                                         isMobile={isMobile}
-                                        onShowDetails={() =>
-                                            setShowDetails(true)
-                                        }
+                                        onShowDetails={() => setShowDetails(true)}
+                                        mobileInfoPanel={isMobile ? {
+                                            worth: Number(currentCard.worth) || 0,
+                                            overall: mobileOverall,
+                                            card_level: currentCard.card_level,
+                                            buybackAmount: mobileBuyback.amount,
+                                            bagFull: bagCount !== null && bagCount >= bagCapacity,
+                                            actDisabled: animatingIndex !== null || shattering,
+                                            isFetchingCopies,
+                                            currentCardIsNew,
+                                            handleAddToBag,
+                                            handleAddToBagDuplicate,
+                                            handleFeedCard,
+                                            handleBuyback,
+                                        } : undefined}
                                     />
                                 </div>
 
@@ -2403,33 +2489,41 @@ export default function PackOpening({
                                                 setShowDetails(false)
                                         }}
                                     >
-                                        <div
-                                            style={{
-                                                padding: '16px 16px 32px',
-                                                maxWidth: 400,
-                                                width: '100%',
-                                                overflowY: 'auto',
-                                                maxHeight: '100vh',
-                                            }}
-                                        >
-                                            <button
-                                                onClick={() =>
-                                                    setShowDetails(false)
-                                                }
-                                                style={{
-                                                    display: 'block',
-                                                    marginLeft: 'auto',
-                                                    marginBottom: 12,
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#6b7280',
-                                                    fontSize: '0.72rem',
-                                                    cursor: 'pointer',
-                                                }}
-                                            >
-                                                ✕ close
-                                            </button>
-                                            {statsPanel}
+                                        <div style={{
+                                            width: '100%',
+                                            maxWidth: 440,
+                                            maxHeight: '100dvh',
+                                            overflowY: 'auto',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                        }}>
+                                            {/* sticky close bar */}
+                                            <div style={{
+                                                position: 'sticky', top: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: '14px 20px 10px',
+                                                background: 'rgba(10,10,18,0.92)',
+                                                backdropFilter: 'blur(12px)',
+                                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                zIndex: 1,
+                                            }}>
+                                                <span style={{ fontSize: '0.6rem', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+                                                    Card Details
+                                                </span>
+                                                <button
+                                                    onClick={() => setShowDetails(false)}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        width: 28, height: 28, borderRadius: '50%',
+                                                        background: 'rgba(255,255,255,0.06)',
+                                                        border: '1px solid rgba(255,255,255,0.08)',
+                                                        color: '#6b7280', fontSize: '0.75rem', cursor: 'pointer',
+                                                    }}
+                                                >✕</button>
+                                            </div>
+                                            <div style={{ padding: '20px 20px 40px' }}>
+                                                {detailsPanel}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
