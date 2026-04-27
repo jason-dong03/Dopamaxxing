@@ -34,7 +34,17 @@ export default function LeaderboardSidebar() {
     const [activeTab, setActiveTab] = useState<Metric>('br')
     const [rows, setRows] = useState<Row[]>([])
     const [loading, setLoading] = useState(false)
+    const [packOpening, setPackOpening] = useState(false)
     const cache = useRef<Partial<Record<Metric, Row[]>>>({})
+
+    useEffect(() => {
+        function onPhase(e: Event) {
+            const phase = (e as CustomEvent<string>).detail
+            setPackOpening(phase !== 'idle' && phase !== 'done')
+        }
+        window.addEventListener('pack-phase', onPhase)
+        return () => window.removeEventListener('pack-phase', onPhase)
+    }, [])
 
     async function load(metric: Metric) {
         if (cache.current[metric]) {
@@ -58,6 +68,8 @@ export default function LeaderboardSidebar() {
     useEffect(() => {
         if (open) load(activeTab)
     }, [open, activeTab])
+
+    if (packOpening) return null
 
     return (
         <>

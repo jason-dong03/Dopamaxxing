@@ -7,6 +7,8 @@ import { usePageCache } from '@/hooks/usePageCache'
 type ProfileData = {
     profile: Profile | null
     showcaseCard: ShowcaseCard | null
+    following: Friend[]
+    followers: Friend[]
     friends: Friend[]
     achievements: AchievementItem[]
     binders: BinderPreview[]
@@ -23,6 +25,8 @@ export default function ProfilePage() {
         <ProfileView
             profile={data.profile}
             showcaseCard={data.showcaseCard}
+            following={data.following}
+            followers={data.followers}
             friends={data.friends}
             achievements={data.achievements}
             binders={data.binders}

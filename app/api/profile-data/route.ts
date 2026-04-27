@@ -79,21 +79,29 @@ export async function GET() {
     )
 
     const friendships = friendshipsRaw ?? []
-    const otherIds = friendships.map((f: any) =>
-        f.requester_id === user.id ? f.addressee_id : f.requester_id,
-    )
-    const { data: friendProfiles } =
-        otherIds.length > 0
+    const followingIds = friendships
+        .filter((f: any) => f.requester_id === user.id)
+        .map((f: any) => f.addressee_id)
+    const followerIds = friendships
+        .filter((f: any) => f.addressee_id === user.id)
+        .map((f: any) => f.requester_id)
+    const allUniqueIds = [...new Set([...followingIds, ...followerIds])]
+    const { data: socialProfiles } =
+        allUniqueIds.length > 0
             ? await admin
                   .from('profiles')
                   .select('id, username, profile_url')
-                  .in('id', otherIds)
+                  .in('id', allUniqueIds)
             : { data: [] }
-    const friends = (friendProfiles ?? []).map((p: any) => ({
-        id: p.id,
-        username: p.username,
-        profile_url: p.profile_url,
-    }))
+    const profileMap = Object.fromEntries((socialProfiles ?? []).map((p: any) => [p.id, p]))
+    const toFriend = (id: string) => profileMap[id] ? { id: profileMap[id].id, username: profileMap[id].username, profile_url: profileMap[id].profile_url } : null
+    const followingSet = new Set(followingIds)
+    const followerSet = new Set(followerIds)
+    const following = followingIds.map(toFriend).filter(Boolean)
+    const followers = followerIds.map(toFriend).filter(Boolean)
+    const friends = followingIds.filter((id: string) => followerSet.has(id)).map(toFriend).filter(Boolean)
+    // keep `friends` alias pointing to mutual for legacy achievement check
+    const otherIds = allUniqueIds
 
     // retroactively award first_friend achievement
     if (otherIds.length > 0 && !earnedSet.has('first_friend')) {
@@ -123,6 +131,8 @@ export async function GET() {
     return NextResponse.json({
         profile,
         showcaseCard,
+        following,
+        followers,
         friends,
         achievements,
         binders: bindersRaw ?? [],

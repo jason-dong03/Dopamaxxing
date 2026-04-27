@@ -15,26 +15,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // check not already pending/accepted in either direction
+    // check if already following (one-way check: me → them)
     const { data: existing } = await supabase
         .from('friendships')
         .select('id, status')
-        .or(
-            `and(requester_id.eq.${user.id},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${user.id})`
-        )
+        .eq('requester_id', user.id)
+        .eq('addressee_id', addresseeId)
         .maybeSingle()
 
     if (existing) {
-        if (existing.status === 'accepted') return NextResponse.json({ error: 'Already friends' }, { status: 409 })
-        if (existing.status === 'pending') return NextResponse.json({ error: 'Request already pending' }, { status: 409 })
-        // If rejected, allow re-requesting by deleting old then inserting
+        if (existing.status === 'accepted') return NextResponse.json({ error: 'Already following' }, { status: 409 })
+        // If rejected/pending, delete and re-insert
         await supabase.from('friendships').delete().eq('id', existing.id)
     }
 
     const { error } = await supabase.from('friendships').insert({
         requester_id: user.id,
         addressee_id: addresseeId,
-        status: 'pending',
+        status: 'accepted',
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -96,26 +96,30 @@ export default async function UserProfilePage({
           }
         : null
 
-    // friends — fetch profiles separately to avoid FK join issues
+    // social graph — fetch profiles separately to avoid FK join issues
     const earnedSet = new Set(
         (earnedRaw ?? []).map((r: any) => r.achievement_id),
     )
     const friendships = friendshipsRaw ?? []
-    const otherIds = friendships.map((f: any) =>
-        f.requester_id === userId ? f.addressee_id : f.requester_id,
-    )
-    const { data: friendProfiles } =
-        otherIds.length > 0
+    const followingIds = friendships
+        .filter((f: any) => f.requester_id === userId)
+        .map((f: any) => f.addressee_id)
+    const followerIds = friendships
+        .filter((f: any) => f.addressee_id === userId)
+        .map((f: any) => f.requester_id)
+    const allUniqueIds = [...new Set([...followingIds, ...followerIds])]
+    const { data: socialProfiles } =
+        allUniqueIds.length > 0
             ? await admin
                   .from('profiles')
                   .select('id, username, profile_url')
-                  .in('id', otherIds)
+                  .in('id', allUniqueIds)
             : { data: [] }
-    const friends = (friendProfiles ?? []).map((p: any) => ({
-        id: p.id,
-        username: p.username,
-        profile_url: p.profile_url,
-    }))
+    const profileMap = Object.fromEntries((socialProfiles ?? []).map((p: any) => [p.id, { id: p.id, username: p.username, profile_url: p.profile_url }]))
+    const followerSet = new Set(followerIds)
+    const following = followingIds.map((id: string) => profileMap[id]).filter(Boolean)
+    const followers = followerIds.map((id: string) => profileMap[id]).filter(Boolean)
+    const friends = followingIds.filter((id: string) => followerSet.has(id)).map((id: string) => profileMap[id]).filter(Boolean)
 
     // achievements (show visible + earned hidden)
     const achievements = (allAchievements ?? [])
@@ -135,6 +139,8 @@ export default async function UserProfilePage({
         <ProfileView
             profile={profile}
             showcaseCard={showcaseCard}
+            following={following}
+            followers={followers}
             friends={friends}
             achievements={achievements}
             binders={bindersRaw ?? []}

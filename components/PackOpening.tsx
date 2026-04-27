@@ -223,6 +223,11 @@ export default function PackOpening({
         }
     }, [])
 
+    // broadcast phase changes for UI elements that need to hide during opening
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('pack-phase', { detail: phase }))
+    }, [phase])
+
     // nav-home event: return to pack selection from the Home navbar button
     useEffect(() => {
         const handler = () => onBack()
@@ -1526,20 +1531,8 @@ export default function PackOpening({
                 {/* card stack + flip button — offset downward to sit more centred */}
                 {/* ↓ vertical position: adjust translateY below (mobile / desktop) */}
                 {phase === 'revealing' && (
-                    <div
-                        className="animate-cards-slide-up"
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            paddingTop: 'min(20px, 5vw)',
-                            transform: isMobile
-                                ? 'translateY(11px)'
-                                : 'translateY(16px)',
-                        }}
-                    >
-                        {/* rarity badge — fixed top center */}
-                        {showRarity && rarityCard && (
+                    <>
+                        {showRarity && rarityCard && createPortal(
                             <div
                                 className="rarity-badge-reveal"
                                 style={{
@@ -1547,7 +1540,7 @@ export default function PackOpening({
                                     top: 66,
                                     left: '50%',
                                     transform: 'translateX(-50%)',
-                                    zIndex: 60,
+                                    zIndex: 10002,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
@@ -1571,8 +1564,21 @@ export default function PackOpening({
                                 >
                                     {rarityCard.rarity}
                                 </span>
-                            </div>
+                            </div>,
+                            document.body,
                         )}
+                    <div
+                        className="animate-cards-slide-up"
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            paddingTop: 'min(20px, 5vw)',
+                            transform: isMobile
+                                ? 'translateY(11px)'
+                                : 'translateY(16px)',
+                        }}
+                    >
                         <div
                             className="relative flex items-center justify-center"
                             style={{
@@ -1700,6 +1706,7 @@ export default function PackOpening({
                             </button>
                         </div>
                     </div>
+                    </>
                 )}
 
                 {/* multi-pack reveal phase */}
@@ -1739,23 +1746,7 @@ export default function PackOpening({
                                     </button>,
                                     document.body,
                                 )}
-                            <div
-                                className={
-                                    multiPackIndex === 0
-                                        ? 'animate-cards-slide-up'
-                                        : undefined
-                                }
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    paddingTop: 'min(10px, 8vw)',
-                                    position: 'relative',
-                                    width: '100%',
-                                }}
-                            >
-                                {/* rarity badge — fixed top center */}
-                                {showRarity && rarityCard && (
+                                {showRarity && rarityCard && !allFlipped && createPortal(
                                     <div
                                         className="rarity-badge-reveal"
                                         style={{
@@ -1763,7 +1754,7 @@ export default function PackOpening({
                                             top: 66,
                                             left: '50%',
                                             transform: 'translateX(-50%)',
-                                            zIndex: 60,
+                                            zIndex: 10002,
                                             display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
@@ -1787,8 +1778,24 @@ export default function PackOpening({
                                         >
                                             {rarityCard.rarity}
                                         </span>
-                                    </div>
+                                    </div>,
+                                    document.body,
                                 )}
+                            <div
+                                className={
+                                    multiPackIndex === 0
+                                        ? 'animate-cards-slide-up'
+                                        : undefined
+                                }
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    paddingTop: 'min(10px, 8vw)',
+                                    position: 'relative',
+                                    width: '100%',
+                                }}
+                            >
                                 <div
                                     style={{
                                         display: 'flex',
@@ -1806,11 +1813,35 @@ export default function PackOpening({
                                                     display: 'flex',
                                                     flexDirection: 'column',
                                                     alignItems: 'center',
-                                                    gap: 12,
+                                                    gap: 10,
                                                     animation:
                                                         'fadeIn 250ms ease-out',
                                                 }}
                                             >
+                                                {/* rarity pill above card */}
+                                                <div
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        padding: '4px 16px',
+                                                        borderRadius: 99,
+                                                        background: `rgba(${rarityGlowRgb(packCards[batchRevealIndex]?.rarity ?? '')}, 0.12)`,
+                                                        border: `1px solid rgba(${rarityGlowRgb(packCards[batchRevealIndex]?.rarity ?? '')}, 0.45)`,
+                                                        boxShadow: `0 0 14px rgba(${rarityGlowRgb(packCards[batchRevealIndex]?.rarity ?? '')}, 0.3)`,
+                                                    }}
+                                                >
+                                                    <span style={{
+                                                        fontSize: '0.52rem',
+                                                        fontWeight: 800,
+                                                        letterSpacing: '0.18em',
+                                                        textTransform: 'uppercase' as const,
+                                                        color: `rgba(${rarityGlowRgb(packCards[batchRevealIndex]?.rarity ?? '')}, 1)`,
+                                                        paddingLeft: '0.18em',
+                                                    }}>
+                                                        {packCards[batchRevealIndex]?.rarity}
+                                                    </span>
+                                                </div>
                                                 <div
                                                     style={{
                                                         display: 'flex',
@@ -1882,59 +1913,19 @@ export default function PackOpening({
                                                         →
                                                     </button>
                                                 </div>
-                                                {/* card name + rarity + counter */}
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 8,
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.8rem',
-                                                            fontWeight: 700,
-                                                            color: '#e2e8f0',
-                                                        }}
-                                                    >
-                                                        {
-                                                            packCards[
-                                                                batchRevealIndex
-                                                            ]?.name
-                                                        }
+                                                {/* card name + dex */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                        {packCards[batchRevealIndex]?.name}
                                                     </span>
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.6rem',
-                                                            fontWeight: 700,
-                                                            padding: '2px 7px',
-                                                            borderRadius: 9999,
-                                                            background:
-                                                                'rgba(10,10,15,0.7)',
-                                                            border: '1px solid rgba(255,255,255,0.1)',
-                                                            color: `rgba(${rarityGlowRgb(packCards[batchRevealIndex]?.rarity ?? '')}, 1)`,
-                                                            textTransform:
-                                                                'uppercase' as const,
-                                                            letterSpacing:
-                                                                '0.03em',
-                                                        }}
-                                                    >
-                                                        {
-                                                            packCards[
-                                                                batchRevealIndex
-                                                            ]?.rarity
-                                                        }
-                                                    </span>
-                                                    <span
-                                                        style={{
-                                                            fontSize: '0.65rem',
-                                                            color: '#6b7280',
-                                                        }}
-                                                    >
-                                                        {batchRevealIndex + 1} /{' '}
-                                                        {packCards.length}
+                                                    <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                                        #{String(packCards[batchRevealIndex]?.national_pokedex_number ?? 0).padStart(3, '0')}
                                                     </span>
                                                 </div>
+                                                {/* counter below name */}
+                                                <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>
+                                                    {batchRevealIndex + 1} / {packCards.length}
+                                                </span>
                                             </div>
                                         ) : (
                                             /* Desktop: 1 row ≤5 cards, 2 rows >5 cards */
@@ -2136,7 +2127,7 @@ export default function PackOpening({
                                     {/* buttons row */}
                                     <div
                                         className="flex flex-col items-center gap-2"
-                                        style={{ marginTop: 'min(64px, 14vw)' }}
+                                        style={{ marginTop: 'min(20px, 5vw)' }}
                                     >
                                         {allFlipped ? (
                                             <button

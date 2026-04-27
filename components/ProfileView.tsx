@@ -788,7 +788,7 @@ function FriendSearchModal({
     existingFriendIds,
 }: {
     onClose: () => void
-    existingFriendIds: Set<string>
+    existingFriendIds: Set<string>  // people I already follow
 }) {
     const [query, setQuery] = useState('')
     const [allUsers, setAllUsers] = useState<
@@ -871,7 +871,7 @@ function FriendSearchModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 <p className="font-semibold" style={{ fontSize: '0.9rem' }}>
-                    Add Friend
+                    Follow
                 </p>
 
                 {/* Search input */}
@@ -937,25 +937,15 @@ function FriendSearchModal({
                                             @{u.username ?? 'unknown'}
                                         </span>
                                     </div>
-                                    {existingFriendIds.has(u.id) ? (
-                                        <span
-                                            style={{
-                                                fontSize: '0.7rem',
-                                                color: 'var(--app-text-muted)',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            friends
-                                        </span>
-                                    ) : sent.has(u.id) ? (
+                                    {existingFriendIds.has(u.id) || sent.has(u.id) ? (
                                         <span
                                             style={{
                                                 fontSize: '0.7rem',
                                                 color: '#4ade80',
-                                                transition: 'all 0.2s',
+                                                flexShrink: 0,
                                             }}
                                         >
-                                            sent ✓
+                                            following
                                         </span>
                                     ) : sending.has(u.id) ? (
                                         <span
@@ -1000,7 +990,7 @@ function FriendSearchModal({
                                                 ).style.transform = 'none'
                                             }}
                                         >
-                                            + add
+                                            follow
                                         </button>
                                     )}
                                 </div>
@@ -1328,12 +1318,16 @@ function SocialListModal({
 
 // ─── social stats row ─────────────────────────────────────────────────────────
 function SocialStatsRow({
+    following,
+    followers,
     friends,
     isOwnProfile,
     pendingRequests,
     onShowRequests,
     onShowAddFriend,
 }: {
+    following: Friend[]
+    followers: Friend[]
     friends: Friend[]
     currentUserId?: string
     isOwnProfile: boolean
@@ -1343,12 +1337,16 @@ function SocialStatsRow({
 }) {
     const [openList, setOpenList] = useState<'following' | 'followers' | 'friends' | null>(null)
 
-    const count = friends.length
+    const listMap: Record<'following' | 'followers' | 'friends', Friend[]> = {
+        following,
+        followers,
+        friends,
+    }
 
     const stats: { key: 'following' | 'followers' | 'friends'; label: string; value: number }[] = [
-        { key: 'followers', label: 'followers', value: count },
-        { key: 'following', label: 'following', value: count },
-        { key: 'friends',   label: 'friends',   value: count },
+        { key: 'followers', label: 'followers', value: followers.length },
+        { key: 'following', label: 'following', value: following.length },
+        { key: 'friends',   label: 'friends',   value: friends.length },
     ]
 
     return (
@@ -1356,7 +1354,7 @@ function SocialStatsRow({
             {openList && (
                 <SocialListModal
                     title={openList.charAt(0).toUpperCase() + openList.slice(1)}
-                    users={friends}
+                    users={listMap[openList]}
                     onClose={() => setOpenList(null)}
                 />
             )}
@@ -1416,7 +1414,7 @@ function SocialStatsRow({
                                 ;(e.currentTarget as HTMLButtonElement).style.transform = 'none'
                             }}
                         >
-                            + add
+                            + follow
                         </button>
                     </div>
                 )}
@@ -1429,6 +1427,8 @@ function SocialStatsRow({
 export default function ProfileView({
     profile,
     showcaseCard,
+    following: initialFollowing = [],
+    followers: initialFollowers = [],
     friends: initialFriends = [],
     achievements = [],
     binders = [],
@@ -1442,6 +1442,8 @@ export default function ProfileView({
 }: {
     profile: Profile | null
     showcaseCard: ShowcaseCard | null
+    following?: Friend[]
+    followers?: Friend[]
     friends?: Friend[]
     achievements?: AchievementItem[]
     binders?: BinderPreview[]
@@ -1476,6 +1478,8 @@ export default function ProfileView({
     const [showcaseClean, setShowcaseClean] = useState(false)
     const [showAddFriend, setShowAddFriend] = useState(false)
     const [showRequests, setShowRequests] = useState(false)
+    const [following, setFollowing] = useState<Friend[]>(initialFollowing)
+    const [followers, setFollowers] = useState<Friend[]>(initialFollowers)
     const [friends, setFriends] = useState<Friend[]>(initialFriends)
     const { requests: pendingRequests, refresh: refreshRequests } =
         usePendingRequestsCtx()
@@ -1550,7 +1554,7 @@ export default function ProfileView({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ addresseeId: viewingUserId }),
         })
-        if (res.ok) setFriendshipStatus('pending')
+        if (res.ok) setFriendshipStatus('accepted')
         setSendingFriendReq(false)
     }
 
@@ -1591,7 +1595,7 @@ export default function ProfileView({
                 {showAddFriend && (
                     <FriendSearchModal
                         onClose={() => setShowAddFriend(false)}
-                        existingFriendIds={new Set(friends.map((f) => f.id))}
+                        existingFriendIds={new Set(following.map((f) => f.id))}
                     />
                 )}
                 {showRequests && (
@@ -2143,7 +2147,7 @@ export default function ProfileView({
                                 {friendshipStatus === 'accepted' ? (
                                     <button
                                         onClick={removeFriend}
-                                        title="Remove friend"
+                                        title="Unfollow"
                                         style={{
                                             fontSize: '0.65rem',
                                             padding: '4px 10px',
@@ -2155,19 +2159,8 @@ export default function ProfileView({
                                             cursor: 'pointer',
                                         }}
                                     >
-                                        unfriend
+                                        unfollow
                                     </button>
-                                ) : friendshipStatus === 'pending' ? (
-                                    <span
-                                        style={{
-                                            fontSize: '0.65rem',
-                                            color: 'var(--app-text-muted)',
-                                        }}
-                                    >
-                                        {friendshipRequesterId === currentUserId
-                                            ? 'request sent'
-                                            : 'incoming…'}
-                                    </span>
                                 ) : (
                                     <button
                                         onClick={sendFriendRequest}
@@ -2182,7 +2175,7 @@ export default function ProfileView({
                                             cursor: 'pointer',
                                         }}
                                     >
-                                        + add friend
+                                        + follow
                                     </button>
                                 )}
                             </div>
@@ -2191,6 +2184,8 @@ export default function ProfileView({
 
                     {/* Following / Followers / Friends stats row */}
                     <SocialStatsRow
+                        following={following}
+                        followers={followers}
                         friends={friends}
                         currentUserId={currentUserId}
                         isOwnProfile={isOwnProfile}
