@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { createClient } from '@/lib/supabase/client'
@@ -713,66 +713,83 @@ function MobilePackCarousel({
 }) {
     const containerRef = useRef<HTMLDivElement>(null)
     const storageKey = `pack-carousel-idx:${tabKey}`
-    const [currentIndex, setCurrentIndex] = useState(() => {
-        if (typeof window === 'undefined') return 0
-        const saved = sessionStorage.getItem(storageKey)
-        const n = saved ? parseInt(saved, 10) : NaN
-        if (Number.isFinite(n) && n >= 0) {
-            return Math.min(n, Math.max(0, packs.length - 1))
-        }
-        return 0
-    })
 
-    // Restore scroll position whenever pack count changes (or on first mount)
+    function pickIndex(
+        pks: Pack[],
+        stk: Record<string, number>,
+        admin: boolean | undefined,
+        lvl: number,
+        savedIdx: number | null,
+    ): number {
+        if (pks.length === 0) return 0
+        const validSaved =
+            savedIdx !== null && savedIdx >= 0 && savedIdx < pks.length
+        if (admin) return validSaved ? savedIdx! : 0
+        // Saved index wins if its pack still has stock
+        if (validSaved) {
+            const sp = pks[savedIdx!]
+            const lvlOk = !sp.level_required || lvl >= sp.level_required
+            if (lvlOk && (stk[sp.id] ?? 0) > 0) return savedIdx!
+        }
+        // Otherwise, first level-unlocked pack with stock
+        const found = pks.findIndex((p) => {
+            const lvlOk = !p.level_required || lvl >= p.level_required
+            return lvlOk && (stk[p.id] ?? 0) > 0
+        })
+        if (found >= 0) return found
+        // Nothing stocked → fall back to saved or 0
+        return validSaved ? savedIdx! : 0
+    }
+
+    function readSavedIdx(): number | null {
+        if (typeof window === 'undefined') return null
+        const raw = sessionStorage.getItem(storageKey)
+        const n = raw ? parseInt(raw, 10) : NaN
+        return Number.isFinite(n) && n >= 0 ? n : null
+    }
+
+    const [currentIndex, setCurrentIndex] = useState(() =>
+        pickIndex(packs, stock, isAdmin, userLevel, readSavedIdx()),
+    )
+
+    // Whenever stock/packs change, recompute the desired index. Runs every
+    // render because we own currentIndex; if the desired index differs we
+    // setState and the layout effect below scrolls to it.
+    const lastResolvedRef = useRef(currentIndex)
     useEffect(() => {
+        const target = pickIndex(
+            packs,
+            stock,
+            isAdmin,
+            userLevel,
+            readSavedIdx(),
+        )
+        if (target !== lastResolvedRef.current) {
+            lastResolvedRef.current = target
+            setCurrentIndex(target)
+            sessionStorage.setItem(storageKey, String(target))
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stock, packs, isAdmin, userLevel, storageKey])
+
+    // Sync scroll position whenever currentIndex (or pack count) changes.
+    // Layout effect so it fires before paint — no flash.
+    useLayoutEffect(() => {
         const el = containerRef.current
         if (!el) return
         const child = el.children[currentIndex] as HTMLElement | undefined
-        if (child) el.scrollTo({ left: child.offsetLeft, behavior: 'auto' })
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [packs.length])
-
-    // Once stock loads on this mount: keep the user's saved position if its
-    // pack still has stock, otherwise jump to the first stocked level-unlocked
-    // pack. Only runs once per mount.
-    const autoSelectedRef = useRef(false)
-    useEffect(() => {
-        if (autoSelectedRef.current) return
-        if (packs.length === 0) return
-        if (!isAdmin && Object.keys(stock).length === 0) return
-
-        autoSelectedRef.current = true
-        if (isAdmin) return
-
-        const cur = packs[currentIndex]
-        const curHasStock =
-            !!cur &&
-            (!cur.level_required || userLevel >= cur.level_required) &&
-            (stock[cur.id] ?? 0) > 0
-        if (curHasStock) return
-
-        const found = packs.findIndex((p) => {
-            const levelOk = !p.level_required || userLevel >= p.level_required
-            return levelOk && (stock[p.id] ?? 0) > 0
-        })
-        if (found < 0 || found === currentIndex) return
-
-        setCurrentIndex(found)
-        sessionStorage.setItem(storageKey, String(found))
-        requestAnimationFrame(() => {
-            const el = containerRef.current
-            const child = el?.children[found] as HTMLElement | undefined
-            if (el && child) el.scrollTo({ left: child.offsetLeft, behavior: 'auto' })
-        })
-    }, [stock, packs, isAdmin, userLevel, storageKey, currentIndex])
+        if (child) el.scrollLeft = child.offsetLeft
+    }, [currentIndex, packs.length])
 
     function handleScroll() {
         const el = containerRef.current
         if (!el) return
         const slideWidth = el.offsetWidth
+        if (slideWidth === 0) return
         const idx = Math.round(el.scrollLeft / slideWidth)
         if (idx !== currentIndex && idx >= 0 && idx < packs.length) {
             setCurrentIndex(idx)
+            lastResolvedRef.current = idx
             sessionStorage.setItem(storageKey, String(idx))
         }
     }
